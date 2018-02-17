@@ -1,0 +1,5 @@
+Program Ping;
+
+begin
+
+end.

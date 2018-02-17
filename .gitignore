@@ -1,0 +1,12 @@
+.vs
+*.bak 
+*.suo
+*.userprefs
+*.user
+Obj
+Bin
+Packages
+Data/*
+/Legacy/Import/docs
+/Library/docs
+*.rar
