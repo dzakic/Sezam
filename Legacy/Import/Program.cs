@@ -1,5 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Newtonsoft.Json;
+using Sezam.Library;
+using System;
+using System.Data.Entity.Validation;
+using System.Diagnostics;
 using System.IO;
 
 namespace ZBB
@@ -10,18 +13,33 @@ namespace ZBB
         {
             Console.WriteLine("ZBB Importer");
 
+            Trace.Listeners.Add(new DebugListener());
+
             var dataFolder = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "Data");
 
             var importer = new Importer(dataFolder);
 
-            // Users
-            importer.ImportUsers();
+            try
+            {
+                // Users
+                importer.ImportUsers();
 
-            // Conferences
-            var conferences = new List<ConferenceVolume>();
-            foreach (var dir in importer.ConfNames)
-                conferences.Add(importer.ReadConf(dir));
-
+                // Conferences
+                importer.ImportConferences();
+            }
+            catch (DbEntityValidationException valEx)
+            {
+                foreach (var err in valEx.EntityValidationErrors)
+                {
+                    Console.WriteLine(JsonConvert.SerializeObject(err,
+                        new JsonSerializerSettings() { ReferenceLoopHandling = ReferenceLoopHandling.Ignore }));
+                }
+            }
+            catch (Exception e)
+            {
+                ErrorHandling.PrintException(e);
+                return;
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using Sezam.Model;
 
 namespace ZBB
 {
@@ -145,7 +146,7 @@ namespace ZBB
       // absolute id within conf volume
       public string author;
       // user
-      public Sezam.Library.EF.User Author;
+      public User Author;
       public int ReplyTo;
       // absolute ref id
       public ConfMessage ParentMsg;
@@ -153,7 +154,7 @@ namespace ZBB
       private uint offset;
       public int len;
       public MsgStatus status;
-      public DateTime Time;
+      public DateTime? Time;
       public int MsgNo;
       // Display number, id within the topic
 

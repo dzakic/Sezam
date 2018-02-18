@@ -61,11 +61,67 @@ namespace Sezam {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Connected to Sezam.Net Sydney {0:dd MMM yyyy HH:mm:ss}, Node {1}.
+        ///   Looks up a localized string similar to Connected to Sezam.Net Sydney {0:dd-MMM-yyyy HH:mm:ss}, Node {1}.
         /// </summary>
         internal static string BannerConnected {
             get {
                 return ResourceManager.GetString("BannerConnected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unrecoverable error. This sucks. {0}.
+        /// </summary>
+        internal static string ErrorUnrecoverable {
+            get {
+                return ResourceManager.GetString("ErrorUnrecoverable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Password.
+        /// </summary>
+        internal static string Login_Password {
+            get {
+                return ResourceManager.GetString("Login_Password", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to PIN.
+        /// </summary>
+        internal static string Login_PIN {
+            get {
+                return ResourceManager.GetString("Login_PIN", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unknown user. Goodbye..
+        /// </summary>
+        internal static string Login_UnknownUser {
+            get {
+                return ResourceManager.GetString("Login_UnknownUser", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Username.
+        /// </summary>
+        internal static string Login_Username {
+            get {
+                return ResourceManager.GetString("Login_Username", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Zdravo {0}.
+        ///Za početni pristup sistemu, ukucaj četiri cifre svog roduma rodjenja u formatu DDMM (dve cifre dan, dve cifre mesec).
+        ///.
+        /// </summary>
+        internal static string Login_WelcomeNoPassword {
+            get {
+                return ResourceManager.GetString("Login_WelcomeNoPassword", resourceCulture);
             }
         }
         

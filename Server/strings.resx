@@ -118,7 +118,27 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="BannerConnected" xml:space="preserve">
-    <value>Connected to Sezam.Net Sydney {0:dd MMM yyyy HH:mm:ss}, Node {1}</value>
+    <value>Connected to Sezam.Net Sydney {0:dd-MMM-yyyy HH:mm:ss}, Node {1}</value>
+  </data>
+  <data name="ErrorUnrecoverable" xml:space="preserve">
+    <value>Unrecoverable error. This sucks. {0}</value>
+  </data>
+  <data name="Login_Password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="Login_PIN" xml:space="preserve">
+    <value>PIN</value>
+  </data>
+  <data name="Login_UnknownUser" xml:space="preserve">
+    <value>Unknown user. Goodbye.</value>
+  </data>
+  <data name="Login_Username" xml:space="preserve">
+    <value>Username</value>
+  </data>
+  <data name="Login_WelcomeNoPassword" xml:space="preserve">
+    <value>Zdravo {0}.
+Za početni pristup sistemu, ukucaj četiri cifre svog roduma rodjenja u formatu DDMM (dve cifre dan, dve cifre mesec).
+</value>
   </data>
   <data name="PressEscToStop" xml:space="preserve">
     <value>Press ESC key to stop the server</value>

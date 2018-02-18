@@ -36,13 +36,6 @@ namespace ZBB
             Messages[Messages.Count() - 1] : null;
       }
 
-      /*
-      NDXprivate       = 1;
-      NDXanonimous     = 2;     { anonimous allowed in conference }
-      NDXRO            = 4;
-      NDXclosed        = 8;     { conference sealed }
-*/
-
       [Flags]
       private enum ConfStatus
       {
@@ -89,7 +82,7 @@ namespace ZBB
 
       public void Import(string confDir)
       {
-            Trace.WriteLine("Importing Conf " + Name);
+         Trace.WriteLine("Importing Conf " + Name);
          this.confDir = confDir;
          ImportNdx();
          ImportHdr();
@@ -97,7 +90,7 @@ namespace ZBB
 
       private void ImportNdx()
       {
-            string ndxFileName = getConfFile("conf.ndx");
+         string ndxFileName = GetConfFile("conf.ndx");
          using (BinaryReader r = new BinaryReader(File.Open(ndxFileName, FileMode.Open)))
          {
             /*
@@ -185,15 +178,15 @@ namespace ZBB
                      msg.MsgNo = Ndxs[id].MsgNo;
                   if (msg.ReplyTo == 0)
                      msg.ReplyTo = Ndxs[id].ReplyTo;
-                  msg.ParentMsg = 
-                     msg.ReplyTo >= 0 && msg.ReplyTo < Messages.Count() ? 
+                  msg.ParentMsg =
+                     msg.ReplyTo >= 0 && msg.ReplyTo < Messages.Count() ?
                         Messages[msg.ReplyTo] : null;
                   if (msg.ParentMsg == null)
                   {
                      if (msg.ReplyTo >= 0)
                         Debug.WriteLine(msg.ToString() + " parent msg for reply to " + msg.ReplyTo + " not found");
                   }
-                  
+
                   if (Ndxs[id].Topic != 0 && msg.TopicNo != Ndxs[id].Topic)
                   {
                      // Debug.WriteLine("Fixing topic {0,2} to {1,2} for " + msg, msg.TopicNo, Ndxs[id].Topic);
@@ -205,7 +198,7 @@ namespace ZBB
                {
                   ErrorHandling.PrintException(e);
                }
-            Debug.Write(String.Format("{0,-22}: {1,2} topics, {2,5} messages, {3,5} deleted\r",
+            Debug.WriteLine(String.Format("{0,-22}: {1,2} topics, {2,5} messages, {3,5} deleted",
                Name, Topics.Count(t => !t.isDeleted()), id, DeletedCount));
          }
       }
@@ -223,10 +216,10 @@ namespace ZBB
 #endif
       }
 
-        private string getConfFile(string fileName)
-        {
-            return Path.Combine(confDir, fileName);
-        }
+      private string GetConfFile(string fileName)
+      {
+         return Path.Combine(confDir, fileName);
+      }
 
       private Int16 Status;
       private Int16 NdxSize;
@@ -235,7 +228,7 @@ namespace ZBB
       public Ndx[] Ndxs;
 
       public string Name { get; private set; }
-      
+
       private string confDir;
       public int VolumeNumber { get; private set; }
    }

@@ -23,13 +23,17 @@ namespace ZBB
          return DecodeText(str);
       }
 
-      public static DateTime ReadShortDate(this BinaryReader r)
+      public static DateTime? ReadShortDate(this BinaryReader r)
       {
          int year = r.ReadUInt16();
          int month = r.ReadByte();
          int day = r.ReadByte();
-         if (year == 0 || month == 0 || day == 0 || (day == 31 && (month == 2 || month == 4 || month == 9)))
-            return new DateTime();
+         if (year == 0 || year < 1800 || month == 0 || day == 0 || (day == 31 && (month == 2 || month == 4 || month == 9)))
+         {
+            if (year != 0)
+               Console.Error.WriteLine($"Invalid date: {year}/{month}/{day}");
+            return null;
+         }
          else
             try
             {
@@ -38,20 +42,20 @@ namespace ZBB
             catch (Exception)
             {
                Debug.WriteLine("Cannot encode Date: {0}/{1}{2}", day, month, year);
-               return new DateTime();
+               return null;
             }
       }
 
-      public static DateTime ReadDosTime(this BinaryReader r)
+      public static DateTime? ReadDosTime(this BinaryReader r)
       {
          Int32 dosTime = r.ReadInt32();
          return DosTimeToDateTime(dosTime);
       }
 
-      private static DateTime DosTimeToDateTime(Int32 dosTime)
+      private static DateTime? DosTimeToDateTime(Int32 dosTime)
       {
          if (dosTime == 0 || dosTime == -1)
-            return new DateTime();
+            return null;
          var sec = GetBits(dosTime, 0, 5) * 2;
          var min = GetBits(dosTime, 5, 6);
          var hour = GetBits(dosTime, 11, 5);
@@ -64,7 +68,7 @@ namespace ZBB
             day++;
          }
          if (month == 0 || day == 0)
-            return new DateTime();
+            return null;
          else
             try
             {
@@ -73,7 +77,7 @@ namespace ZBB
             catch (Exception)
             {
                Debug.WriteLine("Bad DosDateTime {0}/{1}/{2} {3}:{4}:{5}", year, month, day, hour, min, sec);
-               return new DateTime();
+               return null;
             }
       }
 

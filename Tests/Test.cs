@@ -1,65 +1,63 @@
-﻿// #define VS
-
-#if VS
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-#else
-
-using 
-NUnit.Framework;
-
-#endif
-
+﻿using NUnit.Framework;
 using Sezam.Commands;
 using Sezam.Library;
 
 namespace Sezam.Tests
 {
-#if VS
-   [TestClass]
-#else
+    [TestFixture()]
+    public class Commands
+    {
+        [Test()]
+        public void TestCommandSets()
+        {
 
-   [TestFixture()]
-#endif
-   public class Commands
-   {
-#if VS
-      [TestMethod]
-#else
+            Session s = new Session(
+                             new ConsoleTerminal(),
+                             new DataStore());
 
-      [Test()]
-#endif
-      public void TestCommandSets()
-      {
-         var cmd = CommandProcessor.GetCommandInfo("Mail");
-         Assert.IsNotNull(cmd, "Found Mail command");
+            var root = s.GetCommandProcessor(CommandSet.RootType());
+                
 
-         cmd = CommandProcessor.GetCommandInfo("Conference");
-         Assert.IsNotNull(cmd, "Found Conference command");
+            var cmd = root.GetCommandSet("Mail");
+            Assert.IsNotNull(cmd, "Found Mail command");
 
-         cmd = CommandProcessor.GetCommandInfo("co");
-         Assert.IsNotNull(cmd, "Found Conference command");
+            cmd = root.GetCommandSet("conFerence");
+            Assert.IsNotNull(cmd, "Found Conference command");
 
-         cmd = CommandProcessor.GetCommandInfo("MAIL");
-         Assert.IsNotNull(cmd, "Found MAIL command");
+            cmd = root.GetCommandSet("co");
+            Assert.IsNotNull(cmd, "Found Conference command");
 
-         cmd = CommandProcessor.GetCommandInfo("BACHONI");
-         Assert.IsNull(cmd, "Return NULL for bad command");
-      }
+            cmd = root.GetCommandSet("MAIL");
+            Assert.IsNotNull(cmd, "Found MAIL command");
 
-#if VS
-      [TestMethod]
-#else
+            cmd = root.GetCommandSet("BACHONI");
+            Assert.IsNull(cmd, "Return NULL for bad command");
+        }
 
-      [Test()]
-#endif
-      public void TestCommand()
-      {
-         var root = new Sezam.Commands.Root(
-                       new Session(
-                          new ConsoleTerminal(),
-                          new DataStore()));
-         var m = root.GetCommandMethod("BYE");
-         Assert.IsNotNull(m, "Found bye method");
-      }
-   }
+
+        [Test()]
+        public void TestCommand()
+        {
+            var root = new Sezam.Commands.Root(
+                          new Session(
+                             new ConsoleTerminal(),
+                             new DataStore()));
+            var m = root.GetCommandMethod("BYE");
+            Assert.IsNotNull(m, "Find bye method");
+
+            m = root.GetCommandMethod("b");
+            Assert.IsNull(m, "B too short for bye method");
+
+            m = root.GetCommandMethod("lo");
+            Assert.IsNull(m, "LO too short for bye method");
+
+            m = root.GetCommandMethod("log");
+            Assert.IsNotNull(m, "Find bye method");
+            Assert.AreEqual("Quit", m.Name, "Found date method");
+
+            m = root.GetCommandMethod("D");
+            Assert.IsNotNull(m, "Find Date method");
+            Assert.AreEqual("Time", m.Name, "Found date method");
+        }
+    }
 }

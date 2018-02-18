@@ -8,6 +8,10 @@
     <RootNamespace>Sezam</RootNamespace>
     <AssemblyName>Sezam.Commands</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <SccProjectName>SAK</SccProjectName>
+    <SccLocalPath>SAK</SccLocalPath>
+    <SccAuxPath>SAK</SccAuxPath>
+    <SccProvider>SAK</SccProvider>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -29,16 +33,17 @@
     <Reference Include="EntityFramework, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
       <HintPath>..\packages\EntityFramework.6.2.0\lib\net45\EntityFramework.dll</HintPath>
     </Reference>
-    <Reference Include="EntityFramework.SqlServer, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
-      <HintPath>..\packages\EntityFramework.6.2.0\lib\net45\EntityFramework.SqlServer.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Chat\Chat.cs" />
+    <Compile Include="Conference\ConfDTO.cs" />
+    <Compile Include="Conference\ConfSet.cs" />
+    <Compile Include="Set\Set.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Conference.cs" />
-    <Compile Include="Mail.cs" />
+    <Compile Include="Conference\Conference.cs" />
+    <Compile Include="Mail\Mail.cs" />
     <Compile Include="Root.cs" />
     <Compile Include="strings.Designer.cs">
       <DependentUpon>strings.resx</DependentUpon>

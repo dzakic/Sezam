@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Sezam.Model;
 
 namespace ZBB
 {
@@ -30,7 +31,7 @@ namespace ZBB
             Dbx.SaveChanges();
         }
 
-        public IEnumerable<Sezam.Library.EF.User> ReadUsers()
+        public IEnumerable<User> ReadUsers()
         {
             string userFile = Path.Combine(rootPath.FullName, "user.dat");
             using (BinaryReader r = new BinaryReader(File.Open(userFile, FileMode.Open)))
@@ -41,8 +42,9 @@ namespace ZBB
                 
                 while (r.PeekChar() != -1)
                 {
-                    var user = new Sezam.Library.EF.User(id++);
+                    var user = new User(id++);
                     user.Read(r);
+                    // Console.WriteLine(user.ToString());
                     yield return user;
                     if (user.LastCall == DateTime.MinValue)
                         inactiveCount++;

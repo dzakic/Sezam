@@ -4,13 +4,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Net.Sockets;
 using System.Reflection;
 using System.Threading;
 
 namespace Sezam
 {
-
     public class Session : ISession
     {
         public Session(ITerminal terminal, Library.DataStore dataStore)
@@ -19,7 +17,7 @@ namespace Sezam
             this.dataStore = dataStore;
             id = Guid.NewGuid();
             thread = new Thread(new ThreadStart(Run));
-            commandSets = new Dictionary<Type, CommandProcessor>();
+            commandSets = new Dictionary<Type, CommandSet>();
             // NodeNo = dataStore.getNodeNo();
             NodeNo = 1;
         }
@@ -59,6 +57,7 @@ namespace Sezam
                         }
                         catch (Exception e)
                         {
+                            terminal.Line("Error: {0}", e.Message);
                             ErrorHandling.Handle(e);
                             continue;
                         }
@@ -66,6 +65,7 @@ namespace Sezam
                 }
                 catch (Exception e)
                 {
+                    terminal.Line(strings.ErrorUnrecoverable, e.Message);
                     ErrorHandling.Handle(e);
                 }
             }
@@ -86,19 +86,21 @@ namespace Sezam
             PrintBanner();
             SysLog("Connected");
 
-            user = Login();
-            if (user == null)
+            User = Login();
+            if (User == null)
             {
-                terminal.Text("Unknown user. Goodbye.");
+                terminal.Line(strings.Login_UnknownUser);
                 terminal.Close();
                 SysLog("Unknown user. Disconnected.");
             }
             else
             {
-                terminal.Line(strings.WelcomeUserLastCall,
-                   user.FullName, user.LastCall);
+                terminal.Line();
+                terminal.Line(strings.WelcomeUserLastCall, User.FullName, User.LastCall);
                 LoginTime = DateTime.Now;
+                User.LastCall = DateTime.Now;
                 SysLog("Loggedin");
+                Db.SaveChangesAsync();
             }
         }
 
@@ -108,125 +110,114 @@ namespace Sezam
             terminal.Line();
         }
 
-        private Library.EF.User getUser(string username)
+        /// <summary>
+        /// Retrieve the User object for given username
+        /// </summary>
+        /// <param name="username"></param>
+        /// <returns></returns>
+        public Library.EF.User getUser(string username)
         {
-            return Db.Users.Find(username);
+            return Db.Users.Where(u => u.username == username).FirstOrDefault();
         }
 
         private Library.EF.User Login()
         {
             const int NUM_RETRIES = 3;
-            int tryCount = 0;
-            while (tryCount < NUM_RETRIES)
+            int userTryCount = 0;
+            while (userTryCount < NUM_RETRIES)
             {
-                string username = terminal.InputStr("Username");
+                string username = terminal.InputStr(strings.Login_Username);
                 if (string.IsNullOrWhiteSpace(username))
                     continue;
                 var user = getUser(username);
 
-                // This is temp: Authenticate every user without password
-                if (user != null && user.LastCall != DateTime.MinValue)
-                    return user;
 
-                string pass = terminal.InputStr("Password", InputFlags.Password);
-                tryCount++;
+                if (user != null)
+                {
+                    bool usePIN = user.Password == null && user.DateOfBirth != null;
+                    string prompt = usePIN ? strings.Login_PIN : strings.Login_Password;
+
+                    if (usePIN)
+                        terminal.Line(strings.Login_WelcomeNoPassword, user.username);
+
+                    string expectPass = usePIN ?
+                        string.Format("{0:ddMM}", user.DateOfBirth) : user.Password;
+
+                    int passTryCount = 0;
+                    while (passTryCount < NUM_RETRIES)
+                    {
+
+                        string pass = terminal.InputStr(prompt, InputFlags.Password);
+                        if (pass == expectPass)
+                        {
+                            return user;
+                        }
+                        passTryCount++;
+                    }
+                    return null;
+                }
+
+                userTryCount++;
+                terminal.Line();
             }
             return null;
         }
 
         private void InputAndExecCmd()
         {
-            string prompt = currentCommandProcessor != null ? currentCommandProcessor.GetPrompt() : ":";
+            // Initialise root 1st time
+            if (rootCommandSet == null)
+                rootCommandSet = GetCommandProcessor(CommandSet.RootType());
+
+            if (currentCommandSet == null)
+                currentCommandSet = rootCommandSet;
+
+            string prompt = currentCommandSet?.GetPrompt();
             string cmd = terminal.PromptEdit(prompt + ">");
+
             if (terminal.Connected)
                 ExecCmd(cmd);
         }
 
-        private CommandProcessor GetCommandProcessor(CommandProcessor.CommandInfo cmdInfo)
+        public CommandSet GetCommandProcessor(Type cmdProcessorType)
         {
-            CommandProcessor cmdProcessor = null;
-            if (commandSets.Keys.Contains(cmdInfo.type))
+            CommandSet cmdSet = null;
+            if (commandSets.Keys.Contains(cmdProcessorType))
             {
                 // get the command processor from cache
-                cmdProcessor = commandSets[cmdInfo.type];
+                cmdSet = commandSets[cmdProcessorType];
             }
             else
             {
                 // instantiate and cache the command processor
-                ConstructorInfo ctor = cmdInfo.type.GetConstructor(new Type[] { typeof(Session) });
+                ConstructorInfo ctor = cmdProcessorType.GetConstructor(new Type[] { typeof(Session) });
                 if (ctor != null)
                 {
-                    Debug.WriteLine(string.Format("New command processor {0} constructed", cmdInfo.type.FullName));
+                    Debug.WriteLine(string.Format("New command processor {0} constructed", cmdProcessorType.FullName));
                     object instance = ctor.Invoke(new object[] { this });
-                    cmdProcessor = instance as CommandProcessor;
-                    commandSets[cmdInfo.type] = cmdProcessor;
+                    cmdSet = instance as CommandSet;
+                    commandSets[cmdProcessorType] = cmdSet;
                 }
                 else
-                    Debug.WriteLine("Constructor for {0} not found", cmdInfo.type.Name);
+                    Debug.WriteLine("Constructor for {0} not found", cmdProcessorType.Name);
             }
-            return cmdProcessor;
+            return cmdSet;
         }
 
         public void ExecCmd(string cmdText)
         {
             cmdLine = new CommandLine(cmdText);
 
-            string cmd = cmdLine.getParam();
-            if (string.IsNullOrWhiteSpace(cmd))
+            string cmd = cmdLine.getToken();
+            if (!cmd.HasValue())
                 return;
 
-            // Command Set with this name?
-            var cmdInfo = CommandProcessor.GetCommandInfo(cmd);
+            SysLog(string.Format("Cmd {0} >> {1} > {2}", currentCommandSet.GetType().Name, cmd, string.Join(" ", cmdLine.Tokens)));
 
-            // unknown?
-            if (cmdInfo == null)
-            {
-                // do we have default?
-                if (currentCommandProcessor == null)
-                {
-                    cmdInfo = CommandProcessor.GetCommandInfo("");
-                    // still nothin'?
-                    if (cmdInfo == null)
-                    {
-                        Debug.WriteLine("No default command processor available");
-                        return;
-                    }
-                }
-            }
-            else
-                cmd = cmdLine.getParam();
+            if (!currentCommandSet.ExecuteCommand(cmd))
+                if (!rootCommandSet.ExecuteCommand(cmd))
+                    terminal.Line("Unknown command {0}", cmd);
 
-            CommandProcessor cmdProcessor = null;
-            if (cmdInfo != null)
-            {
-                cmdProcessor = GetCommandProcessor(cmdInfo);
-                if (string.IsNullOrWhiteSpace(cmd))
-                {
-                    currentCommandProcessor = cmdProcessor;
-                    return;
-                }
-            }
-            else
-                cmdProcessor = currentCommandProcessor;
-
-            MethodInfo command = cmdProcessor.GetCommandMethod(cmd);
-            if (command != null)
-            {
-                SysLog(string.Format("Cmd {0} >> {1} > {2}", cmdProcessor.GetType().Name, command.Name, string.Join(" ", cmdLine.Params)));
-                try
-                {
-                    command.Invoke(cmdProcessor, null);
-                }
-                catch (Exception e)
-                {
-                    if (e is TargetInvocationException)
-                        throw e.InnerException;
-                    else
-                        throw;
-                }
-            }
-            else
-                terminal.Line("Unknown command {0}", cmd);
         }
 
         // Main thread signal to shutdown
@@ -242,19 +233,19 @@ namespace Sezam
 
         public override string ToString()
         {
-            if (user != null)
-                return string.Format("{0,-16} {1:HH:mm} from: {2}", user.username, ConnectTime, terminal.Id);
+            if (User != null)
+                return string.Format("{0,-16} {1:HH:mm} from: {2}", User.username, ConnectTime, terminal.Id);
             return string.Format("[Session: {0} from: {1}]", ConnectTime, terminal.Id);
         }
 
         public void ExitCurrentCommand()
         {
-            currentCommandProcessor = null;
+            currentCommandSet = null;
         }
 
         public string getUsername()
         {
-            return user?.username;
+            return User?.username;
         }
 
         public DateTime getLoginTime()
@@ -270,14 +261,15 @@ namespace Sezam
         public CommandLine cmdLine = null;
         public int NodeNo { get; private set; }
 
-        public Library.EF.User user;
+        public Library.EF.User User;
         public DateTime ConnectTime;
         public DateTime LoginTime;
 
-        private CommandProcessor currentCommandProcessor;
         private Thread thread;
         private Guid id;
-        private Dictionary<Type, CommandProcessor> commandSets;
+        private Dictionary<Type, CommandSet> commandSets;
+        private CommandSet rootCommandSet;
+        public CommandSet currentCommandSet;
 
         public ITerminal terminal;
         public Library.DataStore dataStore;
@@ -286,6 +278,4 @@ namespace Sezam
 
         public EventHandler OnFinish;
     }
-
-
 }

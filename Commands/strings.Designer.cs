@@ -61,7 +61,7 @@ namespace Sezam {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Тема {0} ми је непозната..
+        ///   Looks up a localized string similar to Не постоји тема {0}.
         /// </summary>
         internal static string Conf_UnknownTopic {
             get {
@@ -70,7 +70,7 @@ namespace Sezam {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Здраво другари.
+        ///   Looks up a localized string similar to Здраво рођаци.
         /// </summary>
         internal static string ConnectedBanner {
             get {
@@ -79,7 +79,7 @@ namespace Sezam {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Press ESC key to stop the server.
+        ///   Looks up a localized string similar to ESC to stop.
         /// </summary>
         internal static string EscToStop {
             get {
@@ -88,20 +88,47 @@ namespace Sezam {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Довиђења друштво старо..
+        ///   Looks up a localized string similar to Тачно време је: {0: HH:mm:ss dd MMMM yyyy}.
         /// </summary>
-        internal static string GoodBye {
+        internal static string Root_Time {
             get {
-                return ResourceManager.GetString("GoodBye", resourceCulture);
+                return ResourceManager.GetString("Root_Time", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Тачно време је: {0: HH:mm:ss dd MMMM yyyy}.
+        ///   Looks up a localized string similar to Unete šifre se ne podudaraju.
         /// </summary>
-        internal static string TimeIsNow {
+        internal static string Set_Msg_PasswordsMismatch {
             get {
-                return ResourceManager.GetString("TimeIsNow", resourceCulture);
+                return ResourceManager.GetString("Set_Msg_PasswordsMismatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Trenutno važeća šifra.
+        /// </summary>
+        internal static string Set_Prompt_CurrentPassword {
+            get {
+                return ResourceManager.GetString("Set_Prompt_CurrentPassword", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Nova šifra.
+        /// </summary>
+        internal static string Set_Prompt_NewPassword {
+            get {
+                return ResourceManager.GetString("Set_Prompt_NewPassword", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Potvrda šifre.
+        /// </summary>
+        internal static string Set_Prompt_VerifyPassword {
+            get {
+                return ResourceManager.GetString("Set_Prompt_VerifyPassword", resourceCulture);
             }
         }
     }

@@ -118,18 +118,33 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="Conf_UnknownTopic" xml:space="preserve">
-    <value>Тема {0} ми је непозната.</value>
+    <value>Не постоји тема {0}</value>
+    <comment>Topic {0} does not exist</comment>
   </data>
   <data name="ConnectedBanner" xml:space="preserve">
-    <value>Здраво другари</value>
+    <value>Здраво рођаци</value>
   </data>
   <data name="EscToStop" xml:space="preserve">
-    <value>Press ESC key to stop the server</value>
+    <value>ESC to stop</value>
+    <comment>Press ESC to stop the server</comment>
   </data>
-  <data name="GoodBye" xml:space="preserve">
-    <value>Довиђења друштво старо.</value>
-  </data>
-  <data name="TimeIsNow" xml:space="preserve">
+  <data name="Root_Time" xml:space="preserve">
     <value>Тачно време је: {0: HH:mm:ss dd MMMM yyyy}</value>
+  </data>
+  <data name="Set_Msg_PasswordsMismatch" xml:space="preserve">
+    <value>Unete šifre se ne podudaraju</value>
+    <comment>Passwords don't match</comment>
+  </data>
+  <data name="Set_Prompt_CurrentPassword" xml:space="preserve">
+    <value>Trenutno važeća šifra</value>
+    <comment>Current Password</comment>
+  </data>
+  <data name="Set_Prompt_NewPassword" xml:space="preserve">
+    <value>Nova šifra</value>
+    <comment>New Password</comment>
+  </data>
+  <data name="Set_Prompt_VerifyPassword" xml:space="preserve">
+    <value>Potvrda šifre</value>
+    <comment>Verify Password</comment>
   </data>
 </root>
