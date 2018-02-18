@@ -351,14 +351,14 @@
             var msgIdentifier = string.Format("{0}.{1}", msg.topicNo, msg.msgNo);
             terminal.Line(string.Format("{0}.{1}, {2}.{3}, {4}", msg.confName, msg.confVolumeNo, msg.topic, msg.msgNo, msg.author));
             terminal.Line(string.Format("({0}) {1:dd/MM/yyyy HH:mm}, {2} chr", msgIdentifier, msg.time, msg.text.Length));
-            if (msg.hasParent())
+            if (msg.HasParent())
                 terminal.Line(string.Format("Odgovor na {0}.{1}, {2}, {3}", msg.replyToTopicNo, msg.replyToMsgNo, msg.replyToAuthor, msg.origTime));
 
             terminal.Line(Delimiter);
             terminal.Text(msg.text);
             terminal.Line(string.Format(Footer, msgIdentifier));
 
-            if (msg.hasFile())
+            if (msg.HasFile())
                 terminal.Line(string.Format("** Datoteka {0}", msg.filename));
 
             terminal.Line();

@@ -1,5 +1,7 @@
 ﻿using System;
 
+// DTO - Data Transfer Object
+
 namespace Sezam.Commands
 {
     public class ConfListDTO
@@ -15,12 +17,12 @@ namespace Sezam.Commands
         public int? replyToMsgNo;
         public string filename;
 
-        public bool hasParent()
+        public bool HasParent()
         {
             return replyToTopicNo != null;
         }
 
-        public bool hasFile()
+        public bool HasFile()
         {
             return !string.IsNullOrEmpty(filename);
         }
