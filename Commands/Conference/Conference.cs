@@ -149,8 +149,7 @@
             // Topic Selection
             if (topicMsgRange?.topic != null)
             {
-                if (topicMsgRange.topic != null)
-                    messages = messages.Where(m => m.TopicId == topicMsgRange.topic.Id);
+                messages = messages.Where(m => m.TopicId == topicMsgRange.topic.Id);
             }
             else
             {

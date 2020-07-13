@@ -31,7 +31,7 @@ namespace ZBB
                         try
                         {
 
-                            var conf = Dbx.Conferences.Where(c => c.Name == zbbConf.Name && c.VolumeNo == zbbConf.VolumeNumber).FirstOrDefault();
+                            var conf = Dbx.Conferences.Where(c => c.Name == zbbConf.NameOnly && c.VolumeNo == zbbConf.VolumeNumber).FirstOrDefault();
                             if (conf != null)
                             {
                                 Console.WriteLine("Conf {0} is already imported.", confName);

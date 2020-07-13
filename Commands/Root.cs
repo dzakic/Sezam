@@ -64,7 +64,7 @@ namespace Sezam.Commands
                  (u.username.Contains(pattern) || u.City.Contains(pattern) || u.FullName.Contains(pattern)))
              .OrderByDescending(u => u.LastCall);
          foreach (var user in selection)
-            session.terminal.Line($"{user.username,-16} {user.FullName,-24} {user.City,-16} {user.LastCall:dd MMM yyyy HH:mm}");
+            session.terminal.Line($"{user.username,-16} {user.FullName,-28} {user.City,-16} {user.LastCall:dd MMM yyyy HH:mm}");
       }
 
       public void Who()
