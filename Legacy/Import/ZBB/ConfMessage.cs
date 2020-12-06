@@ -11,7 +11,7 @@ namespace ZBB
             var msg = new Sezam.Library.EF.ConfMessage();
             msg.Topic = zbbConfMsg.Topic?.EFTopic;
             msg.MsgNo = zbbConfMsg.MsgNo;
-            msg.Time = zbbConfMsg.Time.Value;
+            msg.Time = zbbConfMsg.Time;
             msg.MessageText = new Sezam.Library.EF.MessageText() { Text = zbbConfMsg.Text };
             msg.ParentMessage = zbbConfMsg.ParentMsg?.EFConfMessage;
             msg.Status = (Sezam.Library.EF.ConfMessage.MessageStatus)zbbConfMsg.status;
@@ -47,7 +47,7 @@ namespace ZBB
         public void Import(BinaryReader hdr)
         {
             // From, To
-            author = hdr.ReadShortString(15);
+            author = sanitiseAuthor(hdr.ReadShortString(15));
             topicNo = hdr.ReadByte();
 
             // Text
@@ -70,6 +70,16 @@ namespace ZBB
 
             Topic = topicNo > 0 && topicNo <= ConferenceVolume.MaxTopics ?
                 Conference.Topics[topicNo - 1] : null;
+        }
+
+        private string sanitiseAuthor(string user) 
+        {
+            if (string.IsNullOrWhiteSpace(user)
+                || user.Contains('?')
+                || user.Contains('*')
+                || user.Contains('('))
+                return "****";
+            return user;
         }
 
         public bool isDeleted()
@@ -120,7 +130,7 @@ namespace ZBB
         private uint offset;
         public int len;
         public MsgStatus status;
-        public DateTime? Time;
+        public DateTime Time;
 
         public int TopicNo { get { return topicNo; } internal set { topicNo = value; } }
 

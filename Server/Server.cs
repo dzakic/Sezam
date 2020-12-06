@@ -125,7 +125,8 @@ namespace Sezam
                 return false;
 
             // check file system
-            string updateZip = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "update", "nvs.7z");
+            string updateZip = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "update", "" +
+                "nvs.7z");
             if (File.Exists(updateZip))
             {
                 NewVersionAvailable.Set();
@@ -162,8 +163,8 @@ namespace Sezam
 
         private TcpListener listener;
         private Thread mainThread;
-        private List<Session> sessions;
-        private Library.DataStore dataStore;
+        private readonly List<Session> sessions;
+        private readonly Library.DataStore dataStore;
 
         public EventWaitHandle NewVersionAvailable = new EventWaitHandle(false, EventResetMode.ManualReset);
 

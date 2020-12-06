@@ -4,7 +4,7 @@ using Sezam.Library;
 
 namespace Sezam.Tests
 {
-    [TestFixture()]
+    [TestFixture]
     public class Commands
     {
         [Test()]

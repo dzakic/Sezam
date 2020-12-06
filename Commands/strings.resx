@@ -135,6 +135,9 @@
     <value>Unete šifre se ne podudaraju</value>
     <comment>Passwords don't match</comment>
   </data>
+  <data name="Set_Password_Changed" xml:space="preserve">
+    <value>Шифра је промењена.</value>
+  </data>
   <data name="Set_Prompt_CurrentPassword" xml:space="preserve">
     <value>Trenutno važeća šifra</value>
     <comment>Current Password</comment>

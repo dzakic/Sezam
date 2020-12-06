@@ -3,10 +3,13 @@
 *.suo
 *.userprefs
 *.user
-Obj
-Bin
+*.7z
+obj
+bin
 Packages
 Data/*
 /Legacy/Import/docs
 /Library/docs
+MySql.config
 *.rar
+*.7z

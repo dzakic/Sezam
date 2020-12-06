@@ -68,8 +68,8 @@ namespace ZBB
                 msg.Topic.Messages.Add(msg);
             }
 
-            conf.FromDate = zbbconf.GetOldestMessage()?.Time.Value;
-            conf.ToDate = zbbconf.GetNewestMessage()?.Time.Value;
+            conf.FromDate = zbbconf.GetOldestMessage()?.Time;
+            conf.ToDate = zbbconf.GetNewestMessage()?.Time;
 
             if (zbbconf.IsAnonymousAllowed)
                 conf.Status |= Sezam.Library.EF.ConfStatus.AnonymousAllowed;

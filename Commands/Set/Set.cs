@@ -30,7 +30,7 @@
             }
             session.User.Password = newPass;
             session.Db.SaveChanges();
-            session.terminal.Line("Password changed");
+            session.terminal.Line(strings.Set_Password_Changed);
         }
     }
 }

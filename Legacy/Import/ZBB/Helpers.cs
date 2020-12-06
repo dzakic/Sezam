@@ -47,10 +47,11 @@ namespace ZBB
             }
         }
 
-        public static DateTime? ReadDosTime(this BinaryReader r)
+        public static DateTime ReadDosTime(this BinaryReader r)
         {
             Int32 dosTime = r.ReadInt32();
-            return DosTimeToDateTime(dosTime);
+            DateTime? dt = DosTimeToDateTime(dosTime);
+            return dt != null ? dt.Value : DateTime.MinValue;
         }
 
         public static DateTime? DosTimeToDateTime(Int32 dosTime)

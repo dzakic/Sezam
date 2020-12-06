@@ -43,7 +43,10 @@ namespace ZBB
                             zbbConf.Import(confDir);
 
                             // Any missing users?
-                            var msgAuthors = zbbConf.Messages.Select(m => m.author).Distinct();
+                            var msgAuthors = zbbConf.Messages
+                                .Select(m => m.author)
+                                .Where(u => !string.IsNullOrWhiteSpace(u))
+                                .Distinct();
                             var existingUsers = Dbx.Users.Select(u => u.username);
                             var usersToAdd = msgAuthors.Except(existingUsers)
                                 .Select(u => new Sezam.Library.EF.User() { username = u });

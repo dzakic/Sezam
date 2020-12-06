@@ -119,9 +119,9 @@ namespace Sezam
             // In = new StreamReader(netStream, true);
             Out = new StreamWriter(netStream, Encoding.UTF8) { AutoFlush = false };
             PageSize = 32;
-            Out.NewLine = "\r\n";            
+            Out.NewLine = "\r\n";    
             tcpClient.NoDelay = true;
-            tcpClient.SendBufferSize = 256;
+            tcpClient.SendBufferSize = 1024;
 
             foreach (TelnetOption telOpt in telnetOptions)
             {
@@ -155,8 +155,9 @@ namespace Sezam
         public void Close()
         {
             Out.Flush();
-            if (tcpClient != null)
-                tcpClient.Close();
+            //if (tcpClient != null)
+            //    tcpClient.Close();
+            tcpClient?.Close();
         }
 
         private void fillInputBuffer()
