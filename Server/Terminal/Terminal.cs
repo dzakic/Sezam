@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.VisualBasic;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -66,7 +67,7 @@ namespace Sezam
 
         public void Line(string Message, params object[] args)
         {
-            Out.WriteLine(String.Format(Message, args));
+            Out.WriteLine(Strings.RTrim(String.Format(Message, args)));
             LineFinished();
         }
 

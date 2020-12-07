@@ -3,9 +3,12 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
+using Microsoft.EntityFrameworkCore;
 
 namespace Sezam.Library.EF
 {
+    [Index("Username", IsUnique = true)]
+    [Index("LastCall")]
     public class User
     {
         public User()
@@ -20,10 +23,9 @@ namespace Sezam.Library.EF
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; private set; }
 
-        [Index("ixUsername", IsUnique = true)]
         [StringLength(15)]
         [MinLength(2)]
-        public string username { get; set; }
+        public string Username { get; set; }
 
         [StringLength(32)]
         public string FullName { get; set; }
@@ -51,7 +53,6 @@ namespace Sezam.Library.EF
         // MemberSince should not be nullable, but we do load empty users during import
         public DateTime? MemberSince { get; set; }
 
-        [Index]
         public DateTime? LastCall { get; set; }
 
         public DateTime? PaidUntil { get; set; }
@@ -67,7 +68,7 @@ namespace Sezam.Library.EF
         /// Gets or creates UserConf for ConfId
         /// </summary>
         /// <param name="ConferenceId"></param>
-        public UserConf getUserConfInfo(Conference conf)
+        public UserConf GetUserConfInfo(Conference conf)
         {
             var ucData = UserConfs
                 .Where(uc => uc.ConferenceId == conf.Id).FirstOrDefault();
@@ -83,7 +84,7 @@ namespace Sezam.Library.EF
             return ucData;
         }
 
-        public UserTopic getUserTopicfInfo(ConfTopic topic)
+        public UserTopic GetUserTopicfInfo(ConfTopic topic)
         {
             var utData = UserTopics
                 .Where(ut => ut.TopicId == topic.Id).FirstOrDefault();
@@ -107,12 +108,12 @@ namespace Sezam.Library.EF
 
         public bool Equals(User x, User y)
         {
-            return x.username.Equals(y.username);
+            return x.Username.Equals(y.Username);
         }
 
         public int GetHashCode(User obj)
         {
-            return obj.username.GetHashCode();
+            return obj.Username.GetHashCode();
         }
 
         #endregion IEqualityComparer<Contact> Members

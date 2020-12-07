@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
+using Microsoft.EntityFrameworkCore;
 
 namespace Sezam.Library.EF
 {
@@ -15,22 +16,16 @@ namespace Sezam.Library.EF
         Closed = 8
     }
 
+    [Index("Name", "VolumeNo", IsUnique = true)]
     public class Conference
     {
-        public Conference()
-        {
-            Topics = new HashSet<Sezam.Library.EF.ConfTopic>();
-        }
-
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; private set; }
 
-        [Index("ixName", 1, IsUnique = true)]
         [StringLength(15)]
         public string Name { get; set; }
 
-        [Index("ixName", 2, IsUnique = true)]
         public int VolumeNo { get; set; }
 
         public ConfStatus Status { get; set; }
@@ -39,28 +34,23 @@ namespace Sezam.Library.EF
 
         public virtual DateTime? ToDate { get; set; }
 
-        public virtual ICollection<ConfTopic> Topics { get; set; }
+        public virtual UserConf UserConf { get; set; }
 
-        public virtual ICollection<UserConf> UserConfs { get; set; }
-
-        public UserConf getUserConf(int userId)
-        {
-            return UserConfs.Where(u => u.UserId == userId).FirstOrDefault();
-        }
+        public virtual ICollection<ConfTopic> ConfTopics { get; set; } = new List<ConfTopic>();
 
         public string VolumeName { get { return VolumeNo > 0 ? string.Format("{0}.{1}", Name, VolumeNo) : Name; } }
 
-        public bool isClosed()
+        public bool IsClosed()
         {
             return Status.HasFlag(ConfStatus.Closed);
         }
 
-        public bool isPrivate()
+        public bool IsPrivate()
         {
             return Status.HasFlag(ConfStatus.Private);
         }
 
-        public bool isReadOnly()
+        public bool IsReadOnly()
         {
             return Status.HasFlag(ConfStatus.ReadOnly);
         }

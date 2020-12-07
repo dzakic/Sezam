@@ -4,8 +4,8 @@ namespace Sezam.Library
 {
     public interface ISession
     {
-        string getUsername();
+        string GetUsername();
 
-        DateTime getLoginTime();
+        DateTime GetLoginTime();
     }
 }

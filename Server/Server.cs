@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Extensions.Configuration;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -7,21 +8,22 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 
-namespace Sezam
+namespace Sezam.Server
 {
     internal delegate void AcceptConnection(TcpClient client);
 
     public class Server : IDisposable
     {
-        public Server()
+        public Server(IConfigurationRoot configuration)
         {
             sessions = new List<Session>();
-            dataStore = new Library.DataStore();
-            dataStore.sessions = sessions;
+            Library.DataStore.ServerName = configuration.GetConnectionString("ServerName");
+            Library.DataStore.Sessions = Sessions;
         }
 
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
             Stop();
         }
 
@@ -49,7 +51,7 @@ namespace Sezam
                 if (key == ConsoleKey.Enter)
                 {
                     var console = new ConsoleTerminal();
-                    var consoleSession = new Session(console, dataStore) { OnFinish = OnSessionFinish };
+                    var consoleSession = new Session(console) { OnFinish = OnSessionFinish };
                     lock (sessions)
                         sessions.Add(consoleSession);
                     consoleSession.Run();
@@ -73,7 +75,7 @@ namespace Sezam
                     tcpClient.LingerState = new LingerOption(true, 2);
 
                     var terminal = new TelnetTerminal(tcpClient);
-                    Session session = new Session(terminal, dataStore) { OnFinish = OnSessionFinish };
+                    Session session = new Session(terminal) { OnFinish = OnSessionFinish };
                     Debug.WriteLine(String.Format("Starting session {0}", session));
                     session.Start();
                     lock (sessions)
@@ -114,11 +116,11 @@ namespace Sezam
                 sessions.Remove(session);
                 PrintServerStatistics();
                 if (sessions.Count == 0)
-                    checkNewVersion();
+                    CheckNewVersion();
             }
         }
 
-        public bool checkNewVersion()
+        public bool CheckNewVersion()
         {
 
             if (sessions.Count > 0)
@@ -141,7 +143,7 @@ namespace Sezam
         public void Stop()
         {
             listener?.Stop();
-            Debug.Write(String.Format("Stopping {0} connections.. ", sessions.Count()));
+            Debug.Write(String.Format("Stopping {0} connections.. ", sessions.Count));
             // close server
             foreach (Session session in sessions)
             {
@@ -149,14 +151,14 @@ namespace Sezam
                 session.Close();
             }
             Debug.Write(" main thread.. ");
-            mainThread.Abort();
+            mainThread.Interrupt();
             mainThread.Join();
             Debug.WriteLine(" Done.");
         }
 
         public void PrintServerStatistics()
         {
-            Console.WriteLine(String.Format("SERVER: Running, {0} active connections:", Sessions.Count()));
+            Console.WriteLine(String.Format("SERVER: Running, {0} active connections:", Sessions.Count));
             foreach (var sess in sessions)
                 Debug.WriteLine(sess.ToString());
         }
@@ -164,7 +166,6 @@ namespace Sezam
         private TcpListener listener;
         private Thread mainThread;
         private readonly List<Session> sessions;
-        private readonly Library.DataStore dataStore;
 
         public EventWaitHandle NewVersionAvailable = new EventWaitHandle(false, EventResetMode.ManualReset);
 

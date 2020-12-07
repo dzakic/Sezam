@@ -1,10 +1,10 @@
-﻿using Sezam.Library;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Sezam.Library;
 
 namespace ZBB
 {
@@ -23,7 +23,7 @@ namespace ZBB
             {
                 var topic = zbbtopic.ToEFTopic();
                 topic.Conference = conf;
-                conf.Topics.Add(topic);
+                conf.ConfTopics.Add(topic);
             }
 
             // Fix reference
@@ -51,15 +51,17 @@ namespace ZBB
                 var msg = zbbConfMsg.ToEFConfMessage();
                 if (msg.Topic == null || msg.MsgNo == 0)
                 {
-                    Console.WriteLine("Topic not found: {0}.0 [{1}]", zbbConfMsg.TopicNo, zbbConfMsg.ID);
                     if (unknownTopic == null)
                     {
-                        unknownTopic = new Sezam.Library.EF.ConfTopic();
-                        unknownTopic.Name = "unknown";
-                        unknownTopic.TopicNo = ZBB.ConferenceVolume.MaxTopics + 1;
-                        unknownTopic.Status = Sezam.Library.EF.ConfTopic.TopicStatus.Deleted 
-                            | Sezam.Library.EF.ConfTopic.TopicStatus.Private;
-                        conf.Topics.Add(unknownTopic);
+                        unknownTopic = new Sezam.Library.EF.ConfTopic
+                        {
+                            Name = "unknown",
+                            TopicNo = ZBB.ConferenceVolume.MaxTopics + 1,
+                            Status = 
+                                Sezam.Library.EF.ConfTopic.TopicStatus.Deleted |
+                                Sezam.Library.EF.ConfTopic.TopicStatus.Private
+                        };
+                        conf.ConfTopics.Add(unknownTopic);
                     }
                     msg.Topic = unknownTopic;
                 }
@@ -83,7 +85,7 @@ namespace ZBB
             if (zbbconf.IsReadOnly)
                 conf.Status |= Sezam.Library.EF.ConfStatus.ReadOnly;
 
-            foreach (var t in conf.Topics)
+            foreach (var t in conf.ConfTopics)
             {
                 Console.WriteLine("Topic [{0,2}] {1}:{2} - {3}", t.TopicNo, conf.Name, t.Name, t.Messages.Count);
             }
@@ -104,19 +106,19 @@ namespace ZBB
 
         public int GetMessageCount()
         {
-            return Messages.Count();
+            return Messages.Count;
         }
 
         public ConfMessage GetOldestMessage()
         {
-            return Messages.Count() > 0 ?
+            return Messages.Count > 0 ?
                Messages[0] : null;
         }
 
         public ConfMessage GetNewestMessage()
         {
-            return Messages.Count() > 0 ?
-               Messages[Messages.Count() - 1] : null;
+            return Messages.Count > 0 ?
+               Messages[^1] : null;
         }
 
         /*
@@ -124,7 +126,7 @@ namespace ZBB
         NDXanonimous     = 2;     { anonimous allowed in conference }
         NDXRO            = 4;
         NDXclosed        = 8;     { conference sealed }
-  */
+        */
 
         [Flags]
         private enum ConfStatus
@@ -145,14 +147,12 @@ namespace ZBB
 
         public ConferenceVolume(string name)
         {
-            // TODO split cnf name and volume number
             var regex = new Regex(@"([A-Z]+)\.?(\d*)");
             var match = regex.Match(name);
             if (match.Success && match.Groups.Count > 2)
             {
                 NameOnly = match.Groups[1].Value;
-                int volNo;
-                if (int.TryParse(match.Groups[2].Value, out volNo))
+                if (int.TryParse(match.Groups[2].Value, out int volNo))
                     VolumeNumber = volNo;
                 else
                     VolumeNumber = 0;
@@ -178,62 +178,60 @@ namespace ZBB
         private void ImportNdx()
         {
             string ndxFileName = Path.Combine(confDir, "conf.ndx");
-            using (BinaryReader r = new BinaryReader(File.Open(ndxFileName, FileMode.Open)))
+            using BinaryReader r = new BinaryReader(File.Open(ndxFileName, FileMode.Open));
+            /*
+            StatData   = record
+               Status   : SmallWord;
+               Ndxsize  : SmallWord;
+               Topic    : array[1..32] of record
+               Name     : string[topicnamelen];
+               Brpor    : SmallInt;
+               Redir    : ShortInt;
+               Status   : SmallWord;
+            end;
+            */
+
+            Status = (ConfStatus)r.ReadInt16();
+            NdxSize = r.ReadInt16();
+
+            for (int i = 1; i <= ConferenceVolume.MaxTopics; i++)
             {
-                /*
-                StatData   = record
-                   Status   : SmallWord;
-                   Ndxsize  : SmallWord;
-                   Topic    : array[1..32] of record
-                   Name     : string[topicnamelen];
-                   Brpor    : SmallInt;
-                   Redir    : ShortInt;
-                   Status   : SmallWord;
-                end;
-                */
-
-                Status = (ConfStatus)r.ReadInt16();
-                NdxSize = r.ReadInt16();
-
-                for (int i = 1; i <= ConferenceVolume.MaxTopics; i++)
-                {
-                    ConfTopic topic = new ConfTopic(this, i);
-                    Topics.Add(topic);
-                    topic.Import(r);
-                }
-
-                /*
-                NdxData = record
-                   Top   : Shortint;
-                   Por   : SmallInt;
-                   Rep   : SmallInt;
-                   Sta   : Byte;
-                end;
-                */
-
-                Ndxs = new Ndx[NdxSize];
-                int ndxCount = 0;
-                for (int i = 0; i < NdxSize; i++)
-                    try
-                    {
-                        if (r.PeekChar() == -1)
-                        {
-                            Debug.WriteLine("Premature end of Conf NDX " + Name);
-                            break;
-                        }
-                        Ndxs[ndxCount].Topic = r.ReadByte();
-                        Ndxs[ndxCount].MsgNo = r.ReadInt16();
-                        Ndxs[ndxCount].ReplyTo = r.ReadInt16();
-                        Ndxs[ndxCount].Status = r.ReadByte();
-
-                        ndxCount++;
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorHandling.PrintException(e);
-                        return;
-                    }
+                ConfTopic topic = new ConfTopic(this, i);
+                Topics.Add(topic);
+                topic.Import(r);
             }
+
+            /*
+            NdxData = record
+               Top   : Shortint;
+               Por   : SmallInt;
+               Rep   : SmallInt;
+               Sta   : Byte;
+            end;
+            */
+
+            Ndxs = new Ndx[NdxSize];
+            int ndxCount = 0;
+            for (int i = 0; i < NdxSize; i++)
+                try
+                {
+                    if (r.PeekChar() == -1)
+                    {
+                        Debug.WriteLine("Premature end of Conf NDX " + Name);
+                        break;
+                    }
+                    Ndxs[ndxCount].Topic = r.ReadByte();
+                    Ndxs[ndxCount].MsgNo = r.ReadInt16();
+                    Ndxs[ndxCount].ReplyTo = r.ReadInt16();
+                    Ndxs[ndxCount].Status = r.ReadByte();
+
+                    ndxCount++;
+                }
+                catch (Exception e)
+                {
+                    ErrorHandling.PrintException(e);
+                    return;
+                }
         }
 
         private FileStream messageReader;
@@ -256,49 +254,51 @@ namespace ZBB
         private void ImportHdr()
         {
             string hdrFileName = Path.Combine(confDir, "conf.hdr");
-            using (BinaryReader hdr = new BinaryReader(File.Open(hdrFileName, FileMode.Open)))
-            {
-                int id = 0;
-                int DeletedCount = 0;
-                while (hdr.PeekChar() != -1)
-                    try
+            using BinaryReader hdr = new BinaryReader(File.Open(hdrFileName, FileMode.Open));
+            int id = 0;
+            int DeletedCount = 0;
+            while (hdr.PeekChar() != -1)
+                try
+                {
+                    ConfMessage msg = new ConfMessage(this)
                     {
-                        ConfMessage msg = new ConfMessage(this);
-                        msg.ID = id;
-                        msg.Import(hdr);
-                        Messages.Add(msg);
+                        ID = id
+                    };
+                    msg.Import(hdr);
+                    Messages.Add(msg);
 
-                        // Checks
-                        if (msg.isDeleted())
-                            DeletedCount++;
+                    // Checks
+                    if (msg.IsDeleted())
+                        DeletedCount++;
 
-                        if (Ndxs[id].MsgNo != -1)
-                            msg.MsgNo = Ndxs[id].MsgNo;
-                        if (msg.ReplyTo == 0)
-                            msg.ReplyTo = Ndxs[id].ReplyTo;
+                    if (Ndxs[id].MsgNo != -1)
+                        msg.MsgNo = Ndxs[id].MsgNo;
+                    if (msg.ReplyTo == 0)
+                        msg.ReplyTo = Ndxs[id].ReplyTo;
+                    if (msg.ReplyTo >= 0 && id > 0)
+                    {
                         msg.ParentMsg =
-                           msg.ReplyTo >= 0 && msg.ReplyTo < Messages.Count() ?
+                           msg.ReplyTo < Messages.Count ?
                               Messages[msg.ReplyTo] : null;
                         if (msg.ParentMsg == null)
                         {
-                            if (msg.ReplyTo >= 0)
-                                Debug.WriteLine(msg.ToString() + " parent msg for reply to " + msg.ReplyTo + " not found");
+                            Debug.WriteLine(msg.ToString() + " parent msg for reply to " + msg.ReplyTo + " not found");
                         }
+                    }
 
-                        if (Ndxs[id].Topic != 0 && msg.TopicNo != Ndxs[id].Topic)
-                        {
-                            // Debug.WriteLine("Fixing topic {0,2} to {1,2} for " + msg, msg.TopicNo, Ndxs[id].Topic);
-                            msg.TopicNo = Ndxs[id].Topic;
-                        }
-                        id++;
-                    }
-                    catch (Exception e)
+                    if (Ndxs[id].Topic != 0 && msg.TopicNo != Ndxs[id].Topic)
                     {
-                        ErrorHandling.PrintException(e);
+                        // Debug.WriteLine("Fixing topic {0,2} to {1,2} for " + msg, msg.TopicNo, Ndxs[id].Topic);
+                        msg.TopicNo = Ndxs[id].Topic;
                     }
-                Debug.WriteLine(String.Format("{0,-22}: {1,2} topics, {2,5} messages, {3,5} deleted",
-                   Name, Topics.Count(t => !t.isDeleted()), id, DeletedCount));
-            }
+                    id++;
+                }
+                catch (Exception e)
+                {
+                    ErrorHandling.PrintException(e);
+                }
+            Debug.WriteLine(String.Format("{0,-22}: {1,2} topics, {2,5} messages, {3,5} deleted",
+               Name, Topics.Count(t => !t.IsDeleted), id, DeletedCount));
         }
 
         public void Dump()
@@ -316,6 +316,7 @@ namespace ZBB
 
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
             if (messageReader != null)
                 messageReader.Dispose();
         }

@@ -1,18 +1,25 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Sezam.Server;
 
 namespace Sezam.Commands
 {
-    public class ConfSet : CommandSet
+    public class ConfStat : CommandSet
     {
 
         #region Helpers
         private Conference confProcessor;
 
-        public ConfSet(Session session) : base(session)
+        public void Show()
+        {
+            session.terminal.Line("{0}: {1} {2} {3} {4}", CurrentConference.VolumeName,
+                CurrentConference.Status.HasFlag(Library.EF.ConfStatus.Private) ? "Private" : "Public",
+                CurrentConference.Status.HasFlag(Library.EF.ConfStatus.ReadOnly) ? "ReadOnly" : "Writable",
+                CurrentConference.Status.HasFlag(Library.EF.ConfStatus.Closed) ? "Closed" : "",
+                CurrentConference.Status.HasFlag(Library.EF.ConfStatus.AnonymousAllowed) ? "Anonymous Allowed" : ""
+                );
+        }
+
+        public ConfStat(Session session) : base(session)
         {
             confProcessor = session.GetCommandProcessor(typeof(Conference)) as Conference;
         }
@@ -32,18 +39,20 @@ namespace Sezam.Commands
         {
             var conf = confProcessor?.currentConference;
             return conf != null ?
-               string.Format("Conf:{0} Set", conf.Name) : "ConfSet";
+               string.Format("Conf:{0} Status", conf.Name) : "ConfSet";
         }
 
         private void setConfStatus(Library.EF.ConfStatus stat)
         {
             CurrentConference.Status |= stat;
+            Show();
             session.Db.SaveChanges();
         }
 
         private void resetConfStatus(Library.EF.ConfStatus stat)
         {
             CurrentConference.Status &= ~stat;
+            Show();
             session.Db.SaveChanges();
         }
         #endregion
@@ -79,8 +88,8 @@ namespace Sezam.Commands
 
         public void Moderator()
         {
-            var moderator = getRequiredUser();
-            var mConfData = moderator.getUserConfInfo(CurrentConference);
+            var moderator = GetRequiredUser();
+            var mConfData = moderator.GetUserConfInfo(CurrentConference);
 
             if (session.cmdLine.Switch("d"))
                 mConfData.Status &= ~Library.EF.UserConf.UserConfStat.Admin; // Off

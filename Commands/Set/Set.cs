@@ -1,7 +1,8 @@
-﻿namespace Sezam.Commands
-{
+﻿using Sezam.Library;
+using Sezam.Server;
 
-    using Sezam.Library;
+namespace Sezam.Commands
+{
 
     public class Set : CommandSet
     {

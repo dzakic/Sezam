@@ -7,14 +7,13 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 
-namespace Sezam
+namespace Sezam.Server
 {
     public class Session : ISession
     {
-        public Session(ITerminal terminal, Library.DataStore dataStore)
+        public Session(ITerminal terminal)
         {
             this.terminal = terminal;
-            this.dataStore = dataStore;
             id = Guid.NewGuid();
             thread = new Thread(new ThreadStart(Run));
             commandSets = new Dictionary<Type, CommandSet>();
@@ -41,10 +40,6 @@ namespace Sezam
                         {
                             InputAndExecCmd();
                         }
-                        catch (ArgumentException e)
-                        {
-                            terminal.Line(e.Message);
-                        }
                         catch (TerminalException e)
                         {
                             switch (e.code)
@@ -52,12 +47,17 @@ namespace Sezam
                                 case TerminalException.Code.ClientDisconnected:
                                     throw;
                                 case TerminalException.Code.UserOutputInterrupted:
-                                    break;
+                                    continue;
                             }
+                        }
+                        catch (ArgumentException e)
+                        {
+                            terminal.Line("* " + e.Message);
+                            continue;
                         }
                         catch (Exception e)
                         {
-                            terminal.Line("Error: {0}", e.Message);
+                            terminal.Line("Blimey! System Error: {0}", e.Message);
                             ErrorHandling.Handle(e);
                             continue;
                         }
@@ -72,8 +72,7 @@ namespace Sezam
             finally
             {
                 SysLog("Disconnected");
-                if (OnFinish != null)
-                    OnFinish(this, null);
+                OnFinish?.Invoke(this, null);
                 thread = null;
             }
         }
@@ -97,9 +96,10 @@ namespace Sezam
             {
                 terminal.Line();
                 terminal.Line(strings.WelcomeUserLastCall, User.FullName, User.LastCall);
-                LoginTime = DateTime.Now;
-                User.LastCall = DateTime.Now;
                 SysLog("Loggedin");
+                LoginTime = DateTime.Now;
+                Db.UserId = User.Id;
+                User.LastCall = LoginTime;
                 Db.SaveChangesAsync();
             }
         }
@@ -115,9 +115,9 @@ namespace Sezam
         /// </summary>
         /// <param name="username"></param>
         /// <returns></returns>
-        public Library.EF.User getUser(string username)
+        public Library.EF.User GetUser(string username)
         {
-            return Db.Users.Where(u => u.username == username).FirstOrDefault();
+            return Db.Users.Where(u => u.Username == username).FirstOrDefault();
         }
 
         private Library.EF.User Login()
@@ -129,7 +129,7 @@ namespace Sezam
                 string username = terminal.InputStr(strings.Login_Username);
                 if (string.IsNullOrWhiteSpace(username))
                     continue;
-                var user = getUser(username);
+                var user = GetUser(username);
 
 
                 if (user != null)
@@ -138,7 +138,7 @@ namespace Sezam
                     string prompt = usePIN ? strings.Login_PIN : strings.Login_Password;
 
                     if (usePIN)
-                        terminal.Line(strings.Login_WelcomeNoPassword, user.username);
+                        terminal.Line(strings.Login_WelcomeNoPassword, user.Username);
 
                     string expectPass = usePIN ?
                         string.Format("{0:ddMM}", user.DateOfBirth) : user.Password;
@@ -208,7 +208,7 @@ namespace Sezam
         {
             cmdLine = new CommandLine(cmdText);
 
-            string cmd = cmdLine.getToken();
+            string cmd = cmdLine.GetToken();
             if (!cmd.HasValue())
                 return;
 
@@ -225,7 +225,7 @@ namespace Sezam
         {
             if (thread != null && thread.IsAlive)
             {
-                thread.Abort();
+                thread.Interrupt();
                 thread.Join();
             }
             terminal.Close();
@@ -234,7 +234,7 @@ namespace Sezam
         public override string ToString()
         {
             if (User != null)
-                return string.Format("{0,-16} {1:HH:mm} from: {2}", User.username, ConnectTime, terminal.Id);
+                return string.Format("{0,-16} {1:HH:mm} from: {2}", User.Username, ConnectTime, terminal.Id);
             return string.Format("[Session: {0} from: {1}]", ConnectTime, terminal.Id);
         }
 
@@ -243,19 +243,19 @@ namespace Sezam
             currentCommandSet = null;
         }
 
-        public string getUsername()
+        public string GetUsername()
         {
-            return User?.username;
+            return User?.Username;
         }
 
-        public DateTime getLoginTime()
+        public DateTime GetLoginTime()
         {
             return LoginTime;
         }
 
         public void SysLog(string Message, params string[] args)
         {
-            Trace.TraceInformation("{0:yyMMdd HHmmss} {1,-3} {2,-16} {3}", DateTime.Now, NodeNo, getUsername(), string.Format(Message, args));
+            Trace.TraceInformation("{0:yyMMdd HHmmss} {1,-3} {2,-16} {3}", DateTime.Now, NodeNo, GetUsername(), string.Format(Message, args));
         }
 
         public CommandLine cmdLine = null;
@@ -267,14 +267,13 @@ namespace Sezam
 
         private Thread thread;
         private Guid id;
-        private Dictionary<Type, CommandSet> commandSets;
+        private readonly Dictionary<Type, CommandSet> commandSets;
         private CommandSet rootCommandSet;
         public CommandSet currentCommandSet;
 
         public ITerminal terminal;
-        public Library.DataStore dataStore;
 
-        public SezamDbContext Db = new SezamDbContext();
+        public SezamDbContext Db = Library.DataStore.GetNewContext();
 
         public EventHandler OnFinish;
     }

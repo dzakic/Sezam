@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using Sezam.Server;
 
 namespace Sezam.Commands
 {
@@ -49,31 +50,31 @@ namespace Sezam.Commands
         [Command]
         public void Page()
         {
-            var user = session.cmdLine.getToken();
+            var user = session.cmdLine.GetToken();
             session.terminal.Line($"Will page user {user} with message {session.cmdLine.Text}. ToDo.");
         }
 
         [Command]
         public void Users()
         {
-            var pattern = session.cmdLine.getToken();
+            var pattern = session.cmdLine.GetToken();
             //if (pattern.Length < 2)
             //    throw new ArgumentException("Morate navesti najmanje dva karaktera za pretragu.");
             IEnumerable<Library.EF.User> selection = session.Db.Users
                 .Where(u => u.LastCall != null &&
-                    (u.username.Contains(pattern) || u.City.Contains(pattern) || u.FullName.Contains(pattern)))
+                    (u.Username.Contains(pattern) || u.City.Contains(pattern) || u.FullName.Contains(pattern)))
                 .OrderByDescending(u => u.LastCall);
             foreach (var user in selection)
-                session.terminal.Line($"{user.username,-16} {user.FullName,-28} {user.City,-16} {user.LastCall:dd MMM yyyy HH:mm}");
+                session.terminal.Line($"{user.Username,-16} {user.FullName,-28} {user.City,-16} {user.LastCall:dd MMM yyyy HH:mm}");
         }
 
         public void Who()
         {
-            session.terminal.Line("Logged in as {0}, {1}", session.User.username, session.User.FullName);
-            foreach (var s in session.dataStore.sessions)
+            session.terminal.Line("Logged in as {0}, {1}", session.User.Username, session.User.FullName);
+            foreach (var s in Library.DataStore.Sessions)
             {
-                if (!string.IsNullOrWhiteSpace(s.getUsername()))
-                    session.terminal.Line("{0,-16} -- {1:HH:mm}", s.getUsername(), s.getLoginTime());
+                if (!string.IsNullOrWhiteSpace(s.GetUsername()))
+                    session.terminal.Line("{0,-16} -- {1:HH:mm}", s.GetUsername(), s.GetLoginTime());
             }
         }
 

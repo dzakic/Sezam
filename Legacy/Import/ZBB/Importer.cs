@@ -1,5 +1,4 @@
-﻿using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -24,85 +23,81 @@ namespace ZBB
             foreach (var confName in confNames)
             {
 
-                using (var Dbx = new Sezam.Library.SezamDbContext())
+                using var Dbx = Sezam.Library.DataStore.GetNewContext();
+                
+                using ConferenceVolume zbbConf = new ConferenceVolume(confName);
+                try
                 {
-                    Dbx.Database.Log = null;
-                    using (ConferenceVolume zbbConf = new ConferenceVolume(confName))
-                        try
-                        {
 
-                            var conf = Dbx.Conferences.Where(c => c.Name == zbbConf.NameOnly && c.VolumeNo == zbbConf.VolumeNumber).FirstOrDefault();
-                            if (conf != null)
-                            {
-                                Console.WriteLine("Conf {0} is already imported.", confName);
-                                continue;
-                            }
+                    var conf = Dbx.Conferences.Where(c => c.Name == zbbConf.NameOnly && c.VolumeNo == zbbConf.VolumeNumber).FirstOrDefault();
+                    if (conf != null)
+                    {
+                        Console.WriteLine("Conf {0} is already imported.", confName);
+                        continue;
+                    }
 
-                            Console.WriteLine("Importing {0}.{1}", ConfPath, confName);
-                            string confDir = Path.Combine(ConfPath, confName);
-                            zbbConf.Import(confDir);
+                    Console.WriteLine("Importing {0}.{1}", ConfPath, confName);
+                    string confDir = Path.Combine(ConfPath, confName);
+                    zbbConf.Import(confDir);
 
-                            // Any missing users?
-                            var msgAuthors = zbbConf.Messages
-                                .Select(m => m.author)
-                                .Where(u => !string.IsNullOrWhiteSpace(u))
-                                .Distinct();
-                            var existingUsers = Dbx.Users.Select(u => u.username);
-                            var usersToAdd = msgAuthors.Except(existingUsers)
-                                .Select(u => new Sezam.Library.EF.User() { username = u });
+                    // Any missing users?
+                    var msgAuthors = zbbConf.Messages
+                        .Select(m => m.author)
+                        .Where(u => !string.IsNullOrWhiteSpace(u))
+                        .Distinct();
+                    var existingUsers = Dbx.Users.Select(u => u.Username);
+                    var usersToAdd = msgAuthors.Except(existingUsers)
+                        .Select(u => new Sezam.Library.EF.User() { Username = u });
 
-                            Console.WriteLine("Adding users: {0}", string.Join(", ", usersToAdd.Select(u => u.username)));
-                            Dbx.Users.AddRange(usersToAdd);
-                            Dbx.SaveChanges();
+                    Console.WriteLine("Adding users: {0}", string.Join(", ", usersToAdd.Select(u => u.Username)));
+                    Dbx.Users.AddRange(usersToAdd);
+                    Dbx.SaveChanges();
 
-                            conf = new Sezam.Library.EF.Conference();
-                            Dbx.Conferences.Add(conf);
-                            zbbConf.ToEFConf(conf);
+                    conf = new Sezam.Library.EF.Conference();
+                    Dbx.Conferences.Add(conf);
+                    zbbConf.ToEFConf(conf);
 
-                            var userDict = Dbx.Users.Select(u => new { u.username, u.Id })
-                                .ToDictionary(u => u.username, u => u.Id);
+                    var userDict = Dbx.Users.Select(u => new { u.Username, u.Id })
+                        .ToDictionary(u => u.Username, u => u.Id);
 
-                            foreach (var zbbMsg in zbbConf.Messages)
-                            {
-                                var efMsg = zbbMsg.EFConfMessage;
-                                if (userDict.ContainsKey(zbbMsg.author))
-                                    efMsg.AuthorId = userDict[zbbMsg.author];
-                                else
-                                    Console.WriteLine("Unknown ConfMsg Author: {0}", zbbMsg.author);
-                            }
+                    foreach (var zbbMsg in zbbConf.Messages)
+                    {
+                        var efMsg = zbbMsg.EFConfMessage;
+                        if (userDict.ContainsKey(zbbMsg.author))
+                            efMsg.AuthorId = userDict[zbbMsg.author];
+                        else
+                            Console.WriteLine("Unknown ConfMsg Author: {0}", zbbMsg.author);
+                    }
 
-                            Console.Write("Saving...");
-                            Dbx.SaveChanges();
-                            Console.WriteLine("Done");
-                        }
-                        catch (Exception e)
-                        {
-                            Console.WriteLine("Error importing conf");
-                            Sezam.Library.ErrorHandling.PrintException(e);
-                        }
+                    Console.Write("Saving...");
+                    Dbx.SaveChanges();
+                    Console.WriteLine("Done");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Error importing conf");
+                    Sezam.Library.ErrorHandling.PrintException(e);
                 }
             }
         }
 
         public void ImportUsers()
         {
-            using (var Dbx = new Sezam.Library.SezamDbContext())
+            using var Dbx = Sezam.Library.DataStore.GetNewContext();
+
+            int userCount = Dbx.Users.Count();
+            if (userCount == 0)
             {
-                Dbx.Database.Log = null; // Console.Write;
+                var users = ReadUsers()
+                    .Where(u => !string.IsNullOrWhiteSpace(u.Username))
+                    .Where(u => u.LastCall.Value.Year > 1980)
+                    .Distinct(new Sezam.Library.EF.UserComparer());
 
-                var userCount = Dbx.Users.Count();
-                if (userCount == 0)
-                {
-                    var users = ReadUsers()
-                        .Where(u => !string.IsNullOrWhiteSpace(u.username))
-                        .Distinct(new Sezam.Library.EF.UserComparer());
-
-                    Dbx.Users.AddRange(users);
-                    Dbx.SaveChanges();
-                }
-                else
-                    Console.WriteLine("Users already loaded, count = {0}", userCount);
+                Dbx.Users.AddRange(users);
+                Dbx.SaveChanges();
             }
+            else
+                Console.WriteLine("Users already loaded, count = {0}", userCount);
         }
 
         private IEnumerable<Sezam.Library.EF.User> ReadUsers()
@@ -117,10 +112,14 @@ namespace ZBB
                 {
                     var user = new Sezam.Library.EF.User(id++);
                     user.Read(r);
-                    //Console.WriteLine(JsonConvert.SerializeObject(user));
-                    Console.Write(user.username + " ");
+
+                    Console.WriteLine($"{user.Id,-5} {user.Username,-16} {user.FullName,-28} {user.City,-16} {user.LastCall:dd MMM yyyy HH:mm}");
+
                     if (user.LastCall == DateTime.MinValue)
+                    {
                         inactiveCount++;
+                    }
+
                     yield return user;
                 }
             }
@@ -128,7 +127,7 @@ namespace ZBB
         }
 
         // Sezam.Library.SezamDbContext Dbx = new Sezam.Library.SezamDbContext();
-        private DirectoryInfo rootPath;
+        private readonly DirectoryInfo rootPath;
 
         public IEnumerable<string> ConfNames;
     }

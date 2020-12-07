@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Sezam {
+namespace Sezam.Commands {
     using System;
     
     
@@ -39,7 +39,7 @@ namespace Sezam {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Sezam.strings", typeof(strings).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Sezam.Commands.strings", typeof(strings).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;

@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Threading;
+using Microsoft.Extensions.Configuration;
 
 namespace Sezam
 {
-    internal class Program
+    internal class TelnetServer
     {
         private class StateSaver : System.Collections.DictionaryBase
         {
@@ -13,10 +14,14 @@ namespace Sezam
         private static void Main(string[] args)
         {
             // init debug
-            Debug.Listeners.Add(new TextWriterTraceListener(Console.Out));
+            Trace.Listeners.Add(new TextWriterTraceListener(Console.Out));
+
+            var builder = new ConfigurationBuilder();
+            builder.AddJsonFile("appsettings.json", optional: true);
+            var configuration = builder.Build();
 
             // start listener
-            using (sezamNet = new Server())
+            using (sezamNet = new Sezam.Server.Server(configuration))
             {
                 var console = new ConsoleLoop(sezamNet);
                 console.Start();
@@ -25,7 +30,7 @@ namespace Sezam
                 int waitResult = WaitHandle.WaitTimeout;
                 while (waitResult == WaitHandle.WaitTimeout)
                 {
-                    if (sezamNet.checkNewVersion())
+                    if (sezamNet.CheckNewVersion())
                         break;
                     waitResult = WaitHandle.WaitAny(new WaitHandle[2] { sezamNet.NewVersionAvailable, console.EscPressed }, 5 * 1000); // 5 seconds                
                 }
@@ -34,8 +39,8 @@ namespace Sezam
             }
         }
 
-        private static Server sezamNet;
-        private EventWaitHandle KeyExit = new EventWaitHandle(false, EventResetMode.ManualReset);
+        private static Sezam.Server.Server sezamNet;
+        // private readonly EventWaitHandle KeyExit = new EventWaitHandle(false, EventResetMode.ManualReset);
 
     }
 }

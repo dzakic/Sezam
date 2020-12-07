@@ -1,85 +1,74 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
 
 namespace Sezam.Library.EF
 {
-   public class ConfMessage
-   {
-      [Flags]
-      public enum MessageStatus
-      {
-         UserDeleted = 1,
-         ModeratorDeleted = 2,
-         SysadmDeleted = 4,
-         Anonymous = 8,
-         FileAttached = 16,
-         Notify = 32,
-         FileMoved = 64,
-         Recommended = 128,
-         Deleted = UserDeleted | ModeratorDeleted | SysadmDeleted
-      }
+    [Index("AuthorId", "TopicId", "MsgNo", IsUnique = false)]
+    [Index("TopicId", "AuthorId", "MsgNo", IsUnique = false)]
+    [Index("TopicId", "MsgNo", IsUnique = false)]
+    [Index("Time")]
+    [Index("Filename")]
+    public class ConfMessage
+    {
+        [Flags]
+        public enum MessageStatus
+        {
+            UserDeleted = 1,
+            ModeratorDeleted = 2,
+            SysadmDeleted = 4,
+            Anonymous = 8,
+            FileAttached = 16,
+            Notify = 32,
+            FileMoved = 64,
+            Recommended = 128,
+            Deleted = UserDeleted | ModeratorDeleted | SysadmDeleted
+        }
 
-      [Key]
-      [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-      public int Id { get; private set; }
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public int Id { get; private set; }
 
-      public virtual User Author { get; set; }
+        public virtual User Author { get; set; }
 
-      [Required]
-      [Index("ixAuthorTopic", Order = 1, IsUnique = false)]
-      [Index("ixTopicAuthor", Order = 2, IsUnique = false)]
-      public int AuthorId { get; set; }
+        [Required]
+        public int AuthorId { get; set; }
 
-      public MessageStatus Status { get; set; }
+        public MessageStatus Status { get; set; }
 
-      [Required]
-      [ForeignKey("TopicId")]
-      public virtual ConfTopic Topic { get; set; }
+        [Required]
+        [ForeignKey("TopicId")]
+        public virtual ConfTopic Topic { get; set; }
 
-      [Index]
-      [Index("ixTopicMsg", Order = 1, IsUnique = true)]
-      [Index("ixTopicAuthor", Order = 1, IsUnique = false)]
-      [Index("ixAuthorTopic", Order = 2, IsUnique = false)]
-      public int TopicId { get; set; }
+        public int TopicId { get; set; }
 
-      [Index("ixTopicMsg", Order = 2, IsUnique = true)]
-      [Index("ixTopicAuthor", Order = 3, IsUnique = false)]
-      [Index("ixAuthorTopic", Order = 3, IsUnique = false)]
-      public int MsgNo { get; set; }
+        public int MsgNo { get; set; }
 
-      [Index]
-      public virtual ConfMessage ParentMessage { get; set; }
+        [NotMapped]
+        public virtual ConfMessage ParentMessage { get; set; }
 
-      public int? ParentMessageId { get; set; }
+        public int? ParentMessageId { get; set; }
 
-      [Index]
-      public DateTime Time { get; set; }
+        public DateTime Time { get; set; }
 
-      [Index]
-      [StringLength(32)]
-      public string Filename { get; set; }
+        [StringLength(32)]
+        public string Filename { get; set; }
 
-      public bool isDeleted()
-      {
-         return (Status.HasFlag(MessageStatus.Deleted));
-      }
+        public bool IsDeleted => (Status.HasFlag(MessageStatus.Deleted));
 
-      public virtual MessageText MessageText { get; set; }
+        public virtual MessageText MessageText { get; set; }
 
-      public string topicName()
-      {
-         return Topic != null ? Topic.Name : "?" + Topic.TopicNo;
-      }
+        public string TopicName()
+        {
+            return Topic != null ? Topic.Name : "?" + Topic.TopicNo;
+        }
 
-      public string msgId()
-      {
-         return topicName() + "." + MsgNo;
-      }
+        public string MsgId => TopicName() + "." + MsgNo;
 
-      public string displayAuthor()
-      {
-         return Status.HasFlag(MessageStatus.Anonymous) ? "*****" : Author?.username;
-      }
-   }
+        public string DisplayAuthor()
+        {
+            return Status.HasFlag(MessageStatus.Anonymous) ? "*****" : Author?.Username;
+        }
+    }
 }

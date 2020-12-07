@@ -101,12 +101,12 @@ namespace Sezam
             public int clientRequestCount;
         }
 
-        List<TelnetOption> telnetOptions = new List<TelnetOption>
+        private readonly List<TelnetOption> telnetOptions = new List<TelnetOption>
             {
-                new TelnetOption(Option.Echo, true, false), // Sezam controls what is displayed on screen
+                new TelnetOption(Option.Echo, true, false), // Server controls what is displayed on screen
                 new TelnetOption(Option.SuppressGoAhead, true, true), // Full duplex
-                new TelnetOption(Option.LineMode, false, false), // Sezam edits input line (tab?)
-                new TelnetOption(Option.BinaryTransmission, true), // Sezam edits input line (tab?)
+                new TelnetOption(Option.LineMode, false, false), // Server edits input line (tab?)
+                new TelnetOption(Option.BinaryTransmission, true), 
                 new TelnetOption(Option.NegotiateAboutWindowSize, false, true), // I won't, you please do let me know about window resize
                 new TelnetOption(Option.TerminalType, false), 
                 new TelnetOption(Option.TerminalSpeed, false),
@@ -119,7 +119,7 @@ namespace Sezam
             // In = new StreamReader(netStream, true);
             Out = new StreamWriter(netStream, Encoding.UTF8) { AutoFlush = false };
             PageSize = 32;
-            Out.NewLine = "\r\n";    
+            Out.NewLine = "\r\n";            
             tcpClient.NoDelay = true;
             tcpClient.SendBufferSize = 1024;
 
@@ -155,9 +155,8 @@ namespace Sezam
         public void Close()
         {
             Out.Flush();
-            //if (tcpClient != null)
-            //    tcpClient.Close();
-            tcpClient?.Close();
+            if (tcpClient != null)
+                tcpClient.Close();
         }
 
         private void fillInputBuffer()
@@ -250,7 +249,7 @@ namespace Sezam
                 if (b == (byte)Command.IAC && peekByteFromNetworkStream() == (byte)Command.SE)
                 {
                     b = getByteFromNetworkStream(); // pop peeked SE
-                    Trace.TraceInformation("TELNET Got SB " + opt.ToString() + " " + BitConverter.ToString(negotiationStr.ToArray()) + " SE.");
+                    // Trace.TraceInformation("TELNET Got SB " + opt.ToString() + " " + BitConverter.ToString(negotiationStr.ToArray()) + " SE.");
                     switch (opt)
                     {
                         case Option.NegotiateAboutWindowSize:

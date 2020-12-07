@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Sezam
+namespace Sezam.Commands
 {
     public class CommandLine
     {
@@ -10,49 +10,52 @@ namespace Sezam
         {
             Text = commandText;
             char[] cmdDelimiters = new char[1] { ' ' };
-            Tokens = commandText.Trim().Split(cmdDelimiters, StringSplitOptions.RemoveEmptyEntries).ToList();
-            Switches = new List<string>();
-            for (int i = Tokens.Count() - 1; i >= 0; i--)
+            tokens = commandText.Trim().Split(cmdDelimiters, StringSplitOptions.RemoveEmptyEntries).ToList();
+            switches = new List<string>();
+            for (int i = tokens.Count() - 1; i >= 0; i--)
             {
-                string s = Tokens[i];
+                string s = tokens[i];
                 if (s[0] == '/')
                 {
-                    Tokens.RemoveAt(i);
-                    Switches.Add(s.Substring(1));
+                    tokens.RemoveAt(i);
+                    switches.Add(s.Substring(1));
                 }
             }
         }
 
         public bool Switch(string sw)
         {
-            return Switches.Contains(sw, StringComparer.CurrentCultureIgnoreCase);
+            return switches.Contains(sw, StringComparer.CurrentCultureIgnoreCase);
         }
 
         // 1-based Command Parameters
-        public string getToken(int index)
+        public string GetToken(int index)
         {
-            return index <= Tokens.Count() && index > 0 ? Tokens[index - 1] : "";
+            return index <= tokens.Count() && index > 0 ? tokens[index - 1] : "";
         }
+
+        public List<string> Switches => switches;
+        public List<string> Tokens => tokens;
 
         public bool IsEmpty()
         {
-            return Tokens.Count() == 0;
+            return tokens.Count() == 0;
         }
 
-        public string getToken(string requiredValue = null)
+        public string GetToken(string requiredValue = null)
         {
             if (IsEmpty())
                 if (string.IsNullOrEmpty(requiredValue))
                     return string.Empty;
                 else
                     throw new ArgumentException("Required parameter missing: " + requiredValue);
-            string token = Tokens[0];
-            Tokens.RemoveAt(0);
+            string token = tokens[0];
+            tokens.RemoveAt(0);
             return token;
         }
 
-        public List<string> Tokens;
-        public List<string> Switches;
+        private readonly List<string> tokens;
+        private readonly List<string> switches;
         public string Text { get; }
     }
 }

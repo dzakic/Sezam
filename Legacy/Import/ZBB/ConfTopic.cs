@@ -7,12 +7,14 @@ namespace ZBB
     {
         public static Sezam.Library.EF.ConfTopic ToEFTopic(this ConfTopic zbbTopic)
         {
-            var topic = new Sezam.Library.EF.ConfTopic();
-            topic.Name = zbbTopic.Name;
-            topic.TopicNo = zbbTopic.TopicNo;
-            if (zbbTopic.isDeleted())
+            var topic = new Sezam.Library.EF.ConfTopic
+            {
+                Name = zbbTopic.Name,
+                TopicNo = zbbTopic.TopicNo
+            };
+            if (zbbTopic.IsDeleted)
                 topic.Status |= Sezam.Library.EF.ConfTopic.TopicStatus.Deleted;
-            if (zbbTopic.isReadOnly())
+            if (zbbTopic.IsReadOnly)
                 topic.Status |= Sezam.Library.EF.ConfTopic.TopicStatus.ReadOnly;
             zbbTopic.EFTopic = topic;
             return topic;
@@ -41,16 +43,9 @@ namespace ZBB
             Status = (TopicStat)r.ReadUInt16();
         }
 
-        public bool isDeleted()
-        {
-            return string.IsNullOrWhiteSpace(Name);
-        }
+        public bool IsDeleted => string.IsNullOrWhiteSpace(Name);
 
-        public bool isReadOnly()
-        {
-            return Status.HasFlag(ZBB.ConfTopic.TopicStat.ReadOnly);
-        }
-
+        public bool IsReadOnly => Status.HasFlag(ZBB.ConfTopic.TopicStat.ReadOnly);
 
         public bool Exists()
         {

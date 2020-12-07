@@ -1,13 +1,15 @@
-﻿namespace Sezam.Commands
-{
-    using Library.EF;
-    using System;
-    using System.Collections.Generic;
-    using System.Diagnostics;
-    using System.Linq;
-    using System.Text;
-    using System.Text.RegularExpressions;
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore;
+using Sezam.Library.EF;
+using Sezam.Server;
 
+namespace Sezam.Commands
+{
     [Command]
     public class Conference : CommandSet
     {
@@ -17,7 +19,7 @@
             currentConference = null;
         }
 
-        public ConfSet Set()
+        public ConfStat Status()
         {
             return null;
         }
@@ -31,22 +33,59 @@
                string.Format("Conf:{0}", currentConference.VolumeName) : "Conference";
         }
 
+        private IQueryable<Sezam.Library.EF.Conference> GetConferences(bool IncludeResigned = false)
+        {
+            var userId = session.User.Id;
+            var conferences =
+                session.Db.Conferences
+                    .Include(c => c.UserConf)
+                    .Where(c =>
+                        !c.UserConf.Status.HasFlag(UserConf.UserConfStat.Admin) ||
+                        (!c.Status.HasFlag(ConfStatus.Private) || c.UserConf.Status.HasFlag(UserConf.UserConfStat.Allowed)) &&
+                        !c.Status.HasFlag(ConfStatus.Closed) &&
+                        !c.UserConf.Status.HasFlag(UserConf.UserConfStat.Denied));
+
+            // Default: Restrict to non-resigned
+            if (!IncludeResigned)
+                conferences = conferences
+                    .Where(c =>
+                        !c.UserConf.Status.HasFlag(UserConf.UserConfStat.Resigned));
+
+            return conferences
+                .Include(c => c.ConfTopics
+                    //.Where(t => 
+                    // !string.IsNullOrEmpty(t.Name) &&
+                    //    !t.Status.HasFlag(ConfTopic.TopicStatus.Deleted) &&
+                    //   !t.Status.HasFlag(ConfTopic.TopicStatus.Private)
+                    //)
+                 )
+                .OrderBy(c => c.Name)
+                .ThenBy(c => c.VolumeNo);
+        }
+
         [Command(Aliases = "Show")]
         public void View()
         {
-            string confPattern = session.cmdLine.getToken();
-
-            var conferences = session.Db.Conferences.Include("Topics").AsQueryable();
-
-            if (session.cmdLine.Switch("a"))
-                conferences = conferences.VisibleTo(session.User);
-            else
-                conferences = conferences.ActiveFor(session.User);
-
-            foreach (var g in conferences)
-            {
+            string confPattern = session.cmdLine.GetToken();
+            bool showAll = session.cmdLine.Switch("a");
+            var conferences = GetConferences(showAll)
+                .Where(c => EF.Functions.Like(c.Name, confPattern + "%"));
+            foreach (var g in conferences.DisplayOrder())
                 session.terminal.Line("{0,-16} {1,5} {2:MMM yyyy} - {3:MMM yyyy}",
-                    g.VolumeName, g.Topics.Sum(t => t.NextSequence), g.FromDate, g.ToDate);
+                    g.VolumeName, g.ConfTopics.Sum(t => t.NextSequence), g.FromDate, g.ToDate);
+        }
+
+        private void Unresign()
+        {
+            // Unresign
+            var userConfData = session.User.GetUserConfInfo(currentConference);
+            if (userConfData.Status.HasFlag(UserConf.UserConfStat.Resigned))
+            {
+                userConfData.Status &= ~UserConf.UserConfStat.Resigned;
+                // Show welcome?
+                session.terminal.Line("Welcome to conf {0}", currentConference.Name);
+                session.Db.SaveChanges();
+                Debug.WriteLine(string.Format("Joined conf {0}", currentConference.Name));
             }
         }
 
@@ -54,10 +93,10 @@
         public void Join()
         {
 
-            string userInput = session.cmdLine.getToken();
+            string userInput = session.cmdLine.GetToken();
 
             string confName = string.Empty;
-            int i, volumeNo = 0;
+            int volumeNo = 0;
 
             var regex = new Regex(@"^(.+?)(\.(\d+))?$");
             var match = regex.Match(userInput);
@@ -65,54 +104,39 @@
             {
                 if (match.Groups.Count >= 1)
                     confName = match.Groups[1].Value;
-                if (match.Groups.Count >= 3 && int.TryParse(match.Groups[3].Value, out i))
+                if (match.Groups.Count >= 3 && int.TryParse(match.Groups[3].Value, out int i))
                     volumeNo = i;
             }
 
-            var exactMatch = session.Db.Conferences
-                .VisibleTo(session.User);
-
+            var exactMatch = GetConferences(true);
             if (!string.IsNullOrEmpty(confName))
-                exactMatch = exactMatch.Where(c => c.Name.StartsWith(confName) && c.VolumeNo == volumeNo);
-
-            var conf = exactMatch.FirstOrDefault();
-
+                exactMatch = exactMatch
+                    .Where(c => EF.Functions.Like(c.Name, confName + "%") && c.VolumeNo == volumeNo);
+            var conf = exactMatch
+                .Include(c => c.ConfTopics)
+                .FirstOrDefault();
             if (conf != null)
             {
                 currentConference = conf;
-                // Unresign
-                var userConfData = session.User.getUserConfInfo(currentConference);
-                if (userConfData.Status.HasFlag(UserConf.UserConfStat.Resigned))
-                {
-                    userConfData.Status &= ~UserConf.UserConfStat.Resigned;
-                    // Show welcome?
-                    session.terminal.Line("Welcome to conf {0}", currentConference.Name);
-                    session.Db.SaveChanges();
-                    Debug.WriteLine(string.Format("Joined conf {0}", currentConference.Name));
-                }
+                Unresign();
             }
             else
             {
-                var activeConf = session.Db.Conferences
-                    .ActiveFor(session.User)
-                    .Where(c => c.Name.StartsWith(confName));
-
+                var activeConf = GetConferences(false);               
+                if (!string.IsNullOrEmpty(confName))
+                    activeConf = activeConf.Where(c => EF.Functions.Like(c.Name, confName + "%"));
                 if (volumeNo > 0)
                     activeConf = activeConf.Where(c => c.VolumeNo == volumeNo);
-
                 conf = activeConf
+                    .Include(c => c.ConfTopics)
                     .OrderBy(c => c.Name)
                     .ThenByDescending(c => c.VolumeNo)
                     .FirstOrDefault();
 
                 if (conf != null)
-                {
                     currentConference = conf;
-                }
                 else
-                {
                     session.terminal.Line("Unknown conference {0}", confName);
-                }
             }
         }
 
@@ -122,27 +146,30 @@
             currentConference = null;
         }
 
+        private void MustHaveConf()
+        {
+            if (currentConference == null)
+                throw new ArgumentException("Conference not selected");
+        }
+
         /// <summary>
         ///
         /// </summary>
         /// <returns></returns>
-        private IQueryable<ConfMessage> getConfMsgSelection()
+        private IQueryable<ConfMessage> GetConfMsgSelection()
         {
+            MustHaveConf();
+
             // Filter Files only
             bool filesOnly = session.cmdLine.Switch("f");
 
             // Replies to my messages only
             bool myRepliesOnly = session.cmdLine.Switch("r");
 
+
             // Filter TO (topic)
-            string topicMsgs = session.cmdLine.getToken(1);
-            ConfCmdLineParser.ConfTopicMsgRangeDTO topicMsgRange = null;
-            if (currentConference != null)
-            {
-                topicMsgRange = currentConference.GetTopicMsgRange(topicMsgs, true);
-            }
-            else
-                throw new ArgumentException("Conference not selected");
+            string topicMsgs = session.cmdLine.GetToken(1);
+            var topicMsgRange = currentConference.GetTopicMsgRange(topicMsgs, true);
 
             IQueryable<ConfMessage> messages = session.Db.ConfMessages;
 
@@ -153,9 +180,13 @@
             }
             else
             {
-                var topicIds = session.Db.Topics.Where(t => t.ConferenceId == currentConference.Id).ActiveFor(session.User).Select(t => t.Id).ToList();
-                if (currentConference != null)
-                    messages = messages.Where(m => topicIds.Contains(m.TopicId));
+                messages = messages
+                    .Include(m => m.Topic)
+                    .Where(m => m.Topic.ConferenceId == currentConference.Id
+                        && !string.IsNullOrEmpty(m.Topic.Name)
+                        //&& !m.Topic.Status.HasFlag(ConfTopic.TopicStatus.Deleted)
+                        //&& !m.Topic.Status.HasFlag(ConfTopic.TopicStatus.Private)
+                     );
             }
 
             // Message number range
@@ -181,7 +212,7 @@
             }
 
             // Filter FROM (user)
-            string fromStr = session.cmdLine.getToken(2);
+            string fromStr = session.cmdLine.GetToken(2);
             Library.EF.User fromUser = null;
             if (!string.IsNullOrWhiteSpace(fromStr) && fromStr != "*")
             {
@@ -189,7 +220,7 @@
                     fromUser = session.User;
                 else
                 {
-                    fromUser = session.getUser(fromStr);
+                    fromUser = session.GetUser(fromStr);
                     if (fromUser == null)
                         throw new ArgumentException("Unknown User", fromStr);
                 }
@@ -207,6 +238,7 @@
                 messages = messages.Where(m => m.ParentMessage.AuthorId == session.User.Id);
 
             return messages
+                .Include(m => m.Author)
                 .Where(m => !m.Status.HasFlag(ConfMessage.MessageStatus.Deleted))
                 .OrderBy(m => m.TopicId)
                 .ThenBy(m => m.MsgNo)
@@ -214,34 +246,36 @@
 
         }
 
-        private void confDir(Library.EF.Conference conf, bool showConfName)
+        private void ConfDir(Library.EF.Conference conf)
         {
-            if (showConfName)
-                session.terminal.Line("Conference {0}", conf.VolumeName);
-            var selTopics = conf.Topics.ActiveFor(session.User);
+            var selTopics = conf.ConfTopics;
             foreach (var topic in selTopics.OrderBy(t => t.TopicNo))
                 session.terminal.Line(ConfFormatter.FormatTopic(topic));
-            if (showConfName)
-                session.terminal.Line();
         }
 
         [Command]
         public void Directory()
         {
             if (currentConference != null)
-                confDir(currentConference, false);
+                ConfDir(currentConference);
             else
             {
-                var activeConferences = session.Db.Conferences.ActiveFor(session.User);
+                var activeConferences = GetConferences()
+                    .Include(c => c.ConfTopics)
+                    .DisplayOrder();
                 foreach (var conf in activeConferences)
-                    confDir(conf, true);
+                {
+                    session.terminal.Line("Conference {0}", conf.VolumeName);
+                    ConfDir(conf);
+                    session.terminal.Line();
+                }
             }
         }
 
         [Command]
         public void List()
         {
-            var selection = getConfMsgSelection().AsListDTO();
+            var selection = GetConfMsgSelection().AsListDTO();
             foreach (var confListItem in selection)
                 session.terminal.Line(ConfFormatter.FormatConfMsgList(confListItem));
         }
@@ -249,7 +283,7 @@
         [Command]
         public void Read()
         {
-            var selection = getConfMsgSelection().AsReadDTO();
+            var selection = GetConfMsgSelection().AsReadDTO();
             foreach (var msg in selection)
             {
                 ConfFormatter.ConfMsgRead(session.terminal, msg);
@@ -260,31 +294,28 @@
         public void Topic()
         {
             // Needs to parse a further topic command (from a class?)
+            throw new NotImplementedException();
         }
 
         [Command("RESign")]
         public void RESign()
         {
-            if (currentConference == null)
-            {
-                session.terminal.Line("Niste izabrali konferenciju.");
-                return;
-            }
+            MustHaveConf();
 
-            string topicStr = session.cmdLine.getToken(1);
+            string topicStr = session.cmdLine.GetToken(1);
             var topic = currentConference.GetTopicFromStr(topicStr, false);
 
             if (topic != null)
             {
                 // Resign Topic
-                var utData = session.User.getUserTopicfInfo(topic);
+                var utData = session.User.GetUserTopicfInfo(topic);
                 utData.Status |= UserTopic.UserTopicStat.Resigned;
                 session.terminal.Line("Resigned from topic {0}", topic.Name);
             }
             else
             {
                 // Resign Conference
-                var ucData = session.User.getUserConfInfo(currentConference);
+                var ucData = session.User.GetUserConfInfo(currentConference);
                 ucData.Status |= UserConf.UserConfStat.Resigned;
                 session.terminal.Line("Resigned from conference {0}", currentConference.VolumeName);
                 currentConference = null;
@@ -296,7 +327,7 @@
 
         public void SEEn()
         {
-
+            throw new NotImplementedException();
         }
 
         public Library.EF.Conference currentConference;
@@ -321,7 +352,7 @@
             {
                 sb.Append(string.Format(" -> {0}", topic.RedirectTo.Name));
             }
-            sb.Append(" ");
+            sb.Append(' ');
             sb.Append(string.Join(", ", valStrs));
             return sb.ToString();
         }
@@ -373,10 +404,10 @@
                     topic = m.Topic.Name,
                     topicNo = m.Topic.TopicNo,
                     msgNo = m.MsgNo,
-                    author = m.Author.username,
+                    author = m.Author.Username,
                     time = m.Time,
-                    replyToTopicNo = m.ParentMessage.Topic.TopicNo,
-                    replyToMsgNo = m.ParentMessage.MsgNo,
+                    //replyToTopicNo = m.ParentMessage != null ? m.ParentMessage.Topic.TopicNo : (int?)null,
+                    //replyToMsgNo = m.ParentMessage != null ? m.ParentMessage.MsgNo : (int?)null,
                     filename = m.Filename
                 })
             ;
@@ -392,12 +423,12 @@
                     topic = m.Topic.Name,
                     topicNo = m.Topic.TopicNo,
                     msgNo = m.MsgNo,
-                    author = m.Author.username,
+                    author = m.Author.Username,
                     time = m.Time,
-                    origTime = m.ParentMessage.Time,
-                    replyToAuthor = m.ParentMessage.Author.username,
-                    replyToTopicNo = m.ParentMessage.Topic.TopicNo,
-                    replyToMsgNo = m.ParentMessage.MsgNo,
+                    //origTime = m.ParentMessage.Time,
+                    //replyToAuthor = m.ParentMessage.Author.Username,
+                    //replyToTopicNo = m.ParentMessage.Topic.TopicNo,
+                    //replyToMsgNo = m.ParentMessage.MsgNo,
                     filename = m.Filename,
                     text = m.MessageText.Text
                 })
@@ -466,22 +497,21 @@
                 return null;
 
             // Numeric?
-            int topicNo;
-            if (int.TryParse(topicName, out topicNo))
+            if (int.TryParse(topicName, out int topicNo))
             {
                 // check the number is valid
                 if (topicNo > 0)
                 {
-                    var topic = conf.Topics.Where(t => t.TopicNo == topicNo).FirstOrDefault();
+                    var topic = conf.ConfTopics.Where(t => t.TopicNo == topicNo).FirstOrDefault();
                     if (topic != null)
                         return topic;
                     throw new ArgumentException(string.Format(strings.Conf_UnknownTopic, topicNo));
                 }
             }
 
-            if (conf.Topics.Count(t => t.Name.StartsWith(topicName)) == 1)
+            if (conf.ConfTopics.Count(t => t.Name.StartsWith(topicName)) == 1)
             {
-                var topic = conf.Topics.First(t => t.Name.StartsWith(topicName));
+                var topic = conf.ConfTopics.First(t => t.Name.StartsWith(topicName));
                 return topic;
             }
 

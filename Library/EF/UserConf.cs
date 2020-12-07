@@ -14,18 +14,14 @@ namespace Sezam.Library.EF
             Denied = 4, // Denied access to a public topic
             Admin = 8, // Moderator, Owner
         }
-
-        [Key, Column(Order = 1)]
-        
+     
         public int UserId { get; set; }
 
-        public virtual User user { get; set; }
+        public virtual User User { get; set; }
 
-        [Key, Column(Order = 2)]
-        
         public int ConferenceId { get; set; }
 
-        public virtual Conference conference { get; set; }
+        public virtual Conference Conference { get; set; }
 
         public UserConfStat Status { get; set; }
     }

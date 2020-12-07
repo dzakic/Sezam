@@ -1,32 +1,28 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace Sezam
 {
     class ConsoleLoop
     {
 
-        public ConsoleLoop(Server sezamNet)
+        public ConsoleLoop(Sezam.Server.Server sezamNet)
         {
             server = sezamNet;
         }
 
         public void Start()
         {
-            consoleThread = new Thread(new ThreadStart(consoleLoop));
+            consoleThread = new Thread(new ThreadStart(TreadLoop));
             consoleThread.Start();
         }
 
         public void Stop()
         {
-            consoleThread.Abort();
+            consoleThread.Interrupt();
         }
 
-        private void consoleLoop()
+        private void TreadLoop()
         {
             while (Thread.CurrentThread.IsAlive && Console.WindowHeight + Console.WindowWidth > 0)
             {
@@ -40,7 +36,7 @@ namespace Sezam
             Console.WriteLine("Exiting consoleLoop");
         }
 
-        private Server server;
+        private readonly Sezam.Server.Server server;
         private Thread consoleThread;
         public EventWaitHandle EscPressed = new EventWaitHandle(false, EventResetMode.ManualReset);
     

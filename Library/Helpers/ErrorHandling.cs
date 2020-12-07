@@ -6,14 +6,6 @@ namespace Sezam.Library
 {
     public static class ErrorHandling
     {
-        /*
-        public static void PrintException(SocketException e)
-        {
-           Debug.WriteLine("{0} Socket Exception {1}: {2}", e.Source, e.ErrorCode, e.Message);
-           PrintException(e.InnerException);
-        }
-        */
-
         public static void Handle(Exception e)
         {
             if (e.InnerException is SocketException)

@@ -6,7 +6,7 @@ namespace ZBB
     {
         public static void Read(this Sezam.Library.EF.User u, BinaryReader r)
         {
-            u.username = r.ReadShortString(15);
+            u.Username = r.ReadShortString(15);
 
             char gender = r.ReadChar();
             u.FullName = r.ReadShortString(30);
@@ -17,8 +17,7 @@ namespace ZBB
             u.Phone = r.ReadShortString(10);
             string Company = r.ReadShortString(30);
             u.DateOfBirth = r.ReadShortDate();
-            u.MemberSince = r.ReadDosTime();
-
+            u.MemberSince = r.ReadDosTime();            
             var b1 = r.ReadBytes(10);
 
             u.LastCall = r.ReadDosTime();

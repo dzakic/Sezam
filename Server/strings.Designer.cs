@@ -8,8 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Sezam {
-    using System;
+namespace Sezam.Server {
     
     
     /// <summary>
@@ -22,7 +21,7 @@ namespace Sezam {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class strings {
+    public class strings {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
@@ -36,10 +35,10 @@ namespace Sezam {
         ///   Returns the cached ResourceManager instance used by this class.
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Resources.ResourceManager ResourceManager {
+        public static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Sezam.strings", typeof(strings).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Sezam.Server.strings", typeof(strings).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -51,7 +50,7 @@ namespace Sezam {
         ///   resource lookups using this strongly typed resource class.
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Globalization.CultureInfo Culture {
+        public static global::System.Globalization.CultureInfo Culture {
             get {
                 return resourceCulture;
             }
@@ -63,7 +62,7 @@ namespace Sezam {
         /// <summary>
         ///   Looks up a localized string similar to Connected to Sezam.Net Sydney {0:dd-MMM-yyyy HH:mm:ss}, Node {1}.
         /// </summary>
-        internal static string BannerConnected {
+        public static string BannerConnected {
             get {
                 return ResourceManager.GetString("BannerConnected", resourceCulture);
             }
@@ -72,7 +71,7 @@ namespace Sezam {
         /// <summary>
         ///   Looks up a localized string similar to Unrecoverable error. This sucks. {0}.
         /// </summary>
-        internal static string ErrorUnrecoverable {
+        public static string ErrorUnrecoverable {
             get {
                 return ResourceManager.GetString("ErrorUnrecoverable", resourceCulture);
             }
@@ -81,7 +80,7 @@ namespace Sezam {
         /// <summary>
         ///   Looks up a localized string similar to Password.
         /// </summary>
-        internal static string Login_Password {
+        public static string Login_Password {
             get {
                 return ResourceManager.GetString("Login_Password", resourceCulture);
             }
@@ -90,7 +89,7 @@ namespace Sezam {
         /// <summary>
         ///   Looks up a localized string similar to PIN.
         /// </summary>
-        internal static string Login_PIN {
+        public static string Login_PIN {
             get {
                 return ResourceManager.GetString("Login_PIN", resourceCulture);
             }
@@ -99,7 +98,7 @@ namespace Sezam {
         /// <summary>
         ///   Looks up a localized string similar to Unknown user. Goodbye..
         /// </summary>
-        internal static string Login_UnknownUser {
+        public static string Login_UnknownUser {
             get {
                 return ResourceManager.GetString("Login_UnknownUser", resourceCulture);
             }
@@ -108,7 +107,7 @@ namespace Sezam {
         /// <summary>
         ///   Looks up a localized string similar to Username.
         /// </summary>
-        internal static string Login_Username {
+        public static string Login_Username {
             get {
                 return ResourceManager.GetString("Login_Username", resourceCulture);
             }
@@ -119,7 +118,7 @@ namespace Sezam {
         ///Za početni pristup sistemu, ukucaj četiri cifre svog roduma rodjenja u formatu DDMM (dve cifre dan, dve cifre mesec).
         ///.
         /// </summary>
-        internal static string Login_WelcomeNoPassword {
+        public static string Login_WelcomeNoPassword {
             get {
                 return ResourceManager.GetString("Login_WelcomeNoPassword", resourceCulture);
             }
@@ -128,7 +127,7 @@ namespace Sezam {
         /// <summary>
         ///   Looks up a localized string similar to Press ESC key to stop the server.
         /// </summary>
-        internal static string PressEscToStop {
+        public static string PressEscToStop {
             get {
                 return ResourceManager.GetString("PressEscToStop", resourceCulture);
             }
@@ -137,7 +136,7 @@ namespace Sezam {
         /// <summary>
         ///   Looks up a localized string similar to Dobrodošli {0}, vaš poslednji poziv je bio {1:dd MMM yyyy}.
         /// </summary>
-        internal static string WelcomeUserLastCall {
+        public static string WelcomeUserLastCall {
             get {
                 return ResourceManager.GetString("WelcomeUserLastCall", resourceCulture);
             }

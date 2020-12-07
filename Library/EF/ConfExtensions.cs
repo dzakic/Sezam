@@ -22,7 +22,7 @@ namespace Sezam.Library.EF
                 );
         }
 
-        public static IEnumerable<ConfTopic> ActiveFor(this IEnumerable<ConfTopic> topics, User u)
+        public static IQueryable<ConfTopic> ActiveFor(this IQueryable<ConfTopic> topics, User u)
         {
             return topics
                 .Where(t => !string.IsNullOrEmpty(t.Name)
@@ -32,46 +32,12 @@ namespace Sezam.Library.EF
                 );
         }
 
-
-        public static IQueryable<Conference> VisibleTo(this IQueryable<Conference> conferences, User u)
+        public static IQueryable<Conference> DisplayOrder(this IQueryable<Conference> conferences)
         {
-            var deniedConfIds = u.UserConfs.AsQueryable()
-                .Where(uc => uc.Status.HasFlag(UserConf.UserConfStat.Denied))
-                .Select(uc => uc.ConferenceId);
-
-            return
-                from c in conferences
-                where !string.IsNullOrEmpty(c.Name)
-                    && !deniedConfIds.Contains(c.Id)
-                    && !c.Status.HasFlag(ConfStatus.Private)
-                    && !c.Status.HasFlag(ConfStatus.Closed)
-                select c;
+            return conferences
+                .OrderBy(c => c.Name)
+                .ThenBy(c => c.VolumeNo);
         }
 
-        public static IQueryable<Conference> ActiveFor(this IQueryable<Conference> conferences, User u)
-        {
-            var resignedConfIds = u.UserConfs.AsQueryable()
-                .Where(uc => uc.Status.HasFlag(UserConf.UserConfStat.Resigned))
-                .Select(uc => uc.ConferenceId);
-
-            return
-                from c in conferences
-                where !resignedConfIds.Contains(c.Id)
-                    && !c.Status.HasFlag(ConfStatus.Closed)
-                orderby c.Name, c.VolumeNo
-                select c;
-        }
-
-        /// <summary>
-        /// TODO
-        /// </summary>
-        /// <param name="conferences"></param>
-        /// <param name="u"></param>
-        /// <returns></returns>
-        public static IEnumerable<Conference> Current(this IQueryable<Conference> conferences, User u)
-        {
-            // todo if currentConf then return currentConf, else all Active
-            return conferences.ActiveFor(u);
-        }
     }
 }

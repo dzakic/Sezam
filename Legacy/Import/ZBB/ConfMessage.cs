@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Linq;
 
 namespace ZBB
 {
@@ -8,14 +7,16 @@ namespace ZBB
     {
         public static Sezam.Library.EF.ConfMessage ToEFConfMessage(this ConfMessage zbbConfMsg)
         {
-            var msg = new Sezam.Library.EF.ConfMessage();
-            msg.Topic = zbbConfMsg.Topic?.EFTopic;
-            msg.MsgNo = zbbConfMsg.MsgNo;
-            msg.Time = zbbConfMsg.Time;
-            msg.MessageText = new Sezam.Library.EF.MessageText() { Text = zbbConfMsg.Text };
-            msg.ParentMessage = zbbConfMsg.ParentMsg?.EFConfMessage;
-            msg.Status = (Sezam.Library.EF.ConfMessage.MessageStatus)zbbConfMsg.status;
-            msg.Filename = zbbConfMsg.Filename;
+            var msg = new Sezam.Library.EF.ConfMessage
+            {
+                Topic = zbbConfMsg.Topic?.EFTopic,
+                MsgNo = zbbConfMsg.MsgNo,
+                Time = zbbConfMsg.Time,
+                MessageText = new Sezam.Library.EF.MessageText() { Text = zbbConfMsg.Text },
+                ParentMessageId = zbbConfMsg.ParentMsg?.EFConfMessage?.Id,
+                Status = (Sezam.Library.EF.ConfMessage.MessageStatus)zbbConfMsg.status,
+                Filename = zbbConfMsg.Filename
+            };
             zbbConfMsg.EFConfMessage = msg;
             return msg;
         }
@@ -47,7 +48,7 @@ namespace ZBB
         public void Import(BinaryReader hdr)
         {
             // From, To
-            author = sanitiseAuthor(hdr.ReadShortString(15));
+            author = SanitiseAuthor(hdr.ReadShortString(15));
             topicNo = hdr.ReadByte();
 
             // Text
@@ -72,7 +73,7 @@ namespace ZBB
                 Conference.Topics[topicNo - 1] : null;
         }
 
-        private string sanitiseAuthor(string user) 
+        private string SanitiseAuthor(string user) 
         {
             if (string.IsNullOrWhiteSpace(user)
                 || user.Contains('?')
@@ -82,7 +83,7 @@ namespace ZBB
             return user;
         }
 
-        public bool isDeleted()
+        public bool IsDeleted()
         {
             return (status & MsgStatus.Deleted) != 0 || topicNo == 0;
         }
@@ -139,7 +140,7 @@ namespace ZBB
         // Display number, id within the topic
         public int MsgNo;
 
-        private ConferenceVolume Conference;
+        private readonly ConferenceVolume Conference;
 
         // EF
         public Sezam.Library.EF.ConfMessage EFConfMessage;

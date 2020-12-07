@@ -3,10 +3,11 @@
 
     using System;
     using System.Collections.Generic;
-    using System.Diagnostics;
     using System.Linq;
     using System.Reflection;
     using Sezam.Library;
+    using Sezam.Server;
+
 
     /// <summary>
     /// Executing instance of the class.
@@ -26,7 +27,7 @@
             if (cmdSet != null)
             {
                 // get next command, to be executed
-                cmd = session.cmdLine.getToken();
+                cmd = session.cmdLine.GetToken();
                 if (cmd.HasValue())
                 {
                     // execute command in the context of cmdSet
@@ -41,33 +42,27 @@
                 return true;
             }
 
-
-            MethodInfo command = GetCommandMethod(cmd);
-            if (command != null)
-            {
-                InvokeCommand(command);
-                return true;
-            }
-            else
-                return false;
+            return InvokeCommand(cmd);
         }
 
-        private void InvokeCommand(MethodInfo command)
+        // Returns true if command was found and executed
+        private bool InvokeCommand(string cmd)
         {
+            MethodInfo command = GetCommandMethod(cmd);
+            if (command == null)
+                return false;
             try
             {
                 command.Invoke(this, null);
             }
-            catch (Exception e)
+            catch (TargetInvocationException e)
             {
-                if (e is TargetInvocationException)
-                    throw e.InnerException;
-                else
-                    throw;
+                throw e.InnerException;
             }
+            return true;
         }
 
-        protected static string getDisplayName(Type type)
+        protected static string GetDisplayName(Type type)
         {
             CommandAttribute cmdAttr = type.GetCustomAttribute(typeof(CommandAttribute)) as CommandAttribute;
             return cmdAttr?.DisplayName == null ? type.Name : cmdAttr.DisplayName;
@@ -75,7 +70,7 @@
 
         private string DisplayName()
         {
-            return getDisplayName(GetType());
+            return GetDisplayName(GetType());
         }
 
         // Might need to recurse to parent...
@@ -94,12 +89,12 @@
         public virtual void Help()
         {
             session.terminal.Line("== {0} HELP ==", DisplayName().ToUpper());
-            foreach (var cmdSet in getCommandSets())
+            foreach (var cmdSet in GetCommandSets())
             {
                 session.terminal.Line("* {0}",
                     cmdSet.Name.ToUpper());
             }
-            foreach (var method in getMethods())
+            foreach (var method in GetMethods())
             {
                 string line = method.Name;
                 string aliases = string.Join(", ", method.GetAliases());
@@ -111,13 +106,13 @@
 
         public MethodInfo GetCommandMethod(string cmd)
         {
-            string cmdFound = partialMatch(Catalog.Keys, cmd);
+            string cmdFound = PartialMatch(Catalog.Keys, cmd);
             if (cmdFound != null)
                 return Catalog[cmdFound] as MethodInfo;
             return null;
         }
 
-        private static bool partialMatch(string command, string cmd)
+        private static bool PartialMatch(string command, string cmd)
         {
             bool match = command.StartsWith(cmd, true, System.Globalization.CultureInfo.CurrentCulture);
             if (match)
@@ -129,11 +124,11 @@
             return match;
         }
 
-        private static string partialMatch(IEnumerable<string> strings, string cmd)
+        private static string PartialMatch(IEnumerable<string> strings, string cmd)
         {
-            if (strings.Count(s => partialMatch(s, cmd)) == 1)
+            if (strings.Count(s => PartialMatch(s, cmd)) == 1)
             {
-                return strings.First(s => partialMatch(s, cmd));
+                return strings.First(s => PartialMatch(s, cmd));
             }
             return null;
         }
@@ -151,21 +146,21 @@
                 // First access
                 lock (setCatalogs)
                 {
-                    var catalog = getCatalog();
+                    var catalog = GetCatalog();
                     setCatalogs.Add(type, catalog);
                     return catalog;
                 }
             }
         }
 
-        private Dictionary<string, object> getCatalog()
+        private Dictionary<string, object> GetCatalog()
         {
             var catalog = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
             // populate with self reflected CommandSets
-            foreach (var cmdSet in getCommandSets())
+            foreach (var cmdSet in GetCommandSets())
                 catalog.Add(cmdSet.Name, cmdSet.ReturnType);
             // populate with self reflected Methods (with aliases)
-            foreach (var method in getMethods())
+            foreach (var method in GetMethods())
             {
                 catalog.Add(method.Name, method);
                 foreach (string alias in method.GetAliases())
@@ -182,7 +177,7 @@
                 // cmdSet = session.rootCmdSet...
             }
 
-            string cmdSetName = partialMatch(Catalog.Keys, cmd);
+            string cmdSetName = PartialMatch(Catalog.Keys, cmd);
             if (cmdSetName == null)
                 return null;
             Type cmdSetType = Catalog[cmdSetName] as Type;
@@ -199,7 +194,7 @@
                 rootType : null;
         }        
 
-        private IEnumerable<MethodInfo> getMethods()
+        private IEnumerable<MethodInfo> GetMethods()
         {
             return
              from method in this.GetType().GetRuntimeMethods()
@@ -209,7 +204,7 @@
              select method;
         }
 
-        private IEnumerable<MethodInfo> getCommandSets()
+        private IEnumerable<MethodInfo> GetCommandSets()
         {
             return
              from method in this.GetType().GetRuntimeMethods()
@@ -221,23 +216,24 @@
         #endregion
 
         // string -> MethodInfo or CommandSet type
-        private static Dictionary<Type, Dictionary<string, object>> setCatalogs =
+        private static readonly Dictionary<Type, Dictionary<string, object>> setCatalogs =
             new Dictionary<Type, Dictionary<string, object>>();
 
         public Session session;
 
         #region Helper functions (protected)
 
+        // TODO: Move to session, this can be useful elsewhere
         /// <summary>
         /// Get user from command line
         /// </summary>
         /// <returns></returns>
-        protected Library.EF.User getRequiredUser()
+        protected Library.EF.User GetRequiredUser()
         {
-            var username = session.cmdLine.getToken();
+            var username = session.cmdLine.GetToken();
             if (!username.HasValue())
                 throw new ArgumentException("Username required");
-            Library.EF.User user = session.getUser(username);
+            Library.EF.User user = session.GetUser(username);
             if (user == null)
                 throw new ArgumentException("Unknown user {0}", username);
             return user;

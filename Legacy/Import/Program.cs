@@ -1,7 +1,7 @@
-﻿using Newtonsoft.Json;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Sezam.Library;
 using System;
-using System.Data.Entity.Validation;
 using System.Diagnostics;
 using System.IO;
 
@@ -15,9 +15,25 @@ namespace ZBB
 
             Trace.Listeners.Add(new DebugListener());
 
-            var dataFolder = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "Data");
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+
+
+            var builder = new ConfigurationBuilder();
+            builder.AddJsonFile("appsettings.json", optional: true);
+            var configuration = builder.Build();
+            Sezam.Library.DataStore.ServerName = configuration.GetConnectionString("ServerName");
+
+            string dataFolder = configuration["Data:Folder"]
+                ?? Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "Data");
+
 
             var importer = new Importer(dataFolder);
+
+            using (var dbx = Sezam.Library.DataStore.GetNewContext())
+            {
+                dbx.Database.Migrate();
+                dbx.Database.EnsureCreated();
+            }
 
             try
             {
@@ -27,14 +43,13 @@ namespace ZBB
                 // Conferences
                 importer.ImportConferences();
             }
-            catch (DbEntityValidationException valEx)
-            {
-                foreach (var err in valEx.EntityValidationErrors)
-                {
-                    Console.WriteLine(JsonConvert.SerializeObject(err,
-                        new JsonSerializerSettings() { ReferenceLoopHandling = ReferenceLoopHandling.Ignore }));
-                }
-            }
+            //catch (DbEntityValidationException valEx)
+            //{
+            //    foreach (var err in valEx.EntityValidationErrors)
+            //    {
+            //        Console.WriteLine(err);
+            //    }
+            //}
             catch (Exception e)
             {
                 ErrorHandling.PrintException(e);

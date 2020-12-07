@@ -1,31 +1,21 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Sezam.Commands
 {
     public class CommandAttribute : Attribute
     {
-        public string DisplayName { get; private set; }
+        private string displayName;
+        private string aliases;
 
-        public string Aliases { get; set; }
+        public string DisplayName { get => displayName; private set => displayName = value; }
 
-        public CommandAttribute()
-        {
-            DisplayName = null;
-        }
+        public string Aliases { get => aliases; set => aliases = value; }
 
-        public CommandAttribute(string name)
-        {
-            this.DisplayName = name;
-        }
+        public CommandAttribute() => displayName = null;
 
-        public string[] getAliases()
-        {
-            return Aliases.Split(',');
-        }
+        public CommandAttribute(string name) => displayName = name;
+
+        public string[] GetAliases() => aliases.Split(',');
     }
 
 
