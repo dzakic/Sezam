@@ -5,7 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 
-namespace Sezam.Library.EF
+namespace Sezam.Data.EF
 {
     [Flags]
     public enum ConfStatus

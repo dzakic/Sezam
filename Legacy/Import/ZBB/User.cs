@@ -4,24 +4,24 @@ namespace ZBB
 {
     public static class UserReader
     {
-        public static void Read(this Sezam.Library.EF.User u, BinaryReader r)
+        public static void Read(this Sezam.Data.EF.User u, BinaryReader r)
         {
             u.Username = r.ReadShortString(15);
 
-            char gender = r.ReadChar();
+            _ = r.ReadChar(); // gender
             u.FullName = r.ReadShortString(30);
             u.StreetAddress = r.ReadShortString(35);
             u.PostCode = r.ReadShortString(5);
             u.City = r.ReadShortString(16);
             u.AreaCode = r.ReadShortString(4);
             u.Phone = r.ReadShortString(10);
-            string Company = r.ReadShortString(30);
+            u.Company = r.ReadShortString(30);
             u.DateOfBirth = r.ReadShortDate();
             u.MemberSince = r.ReadDosTime();            
-            var b1 = r.ReadBytes(10);
+            _ = r.ReadBytes(10);
 
             u.LastCall = r.ReadDosTime();
-            var DayTime = r.ReadInt32();
+            _ = r.ReadInt32(); // DayTime ?
             u.PaidUntil = r.ReadShortDate();
 
             r.ReadBytes(13 * 4 + 16 + 5 * 4 + 14 + 16 + 18);

@@ -17,11 +17,13 @@ namespace Sezam
             Trace.Listeners.Add(new TextWriterTraceListener(Console.Out));
 
             var builder = new ConfigurationBuilder();
-            builder.AddJsonFile("appsettings.json", optional: true);
+            builder
+                .AddJsonFile("appsettings.json", optional: true)
+                .AddJsonFile("appsettings-secrets.json", optional: true);
             var configuration = builder.Build();
 
             // start listener
-            using (sezamNet = new Sezam.Server.Server(configuration))
+            using (sezamNet = new Server(configuration))
             {
                 var console = new ConsoleLoop(sezamNet);
                 console.Start();
@@ -39,7 +41,7 @@ namespace Sezam
             }
         }
 
-        private static Sezam.Server.Server sezamNet;
+        private static Server sezamNet;
         // private readonly EventWaitHandle KeyExit = new EventWaitHandle(false, EventResetMode.ManualReset);
 
     }

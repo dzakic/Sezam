@@ -1,6 +1,4 @@
-﻿using Sezam.Server;
-
-namespace Sezam.Commands
+﻿namespace Sezam.Commands
 {
     [Command]
     public class Mail : CommandSet

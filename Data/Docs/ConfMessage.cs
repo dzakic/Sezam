@@ -3,13 +3,9 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace Sezam.Library.EF
+namespace Sezam.Data.CB
 {
-    [Index("AuthorId", "TopicId", "MsgNo", IsUnique = false)]
-    [Index("TopicId", "AuthorId", "MsgNo", IsUnique = false)]
-    [Index("TopicId", "MsgNo", IsUnique = false)]
-    [Index("Time")]
-    [Index("Filename")]
+
     public class ConfMessage
     {
         [Flags]
@@ -26,8 +22,6 @@ namespace Sezam.Library.EF
             Deleted = UserDeleted | ModeratorDeleted | SysadmDeleted
         }
 
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; private set; }
 
         public virtual User Author { get; set; }
@@ -57,7 +51,7 @@ namespace Sezam.Library.EF
 
         public bool IsDeleted => (Status.HasFlag(MessageStatus.Deleted));
 
-        public virtual MessageText MessageText { get; set; }
+        public string MessageText { get; set; }
 
         public string TopicName()
         {

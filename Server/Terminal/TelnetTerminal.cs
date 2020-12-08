@@ -159,26 +159,26 @@ namespace Sezam
                 tcpClient.Close();
         }
 
-        private void fillInputBuffer()
+        private void FillInputBuffer()
         {
             if (inputPos >= inputLen)
             {
                 inputLen = netStream.Read(inputBytes, 0, inputBytes.Length);
                 if (inputLen == 0)
-                    throw new TerminalException(TerminalException.Code.ClientDisconnected);
+                    throw new TerminalException(TerminalException.CodeType.ClientDisconnected);
                 inputPos = 0;
             }
         }
 
-        private byte peekByteFromNetworkStream()
+        private byte PeekByteFromNetworkStream()
         {
-            fillInputBuffer();
+            FillInputBuffer();
             return inputBytes[inputPos];
         }
 
-        private byte getByteFromNetworkStream()
+        private byte GetByteFromNetworkStream()
         {
-            fillInputBuffer();
+            FillInputBuffer();
             return inputBytes[inputPos++];
         }
 
@@ -189,14 +189,14 @@ namespace Sezam
     // if command in (will, wont)
     //    if (confirmation != desired) send request(desired) else silent
 
-    private void processTelnetCommands()
+    private void ProcessTelnetCommands()
         {
-            int next = peekByteFromNetworkStream();
+            int next = PeekByteFromNetworkStream();
             Debug.Assert(next == (byte)Command.IAC, "We should not be here if telnet command not pending");
             while (next == (byte)Command.IAC)
             {
-                Command iac = (Command)getByteFromNetworkStream();
-                Command cmd = (Command)getByteFromNetworkStream();
+                Command iac = (Command)GetByteFromNetworkStream();
+                Command cmd = (Command)GetByteFromNetworkStream();
                 Option opt = Option.NONE;
                 switch (cmd)
                 {
@@ -204,7 +204,7 @@ namespace Sezam
                     case Command.DONT:
                     case Command.WILL:
                     case Command.WONT:
-                        opt = (Option)getByteFromNetworkStream();
+                        opt = (Option)GetByteFromNetworkStream();
                         Debug.Write("[CLIENT: " + cmd.ToString() + " " + opt.ToString() + "] ");
                         TelnetOption telOpt = telnetOptions.Where(topt => topt.opt == opt).FirstOrDefault();
                         if (telOpt != null)
@@ -229,26 +229,26 @@ namespace Sezam
                         break;
 
                     case Command.SB:
-                        processSubnegotiation();
+                        ProcessSubnegotiation();
                         break;
 
                     default:
                         break;
                 }
-                next = peekByteFromNetworkStream();
+                next = PeekByteFromNetworkStream();
             }
         }
 
-        private void processSubnegotiation()
+        private void ProcessSubnegotiation()
         {
-            Option opt = (Option)getByteFromNetworkStream();
+            Option opt = (Option)GetByteFromNetworkStream();
             List<byte> negotiationStr = new List<byte>();
             while (Connected)
             {
-                byte b = getByteFromNetworkStream();
-                if (b == (byte)Command.IAC && peekByteFromNetworkStream() == (byte)Command.SE)
+                byte b = GetByteFromNetworkStream();
+                if (b == (byte)Command.IAC && PeekByteFromNetworkStream() == (byte)Command.SE)
                 {
-                    b = getByteFromNetworkStream(); // pop peeked SE
+                    b = GetByteFromNetworkStream(); // pop peeked SE
                     // Trace.TraceInformation("TELNET Got SB " + opt.ToString() + " " + BitConverter.ToString(negotiationStr.ToArray()) + " SE.");
                     switch (opt)
                     {
@@ -270,21 +270,21 @@ namespace Sezam
 
         protected override char ReadChar()
         {
-            byte peekChr = peekByteFromNetworkStream();
+            byte peekChr = PeekByteFromNetworkStream();
             switch (peekChr)
             {
                 case (byte)Command.IAC:
-                    processTelnetCommands();
+                    ProcessTelnetCommands();
                     break;
                 case 13:
-                    getByteFromNetworkStream();
-                    if (peekByteFromNetworkStream() == 10)
-                        getByteFromNetworkStream();
+                    GetByteFromNetworkStream();
+                    if (PeekByteFromNetworkStream() == 10)
+                        GetByteFromNetworkStream();
                     return '\r';
             }
             // TODO Is it excessive to decode all buffered chars?
             char[] chars = Encoding.UTF8.GetChars(inputBytes, inputPos, inputLen - inputPos);
-            if (chars.Count() == 0)
+            if (chars.Length == 0)
                 return (char)0;
             char[] char1 = new char[1] { chars[0] };
             int len = Encoding.UTF8.GetByteCount(char1);
@@ -292,31 +292,30 @@ namespace Sezam
             return chars[0];
         }
 
-        private void sendANSI(char code, params string[] parameters)
+        private void SendANSI(char code, params string[] parameters)
         {
-            const char Esc = (char)27;
             Out.Write(Esc + "[" + string.Join(";", parameters) + code);
         }
 
         public override void ClearScreen()
         {
-            sendANSI('J', "2");
+            SendANSI('J', "2");
         }
 
         public override void ClearToEOL()
         {
-            sendANSI('K');
+            SendANSI('K');
         }
 
         public void ClearLine()
         {
-            sendANSI('K', "2");
+            SendANSI('K', "2");
         }
 
-        private byte[] inputBytes = new byte[256];
+        private readonly byte[] inputBytes = new byte[256];
         private int inputLen = 0;
         private int inputPos = 0;
-        private TcpClient tcpClient;
-        private NetworkStream netStream;
+        private readonly TcpClient tcpClient;
+        private readonly NetworkStream netStream;
     }
 }

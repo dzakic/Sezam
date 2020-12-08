@@ -9,19 +9,19 @@ namespace Sezam
     [Serializable]
     internal class TerminalException : Exception
     {
-        public enum Code
+        public enum CodeType
         {
             ClientDisconnected = 1,
             UserOutputInterrupted = 2
         }
 
-        public TerminalException(Code code) :
+        public TerminalException(CodeType code) :
            base("")
         {
-            this.code = code;
+            this.Code = code;
         }
 
-        public Code code { get; private set; }
+        public CodeType Code { get; private set; }
     }
 
     [Flags]
@@ -59,6 +59,9 @@ namespace Sezam
 
     public abstract class Terminal
     {
+
+        public const char Esc = (char)27;
+
         public void Line(string Message = "")
         {
             Out.WriteLine(Message);
@@ -86,7 +89,7 @@ namespace Sezam
                         break;
 
                     case 1:
-                        throw new TerminalException(TerminalException.Code.UserOutputInterrupted);
+                        throw new TerminalException(TerminalException.CodeType.UserOutputInterrupted);
                     case 2:
                         lineCount = 0;
                         break;
@@ -101,7 +104,7 @@ namespace Sezam
         public void Text(string Text)
         {
             string[] Lines = Text.Split(new string[] { "\r\n" }, StringSplitOptions.None);
-            foreach (string line in Lines.Take(Lines.Count() - 1))
+            foreach (string line in Lines.Take(Lines.Length - 1))
             {
                 Out.WriteLine(line);
                 LineFinished();
@@ -129,10 +132,7 @@ namespace Sezam
             if (!string.IsNullOrWhiteSpace(prompt))
                 Out.Write(prompt + "? ");
 
-            Out.Write("[");
-            for (int i = 0; i < options.Count() - 1; i++)
-                Out.Write(options[i] + "/");
-            Out.Write(options[options.Count() - 1] + "] ");
+            Out.Write("[" + string.Join('/', options) + "] ");
 
             Out.Flush();
 
@@ -174,14 +174,14 @@ namespace Sezam
                 // Trace.Write(string.Format("[Debug:ReadChar=%{0}]", (byte)c));
                 switch (c)
                 {
-                    case (char)27:
+                    case Esc:
                         c = ReadChar();
                         if (c == '~') // DEL
                         { 
-                            if (line.Count() > 0)
+                            if (line.Length > 0)
                             {
                                 Out.Write("\b \b");
-                                line = line.Remove(line.Count() - 1, 1);
+                                line = line.Remove(line.Length - 1, 1);
                             }
                         }
                         if (c == '[')
@@ -190,10 +190,10 @@ namespace Sezam
                     case (char)127:
                     case '\b':
                         // Backspace
-                        if (line.Count() > 0)
+                        if (line.Length > 0)
                         {
                             Out.Write("\b \b");
-                            line = line.Remove(line.Count() - 1, 1);
+                            line = line.Remove(line.Length - 1, 1);
                         }
                         break;
                     // Ignore non-printables

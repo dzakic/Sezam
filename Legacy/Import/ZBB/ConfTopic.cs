@@ -5,17 +5,17 @@ namespace ZBB
 {
     public static partial class Converters
     {
-        public static Sezam.Library.EF.ConfTopic ToEFTopic(this ConfTopic zbbTopic)
+        public static Sezam.Data.EF.ConfTopic ToEFTopic(this ConfTopic zbbTopic)
         {
-            var topic = new Sezam.Library.EF.ConfTopic
+            var topic = new Sezam.Data.EF.ConfTopic
             {
                 Name = zbbTopic.Name,
                 TopicNo = zbbTopic.TopicNo
             };
             if (zbbTopic.IsDeleted)
-                topic.Status |= Sezam.Library.EF.ConfTopic.TopicStatus.Deleted;
+                topic.Status |= Sezam.Data.EF.ConfTopic.TopicStatus.Deleted;
             if (zbbTopic.IsReadOnly)
-                topic.Status |= Sezam.Library.EF.ConfTopic.TopicStatus.ReadOnly;
+                topic.Status |= Sezam.Data.EF.ConfTopic.TopicStatus.ReadOnly;
             zbbTopic.EFTopic = topic;
             return topic;
         }
@@ -62,6 +62,6 @@ namespace ZBB
         public ConferenceVolume conf;
 
         // EF
-        public Sezam.Library.EF.ConfTopic EFTopic;
+        public Sezam.Data.EF.ConfTopic EFTopic;
     }
 }

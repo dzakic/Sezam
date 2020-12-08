@@ -4,16 +4,15 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Sezam.Library;
 
 namespace ZBB
 {
     public static partial class Converters
     {
-        public static Sezam.Library.EF.Conference ToEFConf(this ZBB.ConferenceVolume zbbconf, Sezam.Library.EF.Conference conf = null)
+        public static Sezam.Data.EF.Conference ToEFConf(this ZBB.ConferenceVolume zbbconf, Sezam.Data.EF.Conference conf = null)
         {
             if (conf == null)
-                conf = new Sezam.Library.EF.Conference();
+                conf = new Sezam.Data.EF.Conference();
 
             conf.Name = zbbconf.NameOnly;
             conf.VolumeNo = zbbconf.VolumeNumber;
@@ -45,7 +44,7 @@ namespace ZBB
             }
 
             Debug.WriteLine("Reading messages...");
-            Sezam.Library.EF.ConfTopic unknownTopic = null;
+            Sezam.Data.EF.ConfTopic unknownTopic = null;
             foreach (var zbbConfMsg in zbbconf.Messages)
             {
                 var msg = zbbConfMsg.ToEFConfMessage();
@@ -53,13 +52,13 @@ namespace ZBB
                 {
                     if (unknownTopic == null)
                     {
-                        unknownTopic = new Sezam.Library.EF.ConfTopic
+                        unknownTopic = new Sezam.Data.EF.ConfTopic
                         {
                             Name = "unknown",
                             TopicNo = ZBB.ConferenceVolume.MaxTopics + 1,
                             Status = 
-                                Sezam.Library.EF.ConfTopic.TopicStatus.Deleted |
-                                Sezam.Library.EF.ConfTopic.TopicStatus.Private
+                                Sezam.Data.EF.ConfTopic.TopicStatus.Deleted |
+                                Sezam.Data.EF.ConfTopic.TopicStatus.Private
                         };
                         conf.ConfTopics.Add(unknownTopic);
                     }
@@ -74,16 +73,16 @@ namespace ZBB
             conf.ToDate = zbbconf.GetNewestMessage()?.Time;
 
             if (zbbconf.IsAnonymousAllowed)
-                conf.Status |= Sezam.Library.EF.ConfStatus.AnonymousAllowed;
+                conf.Status |= Sezam.Data.EF.ConfStatus.AnonymousAllowed;
 
             if (zbbconf.IsClosed)
-                conf.Status |= Sezam.Library.EF.ConfStatus.Closed;
+                conf.Status |= Sezam.Data.EF.ConfStatus.Closed;
 
             if (zbbconf.IsPrivate)
-                conf.Status |= Sezam.Library.EF.ConfStatus.Private;
+                conf.Status |= Sezam.Data.EF.ConfStatus.Private;
 
             if (zbbconf.IsReadOnly)
-                conf.Status |= Sezam.Library.EF.ConfStatus.ReadOnly;
+                conf.Status |= Sezam.Data.EF.ConfStatus.ReadOnly;
 
             foreach (var t in conf.ConfTopics)
             {
@@ -229,7 +228,7 @@ namespace ZBB
                 }
                 catch (Exception e)
                 {
-                    ErrorHandling.PrintException(e);
+                    Sezam.ErrorHandling.PrintException(e);
                     return;
                 }
         }
@@ -273,8 +272,12 @@ namespace ZBB
 
                     if (Ndxs[id].MsgNo != -1)
                         msg.MsgNo = Ndxs[id].MsgNo;
-                    if (msg.ReplyTo == 0)
-                        msg.ReplyTo = Ndxs[id].ReplyTo;
+
+                    if (msg.ReplyTo != 0 && Ndxs[id].ReplyTo != -1)
+                        if (msg.ReplyTo != Ndxs[id].ReplyTo)
+                            Debug.WriteLine("Mismatch in replyto ({0} vs {1} for " + msg, msg.ReplyTo, Ndxs[id].ReplyTo);
+
+                    msg.ReplyTo = Ndxs[id].ReplyTo;
                     if (msg.ReplyTo >= 0 && id > 0)
                     {
                         msg.ParentMsg =
@@ -295,7 +298,7 @@ namespace ZBB
                 }
                 catch (Exception e)
                 {
-                    ErrorHandling.PrintException(e);
+                    Sezam.ErrorHandling.PrintException(e);
                 }
             Debug.WriteLine(String.Format("{0,-22}: {1,2} topics, {2,5} messages, {3,5} deleted",
                Name, Topics.Count(t => !t.IsDeleted), id, DeletedCount));
@@ -358,6 +361,6 @@ namespace ZBB
         { get { return (Status & ConfStatus.ReadOnly) != 0; } }
 
         // EF back link
-        public Sezam.Library.EF.Conference EFConference;
+        public Sezam.Data.EF.Conference EFConference;
     }
 }

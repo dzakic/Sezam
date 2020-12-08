@@ -1,13 +1,14 @@
-﻿using Sezam.Commands;
-using Sezam.Library;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using Sezam.Data;
+using Sezam.Data.EF;
+using Sezam.Commands;
 
-namespace Sezam.Server
+namespace Sezam
 {
     public class Session : ISession
     {
@@ -42,11 +43,11 @@ namespace Sezam.Server
                         }
                         catch (TerminalException e)
                         {
-                            switch (e.code)
+                            switch (e.Code)
                             {
-                                case TerminalException.Code.ClientDisconnected:
+                                case TerminalException.CodeType.ClientDisconnected:
                                     throw;
-                                case TerminalException.Code.UserOutputInterrupted:
+                                case TerminalException.CodeType.UserOutputInterrupted:
                                     continue;
                             }
                         }
@@ -115,12 +116,12 @@ namespace Sezam.Server
         /// </summary>
         /// <param name="username"></param>
         /// <returns></returns>
-        public Library.EF.User GetUser(string username)
+        public User GetUser(string username)
         {
             return Db.Users.Where(u => u.Username == username).FirstOrDefault();
         }
 
-        private Library.EF.User Login()
+        private User Login()
         {
             const int NUM_RETRIES = 3;
             int userTryCount = 0;
@@ -261,7 +262,7 @@ namespace Sezam.Server
         public CommandLine cmdLine = null;
         public int NodeNo { get; private set; }
 
-        public Library.EF.User User;
+        public User User;
         public DateTime ConnectTime;
         public DateTime LoginTime;
 
@@ -273,7 +274,7 @@ namespace Sezam.Server
 
         public ITerminal terminal;
 
-        public SezamDbContext Db = Library.DataStore.GetNewContext();
+        public SezamDbContext Db = Store.GetNewContext();
 
         public EventHandler OnFinish;
     }

@@ -5,7 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 
-namespace Sezam.Library.EF
+namespace Sezam.Data.EF
 {
     [Index("Username", IsUnique = true)]
     [Index("LastCall")]
@@ -45,7 +45,7 @@ namespace Sezam.Library.EF
         [StringLength(15)]
         public string Phone { get; set; }
 
-        [StringLength(15)]
+        [StringLength(30)]
         public string Company { get; set; }
 
         public DateTime? DateOfBirth { get; set; }

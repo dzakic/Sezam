@@ -2,8 +2,9 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Sezam.Library.EF
+namespace Sezam.Data.EF
 {
+    [Table("UserConf")]
     public class UserConf
     {
         [Flags]

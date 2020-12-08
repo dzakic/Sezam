@@ -8,19 +8,19 @@ namespace ZBB
 {
     public static class Helpers
     {
-        public static Encoding CP852 = Encoding.GetEncoding(852);
+        private static readonly Encoding CP852 = Encoding.GetEncoding(852);
 
         public static string ReadShortString(this BinaryReader r, int maxLen = 0)
         {
             int strLen = r.ReadByte();
             if (maxLen > 0 && strLen > maxLen)
             {
-                Debug.WriteLine(String.Format("Invalid str len {0}, expected max {1}", strLen, maxLen));
+                Debug.WriteLine(string.Format("Invalid str len {0}, expected max {1}", strLen, maxLen));
                 strLen = maxLen;
             }
             byte[] str = r.ReadBytes(strLen);
             if (maxLen > 0 && maxLen > strLen)
-                r.ReadBytes(maxLen - strLen);
+                _ = r.ReadBytes(maxLen - strLen);
             return DecodeText(str);
         }
 
@@ -29,12 +29,18 @@ namespace ZBB
             int year = r.ReadUInt16();
             int month = r.ReadByte();
             int day = r.ReadByte();
-            if (year == 0 || month == 0 || day == 0 || (day == 31 && (month == 2 || month == 4 || month == 9)))
+            if (year == 0 || month == 0 || day == 0)
                 return null;
+            if ((day == 31 && (month == 2 || month == 4 || month == 9)))
+            {
+                day = 1;
+                month++;
+            }
+
             if (year > SqlDateTime.MaxValue.Value.Year)
                 year = SqlDateTime.MaxValue.Value.Year;
-            if (year < SqlDateTime.MaxValue.Value.Year)
-                year = SqlDateTime.MaxValue.Value.Year;
+            if (year < SqlDateTime.MinValue.Value.Year)
+                year = SqlDateTime.MinValue.Value.Year;
 
             try
             {
@@ -47,11 +53,10 @@ namespace ZBB
             }
         }
 
-        public static DateTime ReadDosTime(this BinaryReader r)
+        public static DateTime? ReadDosTime(this BinaryReader r)
         {
             Int32 dosTime = r.ReadInt32();
-            DateTime? dt = DosTimeToDateTime(dosTime);
-            return dt != null ? dt.Value : DateTime.MinValue;
+            return DosTimeToDateTime(dosTime);
         }
 
         public static DateTime? DosTimeToDateTime(Int32 dosTime)
@@ -70,7 +75,10 @@ namespace ZBB
                 day++;
             }
             if (month == 0 || day == 0)
-                return null;
+            {
+                month = 1;
+                day = 1;
+            }
 
             try
             {
@@ -85,13 +93,13 @@ namespace ZBB
 
         public static string DecodeText(byte[] binTxt)
         {
-            return new string(Encoding.GetEncoding(852).GetChars(binTxt));
+            return new string(CP852.GetChars(binTxt));
         }
 
         private static int GetBits(long value, int start, int len)
         {
             long mask = ((long)1 << (len)) - 1;
-            value = value >> start;
+            value >>= start;
             return (int)(value & mask);
         }
     }

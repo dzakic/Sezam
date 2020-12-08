@@ -5,16 +5,16 @@ namespace ZBB
 {
     public static partial class Converters
     {
-        public static Sezam.Library.EF.ConfMessage ToEFConfMessage(this ConfMessage zbbConfMsg)
+        public static Sezam.Data.EF.ConfMessage ToEFConfMessage(this ConfMessage zbbConfMsg)
         {
-            var msg = new Sezam.Library.EF.ConfMessage
+            var msg = new Sezam.Data.EF.ConfMessage
             {
                 Topic = zbbConfMsg.Topic?.EFTopic,
                 MsgNo = zbbConfMsg.MsgNo,
                 Time = zbbConfMsg.Time,
-                MessageText = new Sezam.Library.EF.MessageText() { Text = zbbConfMsg.Text },
+                MessageText = new Sezam.Data.EF.MessageText() { Text = zbbConfMsg.Text },
                 ParentMessageId = zbbConfMsg.ParentMsg?.EFConfMessage?.Id,
-                Status = (Sezam.Library.EF.ConfMessage.MessageStatus)zbbConfMsg.status,
+                Status = (Sezam.Data.EF.ConfMessage.MessageStatus)zbbConfMsg.status,
                 Filename = zbbConfMsg.Filename
             };
             zbbConfMsg.EFConfMessage = msg;
@@ -59,21 +59,21 @@ namespace ZBB
                 status |= MsgStatus.UserDeleted;
 
             // Ref
-            int reply = hdr.ReadInt16();
-            Time = hdr.ReadDosTime();
+            _ = hdr.ReadInt16(); // Ignore replyTo in Hdr, trust the one in Idx
+            Time = hdr.ReadDosTime().Value;
 
             // Att
             Filename = hdr.ReadShortString(12);
-            int filelen = hdr.ReadInt32();
+            _ = hdr.ReadInt32(); // filelen, filesize[bytes]
 
             status = (MsgStatus)hdr.ReadByte();
-            int reserved = hdr.ReadByte();
+            _ = hdr.ReadByte(); // reserved
 
             Topic = topicNo > 0 && topicNo <= ConferenceVolume.MaxTopics ?
                 Conference.Topics[topicNo - 1] : null;
         }
 
-        private string SanitiseAuthor(string user) 
+        private static string SanitiseAuthor(string user) 
         {
             if (string.IsNullOrWhiteSpace(user)
                 || user.Contains('?')
@@ -92,7 +92,7 @@ namespace ZBB
         /// Gets the author as display string. Check Anonymous flag.
         /// </summary>
         /// <returns>The author as display string.</returns>
-        public string displayAuthor()
+        public string DisplayAuthor()
         {
             return (status & MsgStatus.Anonymous) != 0 ? "*****" : author;
         }
@@ -120,7 +120,7 @@ namespace ZBB
         public string author;
 
         // user
-        public Sezam.Library.EF.User Author;
+        public Sezam.Data.EF.User Author;
 
         public int ReplyTo;
 
@@ -143,6 +143,6 @@ namespace ZBB
         private readonly ConferenceVolume Conference;
 
         // EF
-        public Sezam.Library.EF.ConfMessage EFConfMessage;
+        public Sezam.Data.EF.ConfMessage EFConfMessage;
     }
 }

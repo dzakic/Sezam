@@ -1,5 +1,4 @@
-﻿using Sezam.Library;
-using Sezam.Server;
+﻿using Sezam;
 
 namespace Sezam.Commands
 {

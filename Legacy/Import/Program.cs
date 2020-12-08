@@ -1,9 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Sezam.Library;
 using System;
 using System.Diagnostics;
 using System.IO;
+using Sezam;
 
 namespace ZBB
 {
@@ -19,9 +19,12 @@ namespace ZBB
 
 
             var builder = new ConfigurationBuilder();
-            builder.AddJsonFile("appsettings.json", optional: true);
+            builder
+                .AddJsonFile("appsettings.json", optional: true)
+                .AddJsonFile("appsettings-secrets.json", optional: true);
             var configuration = builder.Build();
-            Sezam.Library.DataStore.ServerName = configuration.GetConnectionString("ServerName");
+            Sezam.Data.Store.ServerName = configuration.GetConnectionString("ServerName");
+            Sezam.Data.Store.Password = configuration.GetConnectionString("Password");
 
             string dataFolder = configuration["Data:Folder"]
                 ?? Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "Data");
@@ -29,10 +32,10 @@ namespace ZBB
 
             var importer = new Importer(dataFolder);
 
-            using (var dbx = Sezam.Library.DataStore.GetNewContext())
+            using (var dbx = Sezam.Data.Store.GetNewContext())
             {
-                dbx.Database.Migrate();
                 dbx.Database.EnsureCreated();
+                dbx.Database.Migrate();
             }
 
             try

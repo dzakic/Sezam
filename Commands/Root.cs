@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using Sezam.Server;
 
 namespace Sezam.Commands
 {
@@ -60,7 +59,7 @@ namespace Sezam.Commands
             var pattern = session.cmdLine.GetToken();
             //if (pattern.Length < 2)
             //    throw new ArgumentException("Morate navesti najmanje dva karaktera za pretragu.");
-            IEnumerable<Library.EF.User> selection = session.Db.Users
+            var selection = session.Db.Users
                 .Where(u => u.LastCall != null &&
                     (u.Username.Contains(pattern) || u.City.Contains(pattern) || u.FullName.Contains(pattern)))
                 .OrderByDescending(u => u.LastCall);
@@ -71,7 +70,7 @@ namespace Sezam.Commands
         public void Who()
         {
             session.terminal.Line("Logged in as {0}, {1}", session.User.Username, session.User.FullName);
-            foreach (var s in Library.DataStore.Sessions)
+            foreach (var s in Data.Store.Sessions)
             {
                 if (!string.IsNullOrWhiteSpace(s.GetUsername()))
                     session.terminal.Line("{0,-16} -- {1:HH:mm}", s.GetUsername(), s.GetLoginTime());

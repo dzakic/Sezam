@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using System.Net.Sockets;
 
-namespace Sezam.Library
+namespace Sezam
 {
     public static class ErrorHandling
     {

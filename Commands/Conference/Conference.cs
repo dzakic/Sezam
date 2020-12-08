@@ -5,8 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
-using Sezam.Library.EF;
-using Sezam.Server;
+using Sezam.Data.EF;
 
 namespace Sezam.Commands
 {
@@ -24,7 +23,7 @@ namespace Sezam.Commands
             return null;
         }
 
-        public Library.EF.Conference CurrentConference
+        public Sezam.Data.EF.Conference CurrentConference
         { get { return currentConference; } }
 
         public override string GetPrompt()
@@ -33,7 +32,7 @@ namespace Sezam.Commands
                string.Format("Conf:{0}", currentConference.VolumeName) : "Conference";
         }
 
-        private IQueryable<Sezam.Library.EF.Conference> GetConferences(bool IncludeResigned = false)
+        private IQueryable<Sezam.Data.EF.Conference> GetConferences(bool IncludeResigned = false)
         {
             var userId = session.User.Id;
             var conferences =
@@ -71,10 +70,13 @@ namespace Sezam.Commands
             var conferences = GetConferences(showAll)
                 .Where(c => EF.Functions.Like(c.Name, confPattern + "%"));
             foreach (var g in conferences.DisplayOrder())
+            {
                 session.terminal.Line("{0,-16} {1,5} {2:MMM yyyy} - {3:MMM yyyy}",
                     g.VolumeName, g.ConfTopics.Sum(t => t.NextSequence), g.FromDate, g.ToDate);
+            }
         }
 
+        [Command]
         private void Unresign()
         {
             // Unresign
@@ -122,7 +124,7 @@ namespace Sezam.Commands
             }
             else
             {
-                var activeConf = GetConferences(false);               
+                var activeConf = GetConferences(false);
                 if (!string.IsNullOrEmpty(confName))
                     activeConf = activeConf.Where(c => EF.Functions.Like(c.Name, confName + "%"));
                 if (volumeNo > 0)
@@ -213,7 +215,7 @@ namespace Sezam.Commands
 
             // Filter FROM (user)
             string fromStr = session.cmdLine.GetToken(2);
-            Library.EF.User fromUser = null;
+            Data.EF.User fromUser = null;
             if (!string.IsNullOrWhiteSpace(fromStr) && fromStr != "*")
             {
                 if (fromStr == "$")
@@ -246,7 +248,7 @@ namespace Sezam.Commands
 
         }
 
-        private void ConfDir(Library.EF.Conference conf)
+        private void ConfDir(Data.EF.Conference conf)
         {
             var selTopics = conf.ConfTopics;
             foreach (var topic in selTopics.OrderBy(t => t.TopicNo))
@@ -325,12 +327,13 @@ namespace Sezam.Commands
 
         }
 
+        [Command]
         public void SEEn()
         {
             throw new NotImplementedException();
         }
 
-        public Library.EF.Conference currentConference;
+        public Sezam.Data.EF.Conference currentConference;
     }
 
     public static class ConfFormatter
@@ -467,7 +470,7 @@ namespace Sezam.Commands
             public int msgHigh;
         }
 
-        public static ConfTopicMsgRangeDTO GetTopicMsgRange(this Library.EF.Conference conf, string topicMsgRange, bool required = false)
+        public static ConfTopicMsgRangeDTO GetTopicMsgRange(this Data.EF.Conference conf, string topicMsgRange, bool required = false)
         {
             // Regex: ^(.+?)(\.(\d+)(\-(\d+))?)?$
             // Groups: 1 (topic), 3 (lo), 5 (hi)
@@ -478,8 +481,7 @@ namespace Sezam.Commands
             var result = new ConfTopicMsgRangeDTO();
             if (match.Groups.Count >= 1)
                 result.topic = conf.GetTopicFromStr(match.Groups[1].Value, required);
-            int i;
-            if (match.Groups.Count >= 3 && int.TryParse(match.Groups[3].Value, out i))
+            if (match.Groups.Count >= 3 && int.TryParse(match.Groups[3].Value, out int i))
                 result.msgLow = i;
             if (match.Groups.Count >= 5 && int.TryParse(match.Groups[5].Value, out i))
                 result.msgHigh = i;
@@ -490,7 +492,7 @@ namespace Sezam.Commands
             return result;
         }
 
-        public static ConfTopic GetTopicFromStr(this Library.EF.Conference conf, string topicName, bool Required = false)
+        public static ConfTopic GetTopicFromStr(this Data.EF.Conference conf, string topicName, bool Required = false)
         {
             // All?
             if (topicName == "*")

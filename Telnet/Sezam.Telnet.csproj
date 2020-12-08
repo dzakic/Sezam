@@ -13,7 +13,7 @@
     <ProjectReference Include="..\Commands\Sezam.Commands.csproj">
       <Private>true</Private>
     </ProjectReference>
-    <ProjectReference Include="..\Library\Sezam.Library.csproj">
+    <ProjectReference Include="..\Data\Sezam.Data.csproj">
       <Private>true</Private>
     </ProjectReference>
     <ProjectReference Include="..\Server\Sezam.Server.csproj">
@@ -22,6 +22,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="appsettings-secrets.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

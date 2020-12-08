@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30309.148
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sezam.Library", "Library\Sezam.Library.csproj", "{16778C1E-7378-4449-9D10-7BC418BE5B9B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sezam.Data", "Data\Sezam.Data.csproj", "{16778C1E-7378-4449-9D10-7BC418BE5B9B}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sezam.Commands", "Commands\Sezam.Commands.csproj", "{020ED920-54B1-4238-83E8-452F9E5E0D45}"
 EndProject

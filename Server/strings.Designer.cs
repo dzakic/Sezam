@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Sezam.Server {
+namespace Sezam {
     
     
     /// <summary>

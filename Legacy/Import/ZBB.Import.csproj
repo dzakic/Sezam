@@ -19,7 +19,7 @@
     </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Library\Sezam.Library.csproj" />
+    <ProjectReference Include="..\..\Data\Sezam.Data.csproj" />
   </ItemGroup>
 
 </Project>

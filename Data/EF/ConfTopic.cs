@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace Sezam.Library.EF
+namespace Sezam.Data.EF
 {
     [Index("ConferenceId", "Name", IsUnique = true)]
     [Index("ConferenceId", "TopicNo", IsUnique = true)]

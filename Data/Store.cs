@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Data.SqlTypes;
 using Microsoft.EntityFrameworkCore;
-using Sezam.Library.EF;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Sezam.Data.EF;
 
-namespace Sezam.Library
+namespace Sezam.Data
 {
     // Database context, per session
     public class SezamDbContext : DbContext
@@ -14,18 +14,20 @@ namespace Sezam.Library
         public int UserId { get; set; }
 
         private readonly string serverName;
+        private readonly string password;
 
-        public SezamDbContext(string ServerName) : base()
+        public SezamDbContext(string ServerName, string Password) : base()
         {
             serverName = ServerName;
+            password = Password;
         }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             _ = optionsBuilder
-                .UseMySql("server=" + serverName + ";database=sezam;user=sezam;password=AllHellBrokeLose2020#")
-                .EnableSensitiveDataLogging();
-            // optionsBuilder.UseLazyLoadingProxies();
+                .UseMySql("server=" + serverName + ";database=sezam;user=sezam;password=" + password)
+                .EnableSensitiveDataLogging()
+                .UseLazyLoadingProxies();
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -50,15 +52,16 @@ namespace Sezam.Library
 
         public override int SaveChanges()
         {
-            CheckDates();
+            // CheckDates();
             return base.SaveChanges();
         }
 
+        #region unused
         private void CheckDates()
         {
 
             // On ConfMessage save, update Conf oldest and newest message
-            var msgs = ChangeTracker.Entries<Sezam.Library.EF.ConfMessage>();
+            var msgs = ChangeTracker.Entries<ConfMessage>();
             foreach (var msg in msgs)
             {
                 if (msg.Entity.Topic.Conference.FromDate == null || msg.Entity.Time < msg.Entity.Topic.Conference.FromDate)
@@ -89,27 +92,30 @@ namespace Sezam.Library
                 }
             }
         }
+        #endregion
 
-        public DbSet<EF.User> Users { get; set; }
-        public DbSet<EF.Conference> Conferences { get; set; }
-        public DbSet<EF.ConfTopic> ConfTopics { get; set; }
-        public DbSet<EF.ConfMessage> ConfMessages { get; set; }
-        public DbSet<EF.UserConf> UserConfs { get; set; }
+        public DbSet<User> Users { get; set; }
+        public DbSet<Conference> Conferences { get; set; }
+        public DbSet<ConfTopic> ConfTopics { get; set; }
+        public DbSet<ConfMessage> ConfMessages { get; set; }
+        public DbSet<UserConf> UserConfs { get; set; }
     }
 
     // A global object accessible to all sessions
-    public static class DataStore
+    public static class Store
     {
 
         public static SezamDbContext GetNewContext()
         {
-            return new SezamDbContext(ServerName);
+            return new SezamDbContext(ServerName, password);
         }
 
-        private static IEnumerable<ISession> sessions;
+        private static IList<ISession> sessions;
         private static string serverName;
+        private static string password;
 
-        public static IEnumerable<ISession> Sessions { get => sessions; set => sessions = value; }
+        public static IList<ISession> Sessions { get => sessions; set => sessions = value; }
         public static string ServerName { get => serverName; set => serverName = value; }
+        public static string Password { get => password; set => password = value; }
     }
 }

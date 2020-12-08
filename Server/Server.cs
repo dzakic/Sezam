@@ -7,8 +7,9 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using Sezam.Data;
 
-namespace Sezam.Server
+namespace Sezam
 {
     internal delegate void AcceptConnection(TcpClient client);
 
@@ -16,9 +17,10 @@ namespace Sezam.Server
     {
         public Server(IConfigurationRoot configuration)
         {
-            sessions = new List<Session>();
-            Library.DataStore.ServerName = configuration.GetConnectionString("ServerName");
-            Library.DataStore.Sessions = Sessions;
+            sessions = new List<ISession>();
+            Data.Store.ServerName = configuration.GetConnectionString("ServerName");
+            Data.Store.Password = configuration.GetConnectionString("Password");
+            Data.Store.Sessions = sessions;
         }
 
         public void Dispose()
@@ -158,17 +160,16 @@ namespace Sezam.Server
 
         public void PrintServerStatistics()
         {
-            Console.WriteLine(String.Format("SERVER: Running, {0} active connections:", Sessions.Count));
+            Console.WriteLine(String.Format("SERVER: Running, {0} active connections:", Store.Sessions.Count));
             foreach (var sess in sessions)
                 Debug.WriteLine(sess.ToString());
         }
 
         private TcpListener listener;
         private Thread mainThread;
-        private readonly List<Session> sessions;
+        private readonly List<ISession> sessions;
 
         public EventWaitHandle NewVersionAvailable = new EventWaitHandle(false, EventResetMode.ManualReset);
 
-        public List<Session> Sessions { get { return sessions; } }
     }
 }

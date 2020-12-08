@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Sezam.Library
+namespace Sezam.Data
 {
     public interface ISession
     {

@@ -1,6 +1,4 @@
-﻿using Sezam.Server;
-
-namespace Sezam.Commands
+﻿namespace Sezam.Commands
 {
 
     public class Chat : CommandSet

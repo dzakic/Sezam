@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Sezam.Library
+﻿namespace Sezam
 {
     public static class StringExtensions
     {
@@ -12,7 +6,5 @@ namespace Sezam.Library
         {
             return !string.IsNullOrEmpty(str);
         }
-
-
     }
 }

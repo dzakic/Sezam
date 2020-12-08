@@ -5,9 +5,7 @@
     using System.Collections.Generic;
     using System.Linq;
     using System.Reflection;
-    using Sezam.Library;
-    using Sezam.Server;
-
+    using Sezam.Data.EF;    
 
     /// <summary>
     /// Executing instance of the class.
@@ -228,12 +226,12 @@
         /// Get user from command line
         /// </summary>
         /// <returns></returns>
-        protected Library.EF.User GetRequiredUser()
+        protected User GetRequiredUser()
         {
             var username = session.cmdLine.GetToken();
             if (!username.HasValue())
                 throw new ArgumentException("Username required");
-            Library.EF.User user = session.GetUser(username);
+            var user = session.GetUser(username);
             if (user == null)
                 throw new ArgumentException("Unknown user {0}", username);
             return user;
@@ -251,7 +249,7 @@
             if (Aliases.HasValue())
                 return Aliases.Split(',');
             else
-                return new string[0];
+                return Array.Empty<string>();
         }
     }
 

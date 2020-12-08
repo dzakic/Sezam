@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 
-namespace Sezam.Library
-{
+namespace Sezam
+{ 
     public class DebugListener : TextWriterTraceListener
     {
         // Parameterless constructor calls base constructor with Console.Out param

@@ -6,7 +6,7 @@ namespace Sezam
     class ConsoleLoop
     {
 
-        public ConsoleLoop(Sezam.Server.Server sezamNet)
+        public ConsoleLoop(Server sezamNet)
         {
             server = sezamNet;
         }
@@ -36,7 +36,7 @@ namespace Sezam
             Console.WriteLine("Exiting consoleLoop");
         }
 
-        private readonly Sezam.Server.Server server;
+        private readonly Server server;
         private Thread consoleThread;
         public EventWaitHandle EscPressed = new EventWaitHandle(false, EventResetMode.ManualReset);
     
