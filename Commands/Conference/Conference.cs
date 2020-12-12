@@ -18,7 +18,7 @@ namespace Sezam.Commands
             currentConference = null;
         }
 
-        public ConfStat Status()
+        public static ConfStat Status()
         {
             return null;
         }

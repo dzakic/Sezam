@@ -7,11 +7,13 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sezam.Data", "Data\Sezam.Da
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sezam.Commands", "Commands\Sezam.Commands.csproj", "{020ED920-54B1-4238-83E8-452F9E5E0D45}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sezam.Server", "Server\Sezam.Server.csproj", "{59D59F66-48F9-430D-9D5A-F005621A509D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sezam.Console", "Console\Sezam.Console.csproj", "{59D59F66-48F9-430D-9D5A-F005621A509D}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sezam.Telnet", "Telnet\Sezam.Telnet.csproj", "{242E91F7-EB10-4D33-A4B2-9CF383FB5503}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ZBB.Import", "Legacy\Import\ZBB.Import.csproj", "{564BA581-36D2-470E-A108-B4B920A0C96F}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sezam.Web", "Web\Sezam.Web.csproj", "{18DCCAE6-9E50-481F-9BB1-4C811DE9D21B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +41,10 @@ Global
 		{564BA581-36D2-470E-A108-B4B920A0C96F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{564BA581-36D2-470E-A108-B4B920A0C96F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{564BA581-36D2-470E-A108-B4B920A0C96F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{18DCCAE6-9E50-481F-9BB1-4C811DE9D21B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{18DCCAE6-9E50-481F-9BB1-4C811DE9D21B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{18DCCAE6-9E50-481F-9BB1-4C811DE9D21B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{18DCCAE6-9E50-481F-9BB1-4C811DE9D21B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

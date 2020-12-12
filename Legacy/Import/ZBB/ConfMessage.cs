@@ -71,6 +71,7 @@ namespace ZBB
 
             Topic = topicNo > 0 && topicNo <= ConferenceVolume.MaxTopics ?
                 Conference.Topics[topicNo - 1] : null;
+
         }
 
         private static string SanitiseAuthor(string user) 
@@ -127,9 +128,14 @@ namespace ZBB
         // absolute ref id
         public ConfMessage ParentMsg;
 
-        public string Filename;
+
         private uint offset;
-        public int len;
+        private uint len;
+
+        public string Filename;
+        public byte[] Attachment;
+        public int FileLen;
+
         public MsgStatus status;
         public DateTime Time;
 

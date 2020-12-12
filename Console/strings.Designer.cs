@@ -38,7 +38,7 @@ namespace Sezam {
         public static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Sezam.Server.strings", typeof(strings).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Sezam.Console.strings", typeof(strings).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;

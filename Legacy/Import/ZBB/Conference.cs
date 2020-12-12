@@ -72,6 +72,9 @@ namespace ZBB
             conf.FromDate = zbbconf.GetOldestMessage()?.Time;
             conf.ToDate = zbbconf.GetNewestMessage()?.Time;
 
+            if (zbbconf.Messages.Count == 0)
+                conf.Status |= Sezam.Data.EF.ConfStatus.Private;
+
             if (zbbconf.IsAnonymousAllowed)
                 conf.Status |= Sezam.Data.EF.ConfStatus.AnonymousAllowed;
 
@@ -172,6 +175,19 @@ namespace ZBB
             this.confDir = confDir;
             ImportNdx();
             ImportHdr();
+            ImportFiles();
+        }
+
+        private void ImportFiles()
+        {
+            string FilesFolder = Path.Combine(confDir, "FILES");
+            var messages = Messages.Where(m => !string.IsNullOrEmpty(m.Filename));
+            foreach (var m in messages)
+            {
+                var attFileName = Path.Combine(FilesFolder, "f" + string.Format("{0:5d}", m.ID) + ".c");
+                m.Attachment = File.ReadAllBytes(attFileName);
+                m.FileLen = m.Attachment.Length;
+            }
         }
 
         private void ImportNdx()

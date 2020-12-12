@@ -34,26 +34,19 @@ namespace Sezam.Data.EF
 
         public virtual DateTime? ToDate { get; set; }
 
+        // TODO public virtual MessageText WelcomeText { get; set; }
+
         public virtual UserConf UserConf { get; set; }
 
         public virtual ICollection<ConfTopic> ConfTopics { get; set; } = new List<ConfTopic>();
 
-        public string VolumeName { get { return VolumeNo > 0 ? string.Format("{0}.{1}", Name, VolumeNo) : Name; } }
+        public string VolumeName => VolumeNo > 0 ? string.Format("{0}.{1}", Name, VolumeNo) : Name;
 
-        public bool IsClosed()
-        {
-            return Status.HasFlag(ConfStatus.Closed);
-        }
+        public bool IsClosed => Status.HasFlag(ConfStatus.Closed);
 
-        public bool IsPrivate()
-        {
-            return Status.HasFlag(ConfStatus.Private);
-        }
+        public bool IsPrivate => Status.HasFlag(ConfStatus.Private);
 
-        public bool IsReadOnly()
-        {
-            return Status.HasFlag(ConfStatus.ReadOnly);
-        }
+        public bool IsReadOnly => Status.HasFlag(ConfStatus.ReadOnly);
 
     }
 

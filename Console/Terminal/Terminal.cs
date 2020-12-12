@@ -32,6 +32,7 @@ namespace Sezam
 
     public interface ITerminal
     {
+        void Line(string Message = "");
         void Line(string Message = "", params object[] args);
 
         void Text(string Text);
@@ -64,7 +65,7 @@ namespace Sezam
 
         public void Line(string Message = "")
         {
-            Out.WriteLine(Message);
+            Out.WriteLine(Strings.RTrim(Message));
             LineFinished();
         }
 

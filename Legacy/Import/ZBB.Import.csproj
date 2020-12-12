@@ -12,13 +12,14 @@
 
 
     <ItemGroup>
-      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="5.0.0">
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="5.0.1">
         <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       </PackageReference>
     </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Console\Sezam.Console.csproj" />
     <ProjectReference Include="..\..\Data\Sezam.Data.csproj" />
   </ItemGroup>
 

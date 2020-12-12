@@ -1,0 +1,82 @@
+﻿@page "/Users"
+@model Sezam.Web.Pages.Users.IndexModel
+
+@{
+    ViewData["Title"] = "Users";
+}
+
+<h1>Users</h1>
+
+@*<p>
+        <a asp-page="Create">Create New</a>
+    </p>*@
+
+
+<form method="get">
+    <div class="form-group">
+        <input asp-for="@Model.q" class="form-control" />
+    </div>
+    <div class="form-group">
+        <input type="submit" value="Search" class="btn btn-primary" />
+    </div>
+</form>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.User[0].Username)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.User[0].FullName)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.User[0].City)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.User[0].Company)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.User[0].MemberSince)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.User[0].LastCall)
+            </th>
+            @*<th></th>*@
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model.User)
+        {
+            <tr>
+                <td>
+                    @Html.DisplayFor(modelItem => item.Username)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.FullName)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.City)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.Company)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.MemberSince)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.LastCall)
+                </td>
+                @*<td>
+                        <a asp-page="./Edit" asp-route-id="@item.Id">Edit</a> |
+                        <a asp-page="./Details" asp-route-id="@item.Id">Details</a> |
+                        <a asp-page="./Delete" asp-route-id="@item.Id">Delete</a>
+                    </td>*@
+            </tr>
+        }
+    </tbody>
+</table>
+@if (Model.User.Count == 10)
+{
+    <small>Not all matching records are displayed. Try a more specific search word.</small>
+}

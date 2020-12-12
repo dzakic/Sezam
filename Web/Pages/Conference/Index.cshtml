@@ -1,0 +1,25 @@
+﻿@page "/Conference"
+@model Sezam.Web.Pages.Conference.IndexModel
+
+@{
+    ViewData["Title"] = Model.ConfName ?? "Index";
+    Layout = "~/Pages/Shared/_Layout.cshtml";
+}
+
+<h1>Conferences</h1>
+
+<ol id="Conferences">
+    @foreach (var confset in Model.ConfSets) 
+    { 
+     <li class="conference">
+        <div class="confname">@confset.Name</div>
+        <ol>
+            @foreach (var conf in confset.Conferences)
+            {
+                <li><a asp-page="./Conf" asp-route-ConfName="@conf.VolumeName">
+                <div class="volume">@conf.VolumeNo</div><div>@string.Format("{0:MMM ''yy}", conf.FromDate)</div></a></li>
+            }
+        </ol>
+     </li>
+    }
+</ol>

@@ -8,7 +8,6 @@ namespace Sezam.Data.EF
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; private set; }
-
        
         public string Text { get; set; }
 

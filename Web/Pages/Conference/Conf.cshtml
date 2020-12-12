@@ -1,0 +1,18 @@
+﻿@page "/Conference/{ConfName}/{TopicName?}"
+@model Sezam.Web.Pages.Conference.ConfModel
+
+@{
+    ViewData["Title"] = Model.ConfName ?? "Index";
+    Layout = "~/Pages/Shared/_Layout.cshtml";
+}
+
+<h1>@Model.ConfName</h1>
+
+<p>@string.Format("{0:dd MMM yyyy} - {1:dd MMM yyyy}", Model.Conference.FromDate, Model.Conference.ToDate)</p>
+
+<ul id="Topics">
+    @foreach (var topic in Model.Conference.ConfTopics)
+    {
+    <li>@topic.TopicNo. <a asp-page="./Conf" asp-route-ConfName="@Model.Conference.VolumeName" asp-route-TopicName="@topic.Name">@topic.Name</a> (@topic.NextSequence)</li>        
+    }
+</ul>

@@ -19,7 +19,8 @@ namespace Sezam
             var builder = new ConfigurationBuilder();
             builder
                 .AddJsonFile("appsettings.json", optional: true)
-                .AddJsonFile("appsettings-secrets.json", optional: true);
+                .AddJsonFile("appsettings-secrets.json", optional: true)
+                .AddJsonFile("/etc/sezam/appsettings.json", optional: true);
             var configuration = builder.Build();
 
             // start listener

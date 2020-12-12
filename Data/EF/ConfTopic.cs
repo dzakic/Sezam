@@ -36,7 +36,6 @@ namespace Sezam.Data.EF
 
         public virtual ConfTopic RedirectTo { get; set; }
         // public int RedirectToId { get; set; }
-        public virtual UserTopic UserTopic { get; set; }
 
         public TopicStatus Status;
 

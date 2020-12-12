@@ -10,7 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Data\Sezam.Data.csproj" />
-    <ProjectReference Include="..\Server\Sezam.Server.csproj" />
+    <ProjectReference Include="..\Console\Sezam.Console.csproj" />
   </ItemGroup>
 
   <ItemGroup>

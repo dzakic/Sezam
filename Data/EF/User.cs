@@ -51,8 +51,10 @@ namespace Sezam.Data.EF
         public DateTime? DateOfBirth { get; set; }
 
         // MemberSince should not be nullable, but we do load empty users during import
+        [DisplayFormat(DataFormatString = "{0:dd MMM yy}")]
         public DateTime? MemberSince { get; set; }
 
+        [DisplayFormat(DataFormatString = "{0:dd MMM yy HH:mm}")]
         public DateTime? LastCall { get; set; }
 
         public DateTime? PaidUntil { get; set; }

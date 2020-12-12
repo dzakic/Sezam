@@ -3,7 +3,9 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-  </PropertyGroup>
+    <Authors>Dragan Zakic</Authors>
+    <Company>SezamNet</Company>
+</PropertyGroup>
 
   <PropertyGroup>
     <OutputPath>..\bin</OutputPath>
@@ -16,15 +18,12 @@
     <ProjectReference Include="..\Data\Sezam.Data.csproj">
       <Private>true</Private>
     </ProjectReference>
-    <ProjectReference Include="..\Server\Sezam.Server.csproj">
+    <ProjectReference Include="..\Console\Sezam.Console.csproj">
       <Private>true</Private>
     </ProjectReference>
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="appsettings-secrets.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
