@@ -147,7 +147,7 @@ namespace Sezam
             listener?.Stop();
             Debug.Write(String.Format("Stopping {0} connections.. ", sessions.Count));
             // close server
-            foreach (Session session in sessions)
+            foreach (Session session in sessions.ToList())
             {
                 Debug.Write(".");
                 session.Close();
