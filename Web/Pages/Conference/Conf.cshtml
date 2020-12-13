@@ -10,9 +10,35 @@
 
 <p>@string.Format("{0:dd MMM yyyy} - {1:dd MMM yyyy}", Model.Conference.FromDate, Model.Conference.ToDate)</p>
 
-<ul id="Topics">
-    @foreach (var topic in Model.Conference.ConfTopics)
+<div id="Topics">
+    <h2>Topics</h2>
+    <ol>
+        @foreach (var topic in Model.ConfTopics)
+        {
+            <li value="@topic.TopicNo"><a asp-page="./Conf" asp-route-ConfName="@Model.Conference.VolumeName" asp-route-TopicName="@topic.Name">@topic.Name</a> (@topic.NextSequence)</li>
+        }
+    </ol>
+</div>
+
+<div id="Messages">
+    <h2>Messages - @Model.Topic?.Name</h2>
+    @if (Model.Messages != null)
     {
-    <li>@topic.TopicNo. <a asp-page="./Conf" asp-route-ConfName="@Model.Conference.VolumeName" asp-route-TopicName="@topic.Name">@topic.Name</a> (@topic.NextSequence)</li>        
+        @foreach (var msg in Model.Messages)
+        {
+            <message>
+                <header>
+                    <msgid>@msg.MsgId</msgid>
+                    <author>@msg.Author.Username</author>,
+                    <time alt="@string.Format("{0:dd/MM/yyyy HH:mm}", msg.Time)">@string.Format("{0:dd MMM yy}", msg.Time)</time>
+                </header>
+                <content>@msg.MessageText.Text</content>
+                @if(msg.Filename.Length > 0)
+                {
+                    <file>@msg.Filename</file>
+                }
+            </message>
+        }
     }
-</ul>
+</div>
+

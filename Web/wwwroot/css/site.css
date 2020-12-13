@@ -2,9 +2,9 @@
 for details on configuring this project to bundle and minify static web assets. */
 
 a.navbar-brand {
-  white-space: normal;
-  text-align: center;
-  word-break: break-all;
+    white-space: normal;
+    text-align: center;
+    word-break: break-all;
 }
 
 /* Provide sufficient contrast against white background */
@@ -24,9 +24,9 @@ a {
   border-color: #1861ac;
 }
 
-/* Sticky footer styles
+/* Site styles
 -------------------------------------------------- */
-html {
+body {
     font-family: 'Maven Pro', sans-serif;
     font-size: 14px;
 }
@@ -61,7 +61,7 @@ html {
 
 body {
   /* Margin bottom by footer height */
-  margin-bottom: 60px;
+  margin-bottom: 120px;
 }
 .footer {
   position: absolute;
@@ -71,8 +71,13 @@ body {
   line-height: 60px; /* Vertically center the text there */
 }
 
-/* Sticky footer styles
+/* SezamNet Styling
 -------------------------------------------------- */
+h2 {
+  font-weight: 800;
+  font-size: 16px;
+  color: darkorange;
+}
 
 #Conferences {
     list-style: none;
@@ -88,14 +93,60 @@ body {
 }
 
 #Conferences li ol li .volume {
-    font-size: 20px;        
+    font-size: 20px;
+    text-align: center;
 }
 
 #Conferences li ol li a {
     font-size: 10px;
     text-transform: uppercase;
+    text-align: center;
+}
+
+#Conferences li ol li a:hover {
+    font-weight: 800;
+    text-decoration: none;
 }
 
 #Topics {
     list-style: none;
+    float: left;
+    margin: 0 60px 0 0;
+}
+
+#Messages {
+    width: 600px;
+    margin: 0 0 60px 0;
+    float: left;
+}
+
+#Messages author {
+    font-weight: 800;
+}
+
+#Messages time {
+    color: gray;
+    font-variant: small-caps;
+}
+
+#Messages message {
+    margin: 1em;
+}
+
+#Messages header {
+    width: 400px;
+    border-bottom: 1px dashed darkorange;
+    margin: 8px 0 8px 0;
+}
+
+#Messages content {
+    display: block;
+    font-family: 'Fira Mono', monospace;
+    font-size: 12px;
+    white-space: pre;
+}
+
+#Messages file {
+    font-size: 10px;
+    border-top: 1px solid lightgray;
 }

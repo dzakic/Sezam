@@ -31,6 +31,9 @@ namespace Sezam.Web.Pages.Conference
         }
 
         public Sezam.Data.EF.Conference Conference;
+        public IEnumerable<Sezam.Data.EF.ConfTopic> ConfTopics { get { return Conference.ConfTopics.OrderBy(t => t.TopicNo); } }
+        public IEnumerable<Sezam.Data.EF.ConfMessage> Messages;
+        public ConfTopic Topic;
 
         public async Task OnGetAsync()
         {
@@ -51,7 +54,6 @@ namespace Sezam.Web.Pages.Conference
                 NameOnly = ConfName;
                 VolumeNumber = 0;
             }
-            this.ConfName = ConfName;
 
             Conference = await _context.Conferences
                 .Include(c => c.ConfTopics)
@@ -60,7 +62,22 @@ namespace Sezam.Web.Pages.Conference
                 .ThenBy(c => c.VolumeNo)
                 .FirstOrDefaultAsync();
 
-            _logger.LogInformation("Got conference" + Conference + " ConfName=" + ConfName + ", TopicName=" + TopicName);
+            Topic = Conference.ConfTopics
+                .Where(t => t.Name.Equals(TopicName, StringComparison.InvariantCultureIgnoreCase))
+                .FirstOrDefault();
+
+            // Topic Selection
+            if (Topic != null)
+            {
+                Messages = await _context.ConfMessages
+                    .Include(m => m.MessageText)
+                    .Where(m => m.TopicId == Topic.Id && ((m.Status & ConfMessage.MessageStatus.Deleted) == 0))
+                    .OrderBy(m => m.TopicId)
+                    .ThenBy(m => m.MsgNo)
+                    .ToListAsync();
+            }
+            
+            _logger.LogInformation($"Got conference {Conference} ConfName={ConfName}, TopicName={TopicName}, Messages: {Messages?.Count()}");
         }
     }
 }

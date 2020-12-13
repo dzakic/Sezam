@@ -34,6 +34,7 @@ namespace Sezam.Web.Pages.Conference
             _context = context;
         }
 
+        // Group Conference Volumes into Sets for more eye-pleasing view
         public IList<ConfSet> GetConfSets(IEnumerable<Sezam.Data.EF.Conference> conferences)
         {
             var confSets = new List<ConfSet>();
