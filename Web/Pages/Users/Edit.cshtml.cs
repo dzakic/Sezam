@@ -13,15 +13,15 @@ namespace Sezam.Web.Pages.Users
 {
     public class EditModel : PageModel
     {
-        private readonly Sezam.Data.SezamDbContext _context;
+        private readonly SezamDbContext _context;
 
-        public EditModel(Sezam.Data.SezamDbContext context)
+        public EditModel(SezamDbContext context)
         {
             _context = context;
         }
 
         [BindProperty]
-        public User User { get; set; }
+        public User EditUser { get; set; }
 
         public async Task<IActionResult> OnGetAsync(int? id)
         {
@@ -30,9 +30,9 @@ namespace Sezam.Web.Pages.Users
                 return NotFound();
             }
 
-            User = await _context.Users.FirstOrDefaultAsync(m => m.Id == id);
+            EditUser = await _context.Users.FirstOrDefaultAsync(m => m.Id == id);
 
-            if (User == null)
+            if (EditUser == null)
             {
                 return NotFound();
             }
@@ -48,7 +48,7 @@ namespace Sezam.Web.Pages.Users
                 return Page();
             }
 
-            _context.Attach(User).State = EntityState.Modified;
+            _context.Attach(EditUser).State = EntityState.Modified;
 
             try
             {
@@ -56,7 +56,7 @@ namespace Sezam.Web.Pages.Users
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!UserExists(User.Id))
+                if (!UserExists(EditUser.Id))
                 {
                     return NotFound();
                 }

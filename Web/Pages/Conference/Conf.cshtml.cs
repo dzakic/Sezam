@@ -15,7 +15,7 @@ namespace Sezam.Web.Pages.Conference
 {
     public class ConfModel : PageModel
     {
-        private readonly Sezam.Data.SezamDbContext _context;
+        private readonly SezamDbContext _context;
         private readonly ILogger<PrivacyModel> _logger;
 
         [BindProperty(SupportsGet = true)]
@@ -24,15 +24,15 @@ namespace Sezam.Web.Pages.Conference
         [BindProperty(SupportsGet = true)]
         public string TopicName { get; set; }
 
-        public ConfModel(Sezam.Data.SezamDbContext context, ILogger<PrivacyModel> logger)
+        public ConfModel(SezamDbContext context, ILogger<PrivacyModel> logger)
         {
             _logger = logger;
             _context = context;
         }
 
         public Sezam.Data.EF.Conference Conference;
-        public IEnumerable<Sezam.Data.EF.ConfTopic> ConfTopics { get { return Conference.ConfTopics.OrderBy(t => t.TopicNo); } }
-        public IEnumerable<Sezam.Data.EF.ConfMessage> Messages;
+        public IEnumerable<ConfTopic> ConfTopics { get { return Conference.ConfTopics.OrderBy(t => t.TopicNo); } }
+        public IEnumerable<ConfMessage> Messages;
         public ConfTopic Topic;
 
         public async Task OnGetAsync()

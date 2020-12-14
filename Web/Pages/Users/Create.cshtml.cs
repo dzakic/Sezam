@@ -12,9 +12,9 @@ namespace Sezam.Web.Pages.Users
 {
     public class CreateModel : PageModel
     {
-        private readonly Sezam.Data.SezamDbContext _context;
+        private readonly SezamDbContext _context;
 
-        public CreateModel(Sezam.Data.SezamDbContext context)
+        public CreateModel(SezamDbContext context)
         {
             _context = context;
         }
@@ -25,7 +25,7 @@ namespace Sezam.Web.Pages.Users
         }
 
         [BindProperty]
-        public User User { get; set; }
+        public User CreateUser { get; set; }
 
         // To protect from overposting attacks, see https://aka.ms/RazorPagesCRUD
         public async Task<IActionResult> OnPostAsync()
@@ -35,7 +35,7 @@ namespace Sezam.Web.Pages.Users
                 return Page();
             }
 
-            _context.Users.Add(User);
+            _context.Users.Add(CreateUser);
             // await _context.SaveChangesAsync();
 
             return RedirectToPage("./Index");

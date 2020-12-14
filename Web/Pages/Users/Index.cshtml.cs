@@ -12,22 +12,22 @@ namespace Sezam.Web.Pages.Users
 {
     public class IndexModel : PageModel
     {
-        private readonly Sezam.Data.SezamDbContext _context;
+        private readonly SezamDbContext _context;
 
-        public IndexModel(Sezam.Data.SezamDbContext context)
+        public IndexModel(SezamDbContext context)
         {
             _context = context;
         }
 
-        [BindProperty(SupportsGet = true)]
-        public string q { get; set; }
+        [BindProperty(Name = "q", SupportsGet = true)]
+        public string Filter { get; set; }
 
-        public IList<User> User { get;set; }
+        public IList<User> Users { get;set; }
 
         public async Task OnGetAsync()
         {
-                User = await _context.Users
-                    .Where(u => u.Username.Contains(q) || u.City.Contains(q))
+                Users = await _context.Users
+                    .Where(u => u.Username.Contains(Filter) || u.City.Contains(Filter))
                     .OrderByDescending(u => u.LastCall)
                     .Take(10)
                     .ToListAsync();

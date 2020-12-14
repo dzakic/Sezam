@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
@@ -28,6 +29,7 @@ namespace Sezam.Data.EF
         public string Username { get; set; }
 
         [StringLength(32)]
+        [DisplayName("Full Name")]
         public string FullName { get; set; }
 
         [StringLength(36)]
@@ -52,9 +54,11 @@ namespace Sezam.Data.EF
 
         // MemberSince should not be nullable, but we do load empty users during import
         [DisplayFormat(DataFormatString = "{0:dd MMM yy}")]
+        [DisplayName("Member Since")]
         public DateTime? MemberSince { get; set; }
 
         [DisplayFormat(DataFormatString = "{0:dd MMM yy HH:mm}")]
+        [DisplayName("Last Seen")]
         public DateTime? LastCall { get; set; }
 
         public DateTime? PaidUntil { get; set; }

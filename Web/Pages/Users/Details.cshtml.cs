@@ -12,14 +12,14 @@ namespace Sezam.Web.Pages.Users
 {
     public class DetailsModel : PageModel
     {
-        private readonly Sezam.Data.SezamDbContext _context;
+        private readonly SezamDbContext _context;
 
-        public DetailsModel(Sezam.Data.SezamDbContext context)
+        public DetailsModel(SezamDbContext context)
         {
             _context = context;
         }
 
-        public User User { get; set; }
+        public User ViewUser { get; set; }
 
         public async Task<IActionResult> OnGetAsync(int? id)
         {
@@ -28,9 +28,9 @@ namespace Sezam.Web.Pages.Users
                 return NotFound();
             }
 
-            User = await _context.Users.FirstOrDefaultAsync(m => m.Id == id);
+            ViewUser = await _context.Users.FirstOrDefaultAsync(m => m.Id == id);
 
-            if (User == null)
+            if (ViewUser == null)
             {
                 return NotFound();
             }

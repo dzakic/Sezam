@@ -14,7 +14,7 @@ namespace Sezam.Web.Pages.Conference
 {
     public class IndexModel : PageModel
     {
-        private readonly Sezam.Data.SezamDbContext _context;
+        private readonly SezamDbContext _context;
         private readonly ILogger<PrivacyModel> _logger;
 
         public class ConfSet
@@ -28,7 +28,7 @@ namespace Sezam.Web.Pages.Conference
         [Parameter]
         public string ConfName { get; set; }
 
-        public IndexModel(Sezam.Data.SezamDbContext context, ILogger<PrivacyModel> logger)
+        public IndexModel(SezamDbContext context, ILogger<PrivacyModel> logger)
         {
             _logger = logger;
             _context = context;

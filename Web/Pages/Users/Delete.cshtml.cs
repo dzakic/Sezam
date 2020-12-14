@@ -12,15 +12,15 @@ namespace Sezam.Web.Pages.Users
 {
     public class DeleteModel : PageModel
     {
-        private readonly Sezam.Data.SezamDbContext _context;
+        private readonly SezamDbContext _context;
 
-        public DeleteModel(Sezam.Data.SezamDbContext context)
+        public DeleteModel(SezamDbContext context)
         {
             _context = context;
         }
 
         [BindProperty]
-        public User User { get; set; }
+        public User DeleteUser { get; set; }
 
         public async Task<IActionResult> OnGetAsync(int? id)
         {
@@ -29,9 +29,9 @@ namespace Sezam.Web.Pages.Users
                 return NotFound();
             }
 
-            User = await _context.Users.FirstOrDefaultAsync(m => m.Id == id);
+            DeleteUser = await _context.Users.FirstOrDefaultAsync(m => m.Id == id);
 
-            if (User == null)
+            if (DeleteUser == null)
             {
                 return NotFound();
             }
@@ -45,11 +45,11 @@ namespace Sezam.Web.Pages.Users
                 return NotFound();
             }
 
-            User = await _context.Users.FindAsync(id);
+            DeleteUser = await _context.Users.FindAsync(id);
 
-            if (User != null)
+            if (DeleteUser != null)
             {
-                _context.Users.Remove(User);
+                _context.Users.Remove(DeleteUser);
                 // await _context.SaveChangesAsync();
             }
 
