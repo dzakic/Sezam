@@ -19,15 +19,15 @@ namespace Sezam.Web.Pages.Users
             _context = context;
         }
 
-        [BindProperty(Name = "q", SupportsGet = true)]
-        public string Filter { get; set; }
+        [BindProperty(SupportsGet = true)]
+        public string q { get; set; }
 
         public IList<User> Users { get;set; }
 
         public async Task OnGetAsync()
         {
                 Users = await _context.Users
-                    .Where(u => u.Username.Contains(Filter) || u.City.Contains(Filter))
+                    .Where(u => u.Username.Contains(q) || u.City.Contains(q))
                     .OrderByDescending(u => u.LastCall)
                     .Take(10)
                     .ToListAsync();
