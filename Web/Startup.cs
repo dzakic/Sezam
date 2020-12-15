@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Sezam.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
 
 namespace Sezam.Web
 {
@@ -52,7 +53,14 @@ namespace Sezam.Web
             }
 
             // app.UseHttpsRedirection();
-            app.UseStaticFiles();
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                OnPrepareResponse = ctx =>
+                {
+                    ctx.Context.Response.Headers.Append(
+                         "Cache-Control", $"public, max-age=3600, stale-while-revalidate=86400");
+                }
+            });
 
             app.UseRouting();
 

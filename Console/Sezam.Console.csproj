@@ -26,6 +26,9 @@
 
 	<PropertyGroup>
 		<OutputPath>..\bin</OutputPath>
+		<Authors>Dragan Zakic</Authors>
+		<Company>SezamNet</Company>
+		<Product>Sezam.Console</Product>
 	</PropertyGroup>
 
 	<ItemGroup>

@@ -83,9 +83,9 @@ namespace Sezam.Commands
             {
                 FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
                 var fi = new System.IO.FileInfo(fvi.OriginalFilename);
-                session.terminal.Line("{0,-20} {1,-20} {2:dd-MMM-yyyy HH:mm}",
-                    assembly.ManifestModule.Name,
-                    fvi.FileVersion.ToString(),
+                session.terminal.Line("{0,-16} {1,-16} {2:dd-MMM-yyyy HH:mm}",
+                    fvi.ProductName,
+                    fvi.ProductVersion,
                     fi.CreationTime
                     );
             }

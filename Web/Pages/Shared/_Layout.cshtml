@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Maven+Pro&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Fira+Mono&display=swap" rel="stylesheet">
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
 </head>
 <body>
     <header>
@@ -40,8 +41,9 @@
 
     <footer class="border-top footer text-muted">
         <div class="container">
-            &copy; 2020 - Old<strong>Sezam.Net</strong> - <a asp-area="" asp-page="/Privacy">Privacy</a>
-</div>
+            &copy; 2020 - Old<strong>Sezam.Net</strong> - <a asp-area="" asp-page="/Privacy">Privacy</a> 
+            <small>@typeof(Sezam.Web.Program).Assembly.GetName().Version</small>
+        </div>
     </footer>
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
