@@ -1,0 +1,11 @@
+# Docker
+
+docker pull mcr.microsoft.com/dotnet/runtime:5.0 186MB
+
+docker built -t <my tag> .
+
+kubectl get pods -l app=
+
+kubectl create -f kubernetes/deployment.yaml
+kubectl expose deployment sezam.web --type NodePort --port 8080 --target-port 8080
+kubectl get pods -l app=sezam.web
