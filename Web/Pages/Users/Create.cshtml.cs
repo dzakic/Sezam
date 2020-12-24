@@ -36,7 +36,7 @@ namespace Sezam.Web.Pages.Users
             }
 
             _context.Users.Add(CreateUser);
-            // await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync();
 
             return RedirectToPage("./Index");
         }

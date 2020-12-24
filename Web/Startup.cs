@@ -26,16 +26,22 @@ namespace Sezam.Web
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            var ServerName = Configuration.GetConnectionString("ServerName");
-            var Password = Configuration.GetConnectionString("Password");
+            string GetConfig(string name) =>
+                Environment.GetEnvironmentVariable(name)
+                    ?? Configuration.GetConnectionString(name);
+            
+            var ServerName = GetConfig("ServerName"); 
+            var Password = GetConfig("Password");
+           
             var ConnectionString = $"server={ServerName};database=sezam;user=sezam;password={Password}";
-            _ = services
-                .AddDbContext<SezamDbContext>(options => options
-                    .UseMySql(ConnectionString)
-                    .EnableSensitiveDataLogging()
-                    .UseLazyLoadingProxies()
-                    )
-                .AddRazorPages();
+            
+            services.AddDbContext<SezamDbContext>(options => options
+                .UseMySql(ConnectionString)
+                .EnableSensitiveDataLogging()
+                .UseLazyLoadingProxies()
+            )
+            .AddRazorPages();
+
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -63,12 +69,13 @@ namespace Sezam.Web
             });
 
             app.UseRouting();
-
+        
             app.UseAuthorization();
 
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapRazorPages();
+                endpoints.MapControllers();
             });
         }
     }

@@ -40,6 +40,7 @@ namespace Sezam.Data.EF
 
         public virtual ICollection<ConfTopic> ConfTopics { get; set; } = new List<ConfTopic>();
 
+        // Name [ + VolumeNo ] = VolumeName
         public string VolumeName => VolumeNo > 0 ? string.Format("{0}.{1}", Name, VolumeNo) : Name;
 
         public bool IsClosed => Status.HasFlag(ConfStatus.Closed);

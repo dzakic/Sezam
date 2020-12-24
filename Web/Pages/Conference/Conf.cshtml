@@ -2,7 +2,7 @@
 @model Sezam.Web.Pages.Conference.ConfModel
 
 @{
-    ViewData["Title"] = Model.ConfName ?? "Index";
+    ViewData["Title"] = Model.Topic != null ? Model.ConfName + " : " + Model.Topic?.Name : Model.ConfName;
     Layout = "~/Pages/Shared/_Layout.cshtml";
 }
 
@@ -30,7 +30,7 @@
                 <header>
                     <msgid>@msg.MsgId</msgid>
                     <author>@msg.Author.Username</author>,
-                    <time alt="@string.Format("{0:dd/MM/yyyy HH:mm}", msg.Time)">@string.Format("{0:dd MMM yy}", msg.Time)</time>
+                    <time title="@string.Format("{0:dd/MM/yyyy HH:mm}", msg.Time)">@string.Format("{0:dd MMM yy}", msg.Time)</time>
                 </header>
                 <content>@msg.MessageText.Text</content>
                 @if(msg.Filename.Length > 0)

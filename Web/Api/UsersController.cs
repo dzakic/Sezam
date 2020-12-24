@@ -1,13 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Linq.Expressions;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Sezam.Data;
-
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace Sezam.Web.Api
 {
@@ -16,69 +15,81 @@ namespace Sezam.Web.Api
     public class UsersController : ControllerBase
     {
 
-        public UsersController(Sezam.Data.SezamDbContext context)
+        public UsersController(Sezam.Data.SezamDbContext context, ILogger<UsersController> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         private readonly SezamDbContext _context;
+        private readonly ILogger<UsersController> _logger;
 
         private static readonly Expression<Func<Sezam.Data.EF.User, DTO.User>>
           AsUserDto = user => new DTO.User
           {
               Id = user.Id,
               Username = user.Username,
-              FullName = user.FullName
+              FullName = user.FullName,
+              City = user.City,
+              LastCall = user.LastCall
           };
 
         // GET: api/users
         [HttpGet]
-        public IEnumerable<DTO.User> Get()
+        public IEnumerable<DTO.User> Search(string filter = "")
         {
-            var users = _context.Users.Select(AsUserDto).AsQueryable();
-            return users;
+            IQueryable<Data.EF.User> users = _context.Users;
+            if (!string.IsNullOrEmpty(filter))
+                users = users.Where(u => 
+                    u.Username.Contains(filter) ||
+                    u.FullName.Contains(filter) ||
+                    u.City.Contains(filter)
+                );
+            return users
+                .OrderByDescending(u => u.LastCall)
+                .Take(100)
+                .Select(AsUserDto); ;
         }
 
         // GET api/users/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<DTO.User>> Get(int id)
+        [HttpGet("{id:int}")]
+        public async Task<ActionResult<DTO.User>> GetById(int id)
         {
             var user = await _context.Users
                 .Select(AsUserDto)
-                .SingleOrDefaultAsync(b => b.Id == id);
-            return user == null ? NotFound() : Ok(user);
+                .SingleOrDefaultAsync(u => u.Id == id);
+            return user == null ? NotFound() : user;
         }
 
         // GET api/users/dzakic
-        [HttpGet("{username}")]
-        public async Task<ActionResult<DTO.User>> Get(string username)
+        [HttpGet("{username:alpha}")]
+        public async Task<ActionResult<DTO.User>> GetByUsername(string username)
         {
             var user = await _context.Users
                 .Select(AsUserDto)
-                .SingleOrDefaultAsync(b => b.Username == username);
-            if (user == null)
-            {
-                return NotFound();
-            }
-            return Ok(user);
+                .SingleOrDefaultAsync(u => u.Username == username);
+            return user == null ? NotFound() : user;
         }
 
-        // POST api/<ValuesController>
+        // POST api/users
         [HttpPost]
-        public void Post([FromBody] string value)
+        public IActionResult Post([FromBody] string value)
         {
+            return Forbid();
         }
 
-        // PUT api/<ValuesController>/5
+        // PUT api/users/5
         [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
+        public IActionResult Put(int id, [FromBody] string value)
         {
+            return Forbid();
         }
 
-        // DELETE api/<ValuesController>/5
+        // DELETE api/users/5
         [HttpDelete("{id}")]
-        public void Delete(int id)
+        public IActionResult Delete(int id)
         {
+            return Forbid();
         }
     }
 }
