@@ -36,7 +36,7 @@ namespace Sezam.Web
             var ConnectionString = $"server={ServerName};database=sezam;user=sezam;password={Password}";
             
             services.AddDbContext<SezamDbContext>(options => options
-                .UseMySql(ConnectionString)
+                .UseMySql(ConnectionString, ServerVersion.AutoDetect(ConnectionString))
                 .EnableSensitiveDataLogging()
                 .UseLazyLoadingProxies()
             )

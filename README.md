@@ -1,5 +1,5 @@
 # Sezam
-Sezam.Net 5
+Sezam.Net 6
 
 Sezam BBS was founded in November 1989 in Belgrade, Yugoslavia. Unlike other BBS systems dedicated to file download, Sezam focused on public forums (conferences). The original BBS software, developed by Sezam's founders Zoran Životić and Dejan Ristanović, enabled users to share their comments on various topics, such as: computers, education, sports, politics etc.
 
