@@ -56,9 +56,10 @@ namespace Sezam.Data
         {
             DbContextOptions<SezamDbContext> options;
             var optionsBuilder = new DbContextOptionsBuilder<SezamDbContext>();
+            var connectionString = "server=" + ServerName + ";database=sezam;user=sezam;password=" + Password;
 
             options = optionsBuilder
-                .UseMySql("server=" + ServerName + ";database=sezam;user=sezam;password=" + Password)
+                .UseMySql(connectionString, ServerVersion.AutoDetect(connectionString))
                 .EnableSensitiveDataLogging()
                 .UseLazyLoadingProxies()
                 .Options;

@@ -27,14 +27,13 @@ namespace ZBB
             Sezam.Data.Store.Password = configuration.GetConnectionString("Password");
 
             string dataFolder = configuration["Data:Folder"]
-                ?? Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "Data");
-
+                ?? Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "Data"));
 
             var importer = new Importer(dataFolder);
 
             using (var dbx = Sezam.Data.Store.GetNewContext())
             {
-                dbx.Database.EnsureCreated();
+                _ = dbx.Database.EnsureCreated();
                 dbx.Database.Migrate();
             }
 

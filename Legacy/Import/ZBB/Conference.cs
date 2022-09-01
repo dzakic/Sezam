@@ -184,9 +184,12 @@ namespace ZBB
             var messages = Messages.Where(m => !string.IsNullOrEmpty(m.Filename));
             foreach (var m in messages)
             {
-                var attFileName = Path.Combine(FilesFolder, "f" + string.Format("{0:5d}", m.ID) + ".c");
-                m.Attachment = File.ReadAllBytes(attFileName);
-                m.FileLen = m.Attachment.Length;
+                var attFileName = Path.Combine(FilesFolder, string.Format("f{0:0000000}.c", m.ID));
+                if (File.Exists(attFileName))
+                {
+                    m.Attachment = File.ReadAllBytes(attFileName);
+                    m.FileLen = m.Attachment.Length;
+                }
             }
         }
 
