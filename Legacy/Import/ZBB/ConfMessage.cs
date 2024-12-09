@@ -13,7 +13,7 @@ namespace ZBB
                 MsgNo = zbbConfMsg.MsgNo,
                 Time = zbbConfMsg.Time,
                 MessageText = new Sezam.Data.EF.MessageText() { Text = zbbConfMsg.Text },
-                ParentMessageId = zbbConfMsg.ParentMsg?.EFConfMessage?.Id,
+                ParentMessage = zbbConfMsg.ParentMsg?.EFConfMessage,
                 Status = (Sezam.Data.EF.ConfMessage.MessageStatus)zbbConfMsg.status,
                 Filename = zbbConfMsg.Filename
             };
@@ -110,7 +110,8 @@ namespace ZBB
         {
             txt.Position = offset;
             byte[] msgTextBytes = new byte[len];
-            txt.Read(msgTextBytes, 0, (int)len);
+            int readCount = txt.Read(msgTextBytes, 0, len);
+            if (readCount != len) { }
             return Helpers.DecodeText(msgTextBytes);
         }
 
@@ -128,9 +129,8 @@ namespace ZBB
         // absolute ref id
         public ConfMessage ParentMsg;
 
-
         private uint offset;
-        private uint len;
+        private int len;
 
         public string Filename;
         public byte[] Attachment;

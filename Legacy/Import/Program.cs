@@ -18,8 +18,7 @@ namespace ZBB
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
 
-            var builder = new ConfigurationBuilder();
-            builder
+            var builder = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json", optional: true)
                 .AddJsonFile("appsettings-secrets.json", optional: true);
             var configuration = builder.Build();

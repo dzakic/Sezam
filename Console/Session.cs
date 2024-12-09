@@ -56,6 +56,13 @@ namespace Sezam
                             terminal.Line("* " + e.Message);
                             continue;
                         }
+
+                        catch (NotImplementedException e)
+                        {
+                            terminal.Line("* " + e.Message);
+                            continue;
+                        }
+
                         catch (Exception e)
                         {
                             terminal.Line("Blimey! System Error: {0}", e.Message);

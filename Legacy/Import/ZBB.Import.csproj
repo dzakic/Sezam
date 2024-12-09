@@ -1,24 +1,25 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
-
-
-    <PropertyGroup>
-	    <OutputPath>..\..\bin</OutputPath>
-    </PropertyGroup>
-
+  <PropertyGroup>
+    <OutputPath>..\..\bin</OutputPath>
+    <UserSecretsId>02c5fb0e-5eb9-42e3-b21b-359a1c097097</UserSecretsId>
+    <StartupObject>ZBB.MainClass</StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="CouchDB.NET" Version="3.6.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="9.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Console\Sezam.Console.csproj" />
     <ProjectReference Include="..\..\Data\Sezam.Data.csproj" />
   </ItemGroup>
-
   <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-
 </Project>

@@ -45,10 +45,7 @@ namespace Sezam.Data.EF
 
         public int MsgNo { get; set; }
 
-        [NotMapped]
         public virtual ConfMessage ParentMessage { get; set; }
-
-        public int? ParentMessageId { get; set; }
 
         public DateTime Time { get; set; }
 

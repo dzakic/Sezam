@@ -1,16 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Authors>Dragan Zakic</Authors>
     <Company>SezamNet</Company>
-</PropertyGroup>
-
+  </PropertyGroup>
   <PropertyGroup>
     <OutputPath>..\bin</OutputPath>
   </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Commands\Sezam.Commands.csproj">
       <Private>true</Private>
@@ -22,11 +19,9 @@
       <Private>true</Private>
     </ProjectReference>
   </ItemGroup>
-
   <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-
 </Project>

@@ -66,9 +66,9 @@ namespace Sezam
         private void ListenerThread()
         {
             var ipAddress = new IPAddress(0);
-            listener = new TcpListener(ipAddress, 23);
+            listener = new TcpListener(ipAddress, 2023);
             listener.Start(8);
-            Debug.WriteLine(String.Format("Listener started on port {0}", 23));
+            Debug.WriteLine(String.Format("Listener started on {0}", listener.LocalEndpoint));
             while (Thread.CurrentThread.IsAlive)
                 try
                 {

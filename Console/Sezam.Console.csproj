@@ -1,21 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
-
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <OutputPath>../bin</OutputPath>
   </PropertyGroup>
-
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>../bin</OutputPath>
   </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Data\Sezam.Data.csproj" />
   </ItemGroup>
-
   <ItemGroup>
     <Compile Update="strings.Designer.cs">
       <DesignTime>True</DesignTime>
@@ -23,19 +18,16 @@
       <DependentUpon>strings.resx</DependentUpon>
     </Compile>
   </ItemGroup>
-
-	<PropertyGroup>
-		<OutputPath>..\bin</OutputPath>
-		<Authors>Dragan Zakic</Authors>
-		<Company>SezamNet</Company>
-		<Product>Sezam.Console</Product>
-	</PropertyGroup>
-
-	<ItemGroup>
+  <PropertyGroup>
+    <OutputPath>..\bin</OutputPath>
+    <Authors>Dragan Zakic</Authors>
+    <Company>SezamNet</Company>
+    <Product>Sezam.Console</Product>
+  </PropertyGroup>
+  <ItemGroup>
     <EmbeddedResource Update="strings.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>strings.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
-
 </Project>

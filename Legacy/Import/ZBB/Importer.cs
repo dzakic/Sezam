@@ -93,11 +93,7 @@ namespace ZBB
             };
 
             Parallel.ForEach(confNames, options, conf => ImportConference(conf));
-                
-            //foreach (var confName in confNames)
-            //{
-
-            //}
+               
         }
 
         public void ImportUsers()

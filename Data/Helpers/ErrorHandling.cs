@@ -25,12 +25,10 @@ namespace Sezam
         {
             Trace.TraceError("{0}.{1}: {2}",
                e.Source, e.GetType().Name, e.Message);
-            Console.WriteLine("Unhandled Exception: {0}", e.Message);
-            Console.WriteLine(e.StackTrace);
+            Debug.WriteLine("Unhandled Exception: {0}", e.Message);
+            Debug.WriteLine(e.StackTrace);
             if (e.InnerException != null)
                 PrintException(e.InnerException);
-            // else
-            // Debug.WriteLine("Stack: {0}", e.StackTrace);
         }
     }
 }
