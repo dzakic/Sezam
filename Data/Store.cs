@@ -1,19 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Microsoft.Extensions.Configuration;
 using Sezam.Data.EF;
 
 namespace Sezam.Data
 {
     // Database context, per session
-    public class SezamDbContext : DbContext
+    public class SezamDbContext(DbContextOptions options) : DbContext(options)
     {
 
         public int UserId { get; set; }
-
-        public SezamDbContext(DbContextOptions<SezamDbContext> options) : base(options) { }
-
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -52,18 +51,19 @@ namespace Sezam.Data
     public static class Store
     {
 
+        public static DbContextOptionsBuilder GetOptionsBuilder(DbContextOptionsBuilder builder)
+        {
+            var ConnectionString = $"server={ServerName};database=sezam;user=sezam;password={Password}";
+            return builder
+                .UseMySql(ConnectionString, ServerVersion.AutoDetect(ConnectionString))
+                .EnableSensitiveDataLogging()
+                .UseLazyLoadingProxies();
+        }
+
         public static SezamDbContext GetNewContext()
         {
-            DbContextOptions<SezamDbContext> options;
-            var optionsBuilder = new DbContextOptionsBuilder<SezamDbContext>();
-            var connectionString = "server=" + ServerName + ";database=sezam;user=sezam;password=" + Password;
-
-            options = optionsBuilder
-                .UseMySql(connectionString, ServerVersion.AutoDetect(connectionString))
-                .EnableSensitiveDataLogging()
-                .UseLazyLoadingProxies()
-                .Options;
-
+            var optionsBuilder = GetOptionsBuilder(new DbContextOptionsBuilder());
+            var options = optionsBuilder.Options;
             return new SezamDbContext(options);
         }
 

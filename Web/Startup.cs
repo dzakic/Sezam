@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpsPolicy;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
@@ -11,6 +10,7 @@ using System.Threading.Tasks;
 using Sezam.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 
 namespace Sezam.Web
 {
@@ -19,6 +19,11 @@ namespace Sezam.Web
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
+            string GetConfig(string name) =>
+                Environment.GetEnvironmentVariable(name)
+                    ?? configuration.GetConnectionString(name);
+            Data.Store.ServerName = GetConfig("ServerName");
+            Data.Store.Password = GetConfig("Password");
         }
 
         public IConfiguration Configuration { get; }
@@ -26,22 +31,9 @@ namespace Sezam.Web
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            string GetConfig(string name) =>
-                Environment.GetEnvironmentVariable(name)
-                    ?? Configuration.GetConnectionString(name);
-            
-            var ServerName = GetConfig("ServerName"); 
-            var Password = GetConfig("Password");
-           
-            var ConnectionString = $"server={ServerName};database=sezam;user=sezam;password={Password}";
-            
-            services.AddDbContext<SezamDbContext>(options => options
-                .UseMySql(ConnectionString, ServerVersion.AutoDetect(ConnectionString))
-                .EnableSensitiveDataLogging()
-                .UseLazyLoadingProxies()
-            )
-            .AddRazorPages();
-
+            services
+                .AddDbContext<SezamDbContext>(options => Data.Store.GetOptionsBuilder(options))
+                .AddRazorPages();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

@@ -17,9 +17,13 @@ namespace Sezam
     {
         public Server(IConfigurationRoot configuration)
         {
+            string GetConfig(string name) =>
+                Environment.GetEnvironmentVariable(name)
+                    ?? configuration.GetConnectionString(name);
+            Data.Store.ServerName = GetConfig("ServerName");
+            Data.Store.Password = GetConfig("Password");
+
             sessions = new List<ISession>();
-            Data.Store.ServerName = configuration.GetConnectionString("ServerName");
-            Data.Store.Password = configuration.GetConnectionString("Password");
             Data.Store.Sessions = sessions;
         }
 
@@ -160,7 +164,7 @@ namespace Sezam
 
         public void PrintServerStatistics()
         {
-            Console.WriteLine(String.Format("SERVER: Running, {0} active connections:", Store.Sessions.Count));
+            Console.WriteLine(String.Format("SERVER: Running, {0} active connections:", sessions.Count));
             foreach (var sess in sessions)
                 Debug.WriteLine(sess.ToString());
         }
