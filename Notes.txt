@@ -1,11 +1,72 @@
+# Build
+
+dotnet publish -c Release
+docker built -t <my tag> .
+docker push dev.zakic.net/sezam.web
+
 # Docker
+
+docker service create --replicas 2 --name sezam --publish 2022,80 --publish 2023:23 dev.zakic.net/sezam.web
+docker node update --availability drain <node>
+docker attach --sig-proxy=false
+
 
 docker pull mcr.microsoft.com/dotnet/runtime:5.0 186MB
 
 docker built -t <my tag> .
+
+
+# microk8s
 
 kubectl get pods -l app=
 
 kubectl create -f kubernetes/deployment.yaml
 kubectl expose deployment sezam.web --type NodePort --port 8080 --target-port 8080
 kubectl get pods -l app=sezam.web
+
+microk8s.dashboard-proxy
+> https://kubes:10443
+
+
+docker run -p 2080:80 -e NAME1=VAL1 -e NAME2=VAL2 <name>
+docker run --env-file .env 
+
+docker volume create log-data
+docker run -v log-data:/logs <name>
+docker volume ls
+
+docker run -v /HOST/PATH:/CONTAINER/PATH -it nginx
+
+docker run -p 23:23 --entrypoint /app/Sezam.Telnet dev.zakic.net/sezam.web
+
+docker service create --name myservice --mode global < >
+docker node update --label-a
+
+
+
+dd role=FE --label-add region=EU tulip
+docker service create \
+  --name my-nginx \
+  --mode global \
+  --constraint node.labels.region==EU \
+  --constraint node.labels.role!=FE \
+  nginx
+
+docker node inspect tulip | jq .[].Spec.Labels
+
+
+
+1. tell me more
+2. stay 'good'
+3. don't leave. stay with her.
+know yr limits. have courage to say: ilove you, cant handle it now. will handle it later tonight so she wont feel abandoned.
+
+she's testing you
+1. attack
+2. when push back, fear of abandonment flips into victim
+
+stop playing games
+she doesn't trust you. thinks it's an act.
+
+jeremy@northpsych.com.au
+0481173662

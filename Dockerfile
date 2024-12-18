@@ -9,4 +9,4 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
 COPY --from=build-env /app/bin/net9.0/publish .
 ENTRYPOINT [ "/app/Sezam.Web" ]
-EXPOSE 8080
+EXPOSE 8080,23
