@@ -17,12 +17,7 @@ namespace Sezam
     {
         public Server(IConfigurationRoot configuration)
         {
-            string GetConfig(string name) =>
-                Environment.GetEnvironmentVariable(name)
-                    ?? configuration.GetConnectionString(name);
-            Data.Store.ServerName = GetConfig("ServerName");
-            Data.Store.Password = GetConfig("Password");
-
+            Data.Store.ConfigureFrom(configuration);
             sessions = new List<ISession>();
             Data.Store.Sessions = sessions;
         }
@@ -174,8 +169,21 @@ namespace Sezam
                 try { session.Close(); } catch (Exception ex) { ErrorHandling.Handle(ex); }
             }
             Debug.Write(" main thread.. ");
-            mainThread.Interrupt();
-            mainThread.Join();
+            
+            // ROBUSTNESS: Issue #13 - Don't hang forever on mainThread join
+            try
+            {
+                mainThread.Interrupt();
+                if (!mainThread.Join(TimeSpan.FromSeconds(5)))
+                {
+                    Debug.Write(" (timeout)");
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorHandling.Handle(ex);
+            }
+            
             Debug.WriteLine(" Done.");
         }
 

@@ -50,6 +50,20 @@ namespace Sezam.Data
     // A global object accessible to all sessions
     public static class Store
     {
+        public static void ConfigureFrom(IConfiguration configuration)
+        {
+            ServerName = ResolveConfigValue(configuration, "ServerName");
+            Password = ResolveConfigValue(configuration, "Password");
+        }
+
+        public static string ResolveConfigValue(IConfiguration configuration, string name)
+        {
+            return Environment.GetEnvironmentVariable(name)
+                ?? Environment.GetEnvironmentVariable($"ConnectionStrings__{name}")
+                ?? configuration?.GetConnectionString(name)
+                ?? configuration?[$"ConnectionStrings:{name}"]
+                ?? configuration?[name];
+        }
 
         public static DbContextOptionsBuilder GetOptionsBuilder(DbContextOptionsBuilder builder)
         {
