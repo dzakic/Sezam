@@ -68,12 +68,51 @@ namespace Sezam.Data
             return new SezamDbContext(options);
         }
 
-        private static IList<ISession> sessions;
-        private static string serverName;
-        private static string password;
+        // underlying storage for sessions.  original implementation exposed a
+        // mutable list directly which allowed concurrent readers/writers to
+        // race.  the fix introduces a private lock and only returns a copy of
+        // the list to callers.  the setter is similarly guarded.
+        private static readonly object _sessionLock = new object();
+        private static List<ISession> _sessionsList = new List<ISession>();
 
-        public static IList<ISession> Sessions { get => sessions; set => sessions = value; }
-        public static string ServerName { get => serverName; set => serverName = value; }
-        public static string Password { get => password; set => password = value; }
+        // volatile ensures that reads/writes of the primitive string fields are
+        // not cached in registers; it's mostly defensive since they are written
+        // only during startup.
+        private static volatile string serverName;
+        private static volatile string password;
+
+        public static IList<ISession> Sessions
+        {
+            get
+            {
+                lock (_sessionLock)
+                {
+                    // return a shallow copy to prevent callers from modifying our
+                    // internal list without synchronization.
+                    return new List<ISession>(_sessionsList);
+                }
+            }
+            set
+            {
+                lock (_sessionLock)
+                {
+                    _sessionsList.Clear();
+                    if (value != null)
+                        _sessionsList.AddRange(value);
+                }
+            }
+        }
+
+        public static string ServerName
+        {
+            get { return serverName; }
+            set { serverName = value; }
+        }
+
+        public static string Password
+        {
+            get { return password; }
+            set { password = value; }
+        }
     }
 }
