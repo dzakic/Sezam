@@ -73,7 +73,7 @@ namespace Sezam
                 }
                 catch (Exception e)
                 {
-                    terminal.Line(strings.ErrorUnrecoverable, e.Message);
+                    terminal.Line(Strings.ErrorUnrecoverable, e.Message);
                     ErrorHandling.Handle(e);
                 }
             }
@@ -96,14 +96,14 @@ namespace Sezam
             User = Login();
             if (User == null)
             {
-                terminal.Line(strings.Login_UnknownUser);
+                terminal.Line(Strings.Login_UnknownUser);
                 terminal.Close();
                 SysLog("Unknown user. Disconnected.");
             }
             else
             {
                 terminal.Line();
-                terminal.Line(strings.WelcomeUserLastCall, User.FullName, User.LastCall);
+                terminal.Line(Strings.WelcomeUserLastCall, User.FullName, User.LastCall);
                 SysLog("Loggedin");
                 LoginTime = DateTime.Now;
                 Db.UserId = User.Id;
@@ -114,7 +114,7 @@ namespace Sezam
 
         private void PrintBanner()
         {
-            terminal.Line(strings.BannerConnected, ConnectTime, terminal.Id);
+            terminal.Line(Strings.BannerConnected, ConnectTime, terminal.Id);
             terminal.Line();
         }
 
@@ -134,7 +134,7 @@ namespace Sezam
             int userTryCount = 0;
             while (userTryCount < NUM_RETRIES)
             {
-                string username = terminal.InputStr(strings.Login_Username);
+                string username = terminal.InputStr(Strings.Login_Username);
                 if (string.IsNullOrWhiteSpace(username))
                     continue;
                 var user = GetUser(username);
@@ -143,10 +143,10 @@ namespace Sezam
                 if (user != null)
                 {
                     bool usePIN = user.Password == null && user.DateOfBirth != null;
-                    string prompt = usePIN ? strings.Login_PIN : strings.Login_Password;
+                    string prompt = usePIN ? Strings.Login_PIN : Strings.Login_Password;
 
                     if (usePIN)
-                        terminal.Line(strings.Login_WelcomeNoPassword, user.Username);
+                        terminal.Line(Strings.Login_WelcomeNoPassword, user.Username);
 
                     string expectPass = usePIN ?
                         string.Format("{0:ddMM}", user.DateOfBirth) : user.Password;

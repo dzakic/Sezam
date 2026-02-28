@@ -65,13 +65,13 @@ namespace Sezam
 
         public void Line(string Message = "")
         {
-            Out.WriteLine(Strings.RTrim(Message));
+            Out.WriteLine(Microsoft.VisualBasic.Strings.RTrim(Message));
             LineFinished();
         }
 
         public void Line(string Message, params object[] args)
         {
-            Out.WriteLine(Strings.RTrim(String.Format(Message, args)));
+            Out.WriteLine(Microsoft.VisualBasic.Strings.RTrim(String.Format(Message, args)));
             LineFinished();
         }
 

@@ -507,7 +507,7 @@ namespace Sezam.Commands
                     var topic = conf.ConfTopics.Where(t => t.TopicNo == topicNo).FirstOrDefault();
                     if (topic != null)
                         return topic;
-                    throw new ArgumentException(string.Format(strings.Conf_UnknownTopic, topicNo));
+                    throw new ArgumentException(string.Format(Strings.Conf_UnknownTopic, topicNo));
                 }
             }
 
@@ -518,7 +518,7 @@ namespace Sezam.Commands
             }
 
             if (Required)
-                throw new ArgumentException(string.Format(strings.Conf_UnknownTopic, topicName));
+                throw new ArgumentException(string.Format(Strings.Conf_UnknownTopic, topicName));
 
             return null;
         }

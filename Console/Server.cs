@@ -48,7 +48,7 @@ namespace Sezam
         {
             while (Thread.CurrentThread.IsAlive && Console.WindowHeight + Console.WindowWidth > 0) 
             {               
-                Console.WriteLine(strings.PressEscToStop);
+                Console.WriteLine(Strings.PressEscToStop);
                 var key = Console.ReadKey().Key;
 
                 if (key == ConsoleKey.Escape)

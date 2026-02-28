@@ -94,7 +94,7 @@ namespace Sezam.Commands
         [Command(Aliases = "Date")]
         public void Time()
         {
-            session.terminal.Line(strings.Root_Time, DateTime.Now);
+            session.terminal.Line(Strings.Root_Time, DateTime.Now);
         }
 
         [Command(Aliases = "Clear")]

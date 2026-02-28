@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Configuration;
 using Sezam.Data.EF;
@@ -54,8 +54,9 @@ namespace Sezam.Data
         public static DbContextOptionsBuilder GetOptionsBuilder(DbContextOptionsBuilder builder)
         {
             var ConnectionString = $"server={ServerName};database=sezam;user=sezam;password={Password}";
+            Debug.WriteLine("ServerName: " + Data.Store.ServerName);
             return builder
-                .UseMySql(ConnectionString, ServerVersion.AutoDetect(ConnectionString))
+                .UseMySQL(ConnectionString)
                 .EnableSensitiveDataLogging()
                 .UseLazyLoadingProxies();
         }
