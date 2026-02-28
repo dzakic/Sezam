@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using Microsoft.EntityFrameworkCore;
 using Sezam.Data;
 using Sezam.Data.EF;
 using Sezam.Commands;
@@ -22,7 +23,15 @@ namespace Sezam
             NodeNo = 1;
             // disposable DbContext created once per session
             Db = Store.GetNewContext();
+            // Lazy initialization for root command set (ROBUSTNESS: Fix #6)
+            lazyRootCommandSet = new Lazy<CommandSet>(
+                () => GetCommandProcessor(CommandSet.RootType()),
+                LazyThreadSafetyMode.ExecutionAndPublication);
         }
+
+        // ROBUSTNESS: Fix #8 - Error loop prevention counter
+        private int consecutiveExceptionCount = 0;
+        private const int MaxConsecutiveExceptions = 3;
 
         public void Start()
         {
@@ -45,6 +54,8 @@ namespace Sezam
                         }
                         catch (TerminalException e)
                         {
+                            // ROBUSTNESS: Fix #8 - Reset error counter on expected terminal exceptions
+                            consecutiveExceptionCount = 0;
                             switch (e.Code)
                             {
                                 case TerminalException.CodeType.ClientDisconnected:
@@ -55,26 +66,43 @@ namespace Sezam
                         }
                         catch (ArgumentException e)
                         {
+                            // ROBUSTNESS: Fix #8 - Reset error counter on expected user errors
+                            consecutiveExceptionCount = 0;
                             terminal.Line("* " + e.Message);
                             continue;
                         }
 
                         catch (NotImplementedException e)
                         {
+                            // ROBUSTNESS: Fix #8 - Reset error counter on feature placeholders
+                            consecutiveExceptionCount = 0;
                             terminal.Line("* " + e.Message);
                             continue;
                         }
 
                         catch (Exception e)
                         {
+                            // ROBUSTNESS: Fix #8 - Count consecutive errors to detect infinite loops
+                            consecutiveExceptionCount++;
                             terminal.Line("Blimey! System Error: {0}", e.Message);
                             ErrorHandling.Handle(e);
+                            
+                            if (consecutiveExceptionCount > MaxConsecutiveExceptions)
+                            {
+                                terminal.Line("Too many errors. Disconnecting.");
+                                throw new TerminalException(TerminalException.CodeType.ClientDisconnected);
+                            }
+                            
+                            // ROBUSTNESS: Fix #8 - Brief delay prevents rapid spinning on stuck errors
+                            Thread.Sleep(100);
                             continue;
                         }
                     }
                 }
                 catch (Exception e)
                 {
+                    // ROBUSTNESS: Fix #8 - Reset counter on outer exception (means loop should exit normally)
+                    consecutiveExceptionCount = 0;
                     terminal.Line(Strings.ErrorUnrecoverable, e.Message);
                     ErrorHandling.Handle(e);
                 }
@@ -114,7 +142,18 @@ namespace Sezam
                 LoginTime = DateTime.Now;
                 Db.UserId = User.Id;
                 User.LastCall = LoginTime;
-                Db.SaveChangesAsync();
+                
+                // ROBUSTNESS: Fix #9 - SaveChanges with proper error handling (not fire-and-forget)
+                try
+                {
+                    Db.SaveChanges();
+                }
+                catch (DbUpdateException ex)
+                {
+                    Debug.WriteLine($"Login save failed: {ex.Message}");
+                    // Don't fail login if audit save fails
+                    ErrorHandling.Handle(ex);
+                }
             }
         }
 
@@ -179,28 +218,24 @@ namespace Sezam
 
         protected readonly object _cmdSetLock = new object();
 
-        private void InputAndExecCmd()
+        protected void InputAndExecCmd()
         {
-            // Initialise root 1st time with double-check locking
-            if (rootCommandSet == null)
-            {
-                lock (_cmdSetLock)
-                {
-                    if (rootCommandSet == null)
-                        rootCommandSet = GetCommandProcessor(CommandSet.RootType());
-                }
-            }
+            // use lazy initializer for the root command set; thread-safe and only
+            // evaluates once.  this replaces the previous manual double-checked
+            // locking logic, but we still keep a small lock for currentCommandSet
+            // assignment to avoid races.
+            var root = lazyRootCommandSet.Value;
 
             if (currentCommandSet == null)
             {
                 lock (_cmdSetLock)
                 {
                     if (currentCommandSet == null)
-                        currentCommandSet = rootCommandSet;
+                        currentCommandSet = root;
                 }
             }
 
-            string prompt = currentCommandSet?.GetPrompt();
+            string prompt = currentCommandSet?.GetPrompt() ?? ">";
             string cmd = terminal.PromptEdit(prompt + ">");
 
             if (terminal.Connected)
@@ -243,20 +278,64 @@ namespace Sezam
             SysLog(string.Format("Cmd {0} >> {1} > {2}", currentCommandSet.GetType().Name, cmd, string.Join(" ", cmdLine.Tokens)));
 
             if (!currentCommandSet.ExecuteCommand(cmd))
-                if (!rootCommandSet.ExecuteCommand(cmd))
+            {
+                var root = lazyRootCommandSet.Value;
+                if (!root.ExecuteCommand(cmd))
                     terminal.Line("Unknown command {0}", cmd);
-
+            }
         }
 
         // Main thread signal to shutdown
         public virtual void Close()
         {
-            if (thread != null && thread.IsAlive)
+            const int ThreadJoinTimeoutMs = 5000;
+
+            // Close thread with timeout and robust exception handling
+            try
             {
-                thread.Interrupt();
-                thread.Join();
+                if (thread != null && thread.IsAlive)
+                {
+                    try
+                    {
+                        thread.Interrupt();
+                    }
+                    catch (Exception ex)
+                    {
+                        ErrorHandling.Handle(ex);
+                    }
+
+                    bool joined = false;
+                    try
+                    {
+                        joined = thread.Join(ThreadJoinTimeoutMs);
+                    }
+                    catch (Exception ex)
+                    {
+                        ErrorHandling.Handle(ex);
+                    }
+
+                    if (!joined)
+                    {
+                        SysLog("Warning: Session thread did not terminate gracefully");
+                        Debug.WriteLine($"Session thread {id} did not stop within {ThreadJoinTimeoutMs}ms");
+                    }
+                }
             }
-            terminal.Close();
+            catch (Exception ex)
+            {
+                ErrorHandling.Handle(ex);
+            }
+
+            // Close terminal safely
+            try
+            {
+                terminal?.Close();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error closing terminal: {ex.Message}");
+                ErrorHandling.Handle(ex);
+            }
         }
 
         public override string ToString()
@@ -296,8 +375,13 @@ namespace Sezam
         private Thread thread;
         private Guid id;
         private readonly Dictionary<Type, CommandSet> commandSets;
-        protected CommandSet rootCommandSet;
-        public CommandSet currentCommandSet;
+        // legacy field kept for compatibility but no longer used
+        // (initialization performed via lazyRootCommandSet)
+        // protected volatile CommandSet rootCommandSet;
+        public volatile CommandSet currentCommandSet;
+
+        // Lazy root provider (ROBUSTNESS: Fix #6 alternative/upgrade)
+        private readonly Lazy<CommandSet> lazyRootCommandSet;
 
         public ITerminal terminal;
 

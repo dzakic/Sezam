@@ -181,39 +181,13 @@ namespace Sezam
             return null;
         }
 
-        private async Task InputAndExecCmdAsync()
+        private Task InputAndExecCmdAsync()
         {
-            if (rootCommandSet == null)
-            {
-                lock (_cmdSetLock)
-                {
-                    if (rootCommandSet == null)
-                        rootCommandSet = GetCommandProcessor(CommandSet.RootType());
-                }
-            }
-
-            if (currentCommandSet == null)
-            {
-                lock (_cmdSetLock)
-                {
-                    if (currentCommandSet == null)
-                        currentCommandSet = rootCommandSet;
-                }
-            }
-
-            string prompt = currentCommandSet?.GetPrompt();
-            using (var ctsTimeout = CancellationTokenSource.CreateLinkedTokenSource(cts.Token))
-            {
-                ctsTimeout.CancelAfter(TimeSpan.FromMinutes(5));
-                string cmd = await terminal.PromptEditAsync(prompt + ">", cancellationToken: ctsTimeout.Token);
-                if (terminal.Connected)
-                    ExecCmd(cmd);
-            }
+            // simply delegate to the synchronous implementation in base; it
+            // already uses a lazy root command set and handles locking.
+            return Task.Run(() => base.InputAndExecCmd(), cts.Token);
         }
 
-        #region copy of Session internals (mostly identical)
-        // most helper methods are inherited from Session; nothing additional here
-        #endregion
 
         /// <summary>
         /// Request that the session end; the cancellation token will signal the
