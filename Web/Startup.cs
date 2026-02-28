@@ -19,11 +19,7 @@ namespace Sezam.Web
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
-            string GetConfig(string name) =>
-                Environment.GetEnvironmentVariable(name)
-                    ?? configuration.GetConnectionString(name);
-            Data.Store.ServerName = GetConfig("ServerName");
-            Data.Store.Password = GetConfig("Password");
+            Data.Store.ConfigureFrom(configuration);
         }
 
         public IConfiguration Configuration { get; }

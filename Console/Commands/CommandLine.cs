@@ -6,6 +6,9 @@ namespace Sezam.Commands
 {
     public class CommandLine
     {
+        // ROBUSTNESS: Issue #5 - Use index instead of mutating list with RemoveAt
+        private int currentTokenIndex = 0;
+
         public CommandLine(string commandText)
         {
             Text = commandText;
@@ -21,6 +24,8 @@ namespace Sezam.Commands
                     switches.Add(s.Substring(1));
                 }
             }
+            // Reset token index after building tokens list
+            currentTokenIndex = 0;
         }
 
         public bool Switch(string sw)
@@ -39,19 +44,34 @@ namespace Sezam.Commands
 
         public bool IsEmpty()
         {
-            return tokens.Count() == 0;
+            return currentTokenIndex >= tokens.Count();
         }
 
+        /// <summary>
+        /// ROBUSTNESS: Issue #5 - Use index iteration instead of list mutation (RemoveAt)
+        /// This prevents token list corruption when accessed from multiple code paths
+        /// </summary>
         public string GetToken(string requiredValue = null)
         {
             if (IsEmpty())
+            {
                 if (string.IsNullOrEmpty(requiredValue))
                     return string.Empty;
                 else
                     throw new ArgumentException("Required parameter missing: " + requiredValue);
-            string token = tokens[0];
-            tokens.RemoveAt(0);
+            }
+            
+            string token = tokens[currentTokenIndex];
+            currentTokenIndex++;
             return token;
+        }
+
+        /// <summary>
+        /// Reset token position for reprocessing same command line
+        /// </summary>
+        public void Reset()
+        {
+            currentTokenIndex = 0;
         }
 
         private readonly List<string> tokens;

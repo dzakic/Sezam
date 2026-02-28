@@ -22,8 +22,7 @@ namespace ZBB
                 .AddJsonFile("appsettings.json", optional: true)
                 .AddJsonFile("appsettings-secrets.json", optional: true);
             var configuration = builder.Build();
-            Sezam.Data.Store.ServerName = configuration.GetConnectionString("ServerName");
-            Sezam.Data.Store.Password = configuration.GetConnectionString("Password");
+            Sezam.Data.Store.ConfigureFrom(configuration);
 
             string dataFolder = configuration["Data:Folder"]
                 ?? Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "Data"));

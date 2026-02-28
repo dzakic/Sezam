@@ -33,6 +33,9 @@ namespace Sezam
         private int consecutiveExceptionCount = 0;
         private const int MaxConsecutiveExceptions = 3;
 
+        // ROBUSTNESS: Issue #12 - User cache to avoid N+1 queries
+        private Dictionary<string, User> userCache;
+
         public void Start()
         {
             thread.Start();
@@ -164,13 +167,31 @@ namespace Sezam
         }
 
         /// <summary>
-        /// Retrieve the User object for given username
+        /// ROBUSTNESS: Issue #12 - Retrieve user with caching to avoid N+1 queries
+        /// Populates cache on first access and reuses for subsequent lookups
         /// </summary>
-        /// <param name="username"></param>
-        /// <returns></returns>
         public User GetUser(string username)
         {
-            return Db.Users.Where(u => u.Username == username).FirstOrDefault();
+            // Lazy-load user cache on first access
+            if (userCache == null)
+            {
+                try
+                {
+                    userCache = Db.Users.ToDictionary(u => u.Username, StringComparer.OrdinalIgnoreCase);
+                }
+                catch
+                {
+                    // If caching fails, fall back to direct query
+                    userCache = new Dictionary<string, User>(StringComparer.OrdinalIgnoreCase);
+                    return Db.Users.Where(u => u.Username == username).FirstOrDefault();
+                }
+            }
+
+            // Return from cache (case-insensitive)
+            if (userCache.TryGetValue(username, out var user))
+                return user;
+
+            return null;
         }
 
         private User Login()

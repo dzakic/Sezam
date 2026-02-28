@@ -17,6 +17,7 @@
     <ProjectReference Include="..\..\Console\Sezam.Console.csproj" />
     <ProjectReference Include="..\..\Commands\Sezam.Commands.csproj" />
     <ProjectReference Include="..\..\Data\Sezam.Data.csproj" />
+    <ProjectReference Include="..\..\Legacy\Import\ZBB.Import.csproj" />
   </ItemGroup>
 
 </Project>
