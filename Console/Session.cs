@@ -118,7 +118,7 @@ namespace Sezam
             }
         }
 
-        private void PrintBanner()
+        protected void PrintBanner()
         {
             terminal.Line(Strings.BannerConnected, ConnectTime, terminal.Id);
             terminal.Line();
@@ -177,7 +177,7 @@ namespace Sezam
             return null;
         }
 
-        private readonly object _cmdSetLock = new object();
+        protected readonly object _cmdSetLock = new object();
 
         private void InputAndExecCmd()
         {
@@ -249,7 +249,7 @@ namespace Sezam
         }
 
         // Main thread signal to shutdown
-        public void Close()
+        public virtual void Close()
         {
             if (thread != null && thread.IsAlive)
             {
@@ -296,7 +296,7 @@ namespace Sezam
         private Thread thread;
         private Guid id;
         private readonly Dictionary<Type, CommandSet> commandSets;
-        private CommandSet rootCommandSet;
+        protected CommandSet rootCommandSet;
         public CommandSet currentCommandSet;
 
         public ITerminal terminal;

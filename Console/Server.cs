@@ -57,6 +57,7 @@ namespace Sezam
                 if (key == ConsoleKey.Enter)
                 {
                     var console = new ConsoleTerminal();
+                    // console sessions are still synchronous for now
                     var consoleSession = new Session(console) { OnFinish = OnSessionFinish };
                     lock (sessions)
                         sessions.Add(consoleSession);
@@ -81,9 +82,10 @@ namespace Sezam
                     tcpClient.LingerState = new LingerOption(true, 2);
 
                     var terminal = new TelnetTerminal(tcpClient);
-                    Session session = new Session(terminal) { OnFinish = OnSessionFinish };
-                    Debug.WriteLine(String.Format("Starting session {0}", session));
-                    session.Start();
+                    // use the new async session type; we don't start a dedicated thread
+                    var session = new SessionAsync(terminal) { OnFinish = OnSessionFinish };
+                    Debug.WriteLine(String.Format("Starting async session {0}", session));
+                    var _ = session.RunAsync(); // fire and forget
                     lock (sessions)
                     {
                         sessions.Add(session);
@@ -114,15 +116,22 @@ namespace Sezam
 
         private void OnSessionFinish(object sender, EventArgs e)
         {
-            Session session = sender as Session;
+            // the sender may be either Session or SessionAsync; treat generically
             try
             {
-                try { Debug.WriteLine(String.Format("SERVER: {0} finished", session)); } catch { }
-                try { session?.terminal?.Close(); } catch (Exception ex) { ErrorHandling.Handle(ex); }
+                if (sender is Session session)
+                {
+                    Debug.WriteLine(String.Format("SERVER: {0} finished", session));
+                    try { session?.terminal?.Close(); } catch (Exception ex) { ErrorHandling.Handle(ex); }
+                }
+                else
+                {
+                    Debug.WriteLine("SERVER: unknown session type finished");
+                }
 
                 lock (sessions)
                 {
-                    try { sessions.Remove(session); } catch (Exception ex) { ErrorHandling.Handle(ex); }
+                    try { sessions.Remove(sender as ISession); } catch (Exception ex) { ErrorHandling.Handle(ex); }
                     try { PrintServerStatistics(); } catch (Exception ex) { ErrorHandling.Handle(ex); }
                     if (sessions.Count == 0)
                         CheckNewVersion();
@@ -159,10 +168,10 @@ namespace Sezam
             listener?.Stop();
             Debug.Write(String.Format("Stopping {0} connections.. ", sessions.Count));
             // close server
-            foreach (Session session in sessions.ToList())
+            foreach (var session in sessions.ToList())
             {
                 Debug.Write(".");
-                session.Close();
+                try { session.Close(); } catch (Exception ex) { ErrorHandling.Handle(ex); }
             }
             Debug.Write(" main thread.. ");
             mainThread.Interrupt();

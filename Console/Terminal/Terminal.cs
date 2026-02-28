@@ -3,6 +3,8 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Sezam
 {
@@ -40,10 +42,13 @@ namespace Sezam
         void Close();
 
         string PromptEdit(string prompt = "", InputFlags flags = 0);
+        Task<string> PromptEditAsync(string prompt = "", InputFlags flags = 0, CancellationToken cancellationToken = default);
 
         string InputStr(string label = "", InputFlags flags = 0);
+        Task<string> InputStrAsync(string label = "", InputFlags flags = 0, CancellationToken cancellationToken = default);
 
         int PromptSelection(string promptAnswers);
+        Task<int> PromptSelectionAsync(string promptAnswers, CancellationToken cancellationToken = default);
 
         // int PromptSelection(string prompt, params string[] options);
 
@@ -122,6 +127,31 @@ namespace Sezam
         {
             return ' ';
         }
+
+        #region async wrappers
+
+        public virtual Task<string> PromptEditAsync(string prompt = "", InputFlags flags = 0, CancellationToken cancellationToken = default)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                return Task.FromCanceled<string>(cancellationToken);
+            return Task.Run(() => PromptEdit(prompt, flags), cancellationToken);
+        }
+
+        public virtual Task<string> InputStrAsync(string label = "", InputFlags flags = 0, CancellationToken cancellationToken = default)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                return Task.FromCanceled<string>(cancellationToken);
+            return Task.Run(() => InputStr(label, flags), cancellationToken);
+        }
+
+        public virtual Task<int> PromptSelectionAsync(string promptAnswers, CancellationToken cancellationToken = default)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                return Task.FromCanceled<int>(cancellationToken);
+            return Task.Run(() => PromptSelection(promptAnswers), cancellationToken);
+        }
+
+        #endregion
 
         public int PromptSelection(string promptOptions)
         {
