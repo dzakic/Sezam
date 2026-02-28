@@ -115,14 +115,22 @@ namespace Sezam
         private void OnSessionFinish(object sender, EventArgs e)
         {
             Session session = sender as Session;
-            Debug.WriteLine(String.Format("SERVER: {0} finished", session));
-            session.terminal.Close();
-            lock (sessions)
+            try
             {
-                sessions.Remove(session);
-                PrintServerStatistics();
-                if (sessions.Count == 0)
-                    CheckNewVersion();
+                try { Debug.WriteLine(String.Format("SERVER: {0} finished", session)); } catch { }
+                try { session?.terminal?.Close(); } catch (Exception ex) { ErrorHandling.Handle(ex); }
+
+                lock (sessions)
+                {
+                    try { sessions.Remove(session); } catch (Exception ex) { ErrorHandling.Handle(ex); }
+                    try { PrintServerStatistics(); } catch (Exception ex) { ErrorHandling.Handle(ex); }
+                    if (sessions.Count == 0)
+                        CheckNewVersion();
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorHandling.Handle(ex);
             }
         }
 

@@ -20,6 +20,8 @@ namespace Sezam
             commandSets = new Dictionary<Type, CommandSet>();
             // NodeNo = dataStore.getNodeNo();
             NodeNo = 1;
+            // disposable DbContext created once per session
+            Db = Store.GetNewContext();
         }
 
         public void Start()
@@ -79,8 +81,12 @@ namespace Sezam
             }
             finally
             {
-                SysLog("Disconnected");
-                OnFinish?.Invoke(this, null);
+                // log first
+                try { SysLog("Disconnected"); } catch { }
+                // dispose db context to avoid leaks
+                try { Db?.Dispose(); } catch (Exception ex) { Debug.WriteLine($"Db dispose error: {ex.Message}"); }
+                // fire finish event
+                try { OnFinish?.Invoke(this, null); } catch (Exception ex) { ErrorHandling.Handle(ex); }
                 thread = null;
             }
         }
@@ -171,14 +177,28 @@ namespace Sezam
             return null;
         }
 
+        private readonly object _cmdSetLock = new object();
+
         private void InputAndExecCmd()
         {
-            // Initialise root 1st time
+            // Initialise root 1st time with double-check locking
             if (rootCommandSet == null)
-                rootCommandSet = GetCommandProcessor(CommandSet.RootType());
+            {
+                lock (_cmdSetLock)
+                {
+                    if (rootCommandSet == null)
+                        rootCommandSet = GetCommandProcessor(CommandSet.RootType());
+                }
+            }
 
             if (currentCommandSet == null)
-                currentCommandSet = rootCommandSet;
+            {
+                lock (_cmdSetLock)
+                {
+                    if (currentCommandSet == null)
+                        currentCommandSet = rootCommandSet;
+                }
+            }
 
             string prompt = currentCommandSet?.GetPrompt();
             string cmd = terminal.PromptEdit(prompt + ">");
@@ -281,7 +301,7 @@ namespace Sezam
 
         public ITerminal terminal;
 
-        public SezamDbContext Db = Store.GetNewContext();
+        public SezamDbContext Db { get; private set; }
 
         public EventHandler OnFinish;
     }

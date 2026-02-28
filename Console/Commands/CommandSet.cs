@@ -136,16 +136,17 @@
         {
             get
             {
-                // Happy path
                 var type = GetType();
-                if (setCatalogs.Keys.Contains(type))
-                    return setCatalogs[type];
-  
-                // First access
+                Dictionary<string, object> catalog;
+                if (setCatalogs.TryGetValue(type, out catalog))
+                    return catalog;
+
                 lock (setCatalogs)
                 {
-                    var catalog = GetCatalog();
-                    setCatalogs.Add(type, catalog);
+                    if (setCatalogs.TryGetValue(type, out catalog))
+                        return catalog;
+                    catalog = GetCatalog();
+                    setCatalogs[type] = catalog;
                     return catalog;
                 }
             }

@@ -154,9 +154,9 @@ namespace Sezam
 
         public void Close()
         {
-            Out.Flush();
-            if (tcpClient != null)
-                tcpClient.Close();
+            try { Out?.Flush(); } catch { }
+            try { Out?.Dispose(); } catch { }
+            try { tcpClient?.Dispose(); } catch { }
         }
 
         private void FillInputBuffer()
