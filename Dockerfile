@@ -10,4 +10,4 @@ WORKDIR /app
 COPY --from=build-env /app/bin/net10.0/publish .
 ENTRYPOINT [ "/app/Sezam.Web" ]
 EXPOSE 8080
-EXPOSE 23
+EXPOSE 2023
