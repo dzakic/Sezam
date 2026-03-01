@@ -53,7 +53,7 @@ namespace Sezam.Commands
         /// </summary>
         public string GetToken(string requiredValue = null)
         {
-            if (IsEmpty())
+            if (currentTokenIndex >= tokens.Count)
             {
                 if (string.IsNullOrEmpty(requiredValue))
                     return string.Empty;
@@ -65,6 +65,12 @@ namespace Sezam.Commands
             currentTokenIndex++;
             return token;
         }
+
+        public IEnumerable<string> GetRemainingTokens()
+        {
+            return tokens.Skip(currentTokenIndex);
+        }
+
 
         /// <summary>
         /// Reset token position for reprocessing same command line

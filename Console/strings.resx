@@ -137,8 +137,11 @@
   </data>
   <data name="Login_WelcomeNoPassword" xml:space="preserve">
     <value>Zdravo {0}.
-Za početni pristup sistemu, ukucaj četiri cifre svog roduma rodjenja u formatu DDMM (dve cifre dan, dve cifre mesec).
-</value>
+Za početni pristup sistemu, ukucajte četiri cifre svog datuma rođenja bez godine (DDMM).
+Nakon uspešnog prijavljivanja, možete promeniti lozinku sa SET PASS.</value>
+  </data>
+  <data name="Login_WelcomePassword" xml:space="preserve">
+    <value>Welcome {0}.</value>
   </data>
   <data name="PressEscToStop" xml:space="preserve">
     <value>Press ESC key to stop the server</value>

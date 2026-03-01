@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using Microsoft.EntityFrameworkCore;
+using Sezam.Console;
 using Sezam.Data;
 using Sezam.Data.EF;
 using Sezam.Commands;
@@ -106,7 +107,7 @@ namespace Sezam
                 {
                     // ROBUSTNESS: Fix #8 - Reset counter on outer exception (means loop should exit normally)
                     consecutiveExceptionCount = 0;
-                    terminal.Line(Strings.ErrorUnrecoverable, e.Message);
+                    terminal.Line(Console.Strings.ErrorUnrecoverable, e.Message);
                     ErrorHandling.Handle(e);
                 }
             }
@@ -133,14 +134,14 @@ namespace Sezam
             User = Login();
             if (User == null)
             {
-                terminal.Line(Strings.Login_UnknownUser);
+                terminal.Line(Console.Strings.Login_UnknownUser);
                 terminal.Close();
                 SysLog("Unknown user. Disconnected.");
             }
             else
             {
                 terminal.Line();
-                terminal.Line(Strings.WelcomeUserLastCall, User.FullName, User.LastCall);
+                terminal.Line(Console.Strings.WelcomeUserLastCall, User.FullName, User.LastCall);
                 SysLog("Loggedin");
                 LoginTime = DateTime.Now;
                 Db.UserId = User.Id;
@@ -162,7 +163,7 @@ namespace Sezam
 
         protected void PrintBanner()
         {
-            terminal.Line(Strings.BannerConnected, ConnectTime, terminal.Id);
+            terminal.Line(Console.Strings.BannerConnected, ConnectTime, terminal.Id);
             terminal.Line();
         }
 
@@ -200,7 +201,7 @@ namespace Sezam
             int userTryCount = 0;
             while (userTryCount < NUM_RETRIES)
             {
-                string username = terminal.InputStr(Strings.Login_Username);
+                string username = terminal.InputStr(Console.Strings.Login_Username);
                 if (string.IsNullOrWhiteSpace(username))
                     continue;
                 var user = GetUser(username);
@@ -296,7 +297,7 @@ namespace Sezam
             if (!cmd.HasValue())
                 return;
 
-            SysLog(string.Format("Cmd {0} >> {1} > {2}", currentCommandSet.GetType().Name, cmd, string.Join(" ", cmdLine.Tokens)));
+            SysLog(string.Format("Cmd {0} >> {1} > {2}", currentCommandSet.GetType().Name, cmd, string.Join(" ", cmdLine.GetRemainingTokens())));
 
             if (!currentCommandSet.ExecuteCommand(cmd))
             {
