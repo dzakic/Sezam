@@ -175,15 +175,18 @@ namespace Sezam.Commands
 
             IQueryable<ConfMessage> messages = session.Db.ConfMessages;
 
+            messages = messages
+                .Include(m => m.Topic);
+
             // Topic Selection
             if (topicMsgRange?.topic != null)
             {
-                messages = messages.Where(m => m.TopicId == topicMsgRange.topic.Id);
+                messages = messages
+                    .Where(m => m.TopicId == topicMsgRange.topic.Id);
             }
             else
             {
                 messages = messages
-                    .Include(m => m.Topic)
                     .Where(m => m.Topic.ConferenceId == currentConference.Id
                         && !string.IsNullOrEmpty(m.Topic.Name)
                         //&& !m.Topic.Status.HasFlag(ConfTopic.TopicStatus.Deleted)
