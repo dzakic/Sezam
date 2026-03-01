@@ -124,7 +124,7 @@ namespace Sezam.Tests
                         var list = Store.Sessions.ToList();  // Thread-safe read
                         lock (syncLock) { readCount++; }
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         lock (syncLock) { errorCount++; }
                     }
@@ -148,7 +148,7 @@ namespace Sezam.Tests
                         Store.Sessions = current;  // Thread-safe write
                         lock (syncLock) { writeCount++; }
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         lock (syncLock) { errorCount++; }
                     }
@@ -240,7 +240,7 @@ namespace Sezam.Tests
                         sess.Close();
                         lock (syncLock) { successCount++; }
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         lock (syncLock) { errorCount++; }
                     }

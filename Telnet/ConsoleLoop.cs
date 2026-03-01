@@ -1,5 +1,4 @@
-﻿using System;
-using System.Threading;
+﻿using System.Threading;
 
 namespace Sezam
 {
@@ -24,16 +23,16 @@ namespace Sezam
 
         private void TreadLoop()
         {
-            while (Thread.CurrentThread.IsAlive && Console.WindowHeight + Console.WindowWidth > 0)
+            while (Thread.CurrentThread.IsAlive && System.Console.WindowHeight + System.Console.WindowWidth > 0)
             {
                 if (!server.RunConsoleSession())
                 {
-                    Console.WriteLine("ESC is pressed");
+                    System.Console.WriteLine("ESC is pressed");
                     EscPressed.Set();
                     break;
                 }
             }
-            Console.WriteLine("Exiting consoleLoop");
+            System.Console.WriteLine("Exiting consoleLoop");
         }
 
         private readonly Server server;

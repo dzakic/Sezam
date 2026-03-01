@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Threading;
 using Microsoft.Extensions.Configuration;
 
@@ -14,7 +13,7 @@ namespace Sezam
         private static void Main(string[] args)
         {
             // init debug
-            Trace.Listeners.Add(new TextWriterTraceListener(Console.Out));
+            Trace.Listeners.Add(new TextWriterTraceListener(System.Console.Out));
 
             var builder = new ConfigurationBuilder();
             builder

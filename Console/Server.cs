@@ -41,10 +41,10 @@ namespace Sezam
         // Return false only if ESC pressed
         public bool RunConsoleSession()
         {
-            while (Thread.CurrentThread.IsAlive && Console.WindowHeight + Console.WindowWidth > 0) 
+            while (Thread.CurrentThread.IsAlive && System.Console.WindowHeight + System.Console.WindowWidth > 0) 
             {               
-                Console.WriteLine(Strings.PressEscToStop);
-                var key = Console.ReadKey().Key;
+                System.Console.WriteLine(Console.Strings.PressEscToStop);
+                var key = System.Console.ReadKey().Key;
 
                 if (key == ConsoleKey.Escape)
                     return false;
@@ -144,6 +144,7 @@ namespace Sezam
             if (sessions.Count > 0)
                 return false;
 
+#if false
             // check file system
             string updateZip = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "update", "" +
                 "nvs.7z");
@@ -152,7 +153,9 @@ namespace Sezam
                 NewVersionAvailable.Set();
                 return true;
             }
+#endif
             return false;
+
         }
 
         /// <summary>
@@ -189,7 +192,7 @@ namespace Sezam
 
         public void PrintServerStatistics()
         {
-            Console.WriteLine(String.Format("SERVER: Running, {0} active connections:", sessions.Count));
+            System.Console.WriteLine(String.Format("SERVER: Running, {0} active connections:", sessions.Count));
             foreach (var sess in sessions)
                 Debug.WriteLine(sess.ToString());
         }

@@ -8,7 +8,8 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Sezam {
+namespace Sezam.Console {
+    using System;
     
     
     /// <summary>
@@ -18,7 +19,7 @@ namespace Sezam {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "18.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class Strings {
@@ -115,12 +116,21 @@ namespace Sezam {
         
         /// <summary>
         ///   Looks up a localized string similar to Zdravo {0}.
-        ///Za početni pristup sistemu, ukucaj četiri cifre svog roduma rodjenja u formatu DDMM (dve cifre dan, dve cifre mesec).
-        ///.
+        ///Za početni pristup sistemu, ukucajte četiri cifre svog datuma rođenja bez godine (DDMM).
+        ///Nakon uspešnog prijavljivanja, možete promeniti lozinku sa SET PASS..
         /// </summary>
         public static string Login_WelcomeNoPassword {
             get {
                 return ResourceManager.GetString("Login_WelcomeNoPassword", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Welcome {0}..
+        /// </summary>
+        public static string Login_WelcomePassword {
+            get {
+                return ResourceManager.GetString("Login_WelcomePassword", resourceCulture);
             }
         }
         

@@ -170,7 +170,7 @@ namespace Sezam.Commands
 
 
             // Filter TO (topic)
-            string topicMsgs = session.cmdLine.GetToken(1);
+            string topicMsgs = session.cmdLine.GetToken();
             var topicMsgRange = currentConference.GetTopicMsgRange(topicMsgs, true);
 
             IQueryable<ConfMessage> messages = session.Db.ConfMessages;
@@ -214,7 +214,7 @@ namespace Sezam.Commands
             }
 
             // Filter FROM (user)
-            string fromStr = session.cmdLine.GetToken(2);
+            string fromStr = session.cmdLine.GetToken();
             Data.EF.User fromUser = null;
             if (!string.IsNullOrWhiteSpace(fromStr) && fromStr != "*")
             {
@@ -304,7 +304,7 @@ namespace Sezam.Commands
         {
             MustHaveConf();
 
-            string topicStr = session.cmdLine.GetToken(1);
+            string topicStr = session.cmdLine.GetToken();
             var topic = currentConference.GetTopicFromStr(topicStr, false);
 
             if (topic != null)
