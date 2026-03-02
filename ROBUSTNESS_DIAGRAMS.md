@@ -2,246 +2,138 @@
 
 ## Current Threading Model
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Main Thread                              │
-│                                                               │
-│  TelnetServer.Main()                                         │
-│    │                                                         │
-│    ├─→ Server.Start()     [Starts listener thread]          │
-│    │                                                         │
-│    ├─→ ConsoleLoop.Start() [Console input thread]           │
-│    │                                                         │
-│    └─→ WaitHandle.WaitAny() [Blocks until shutdown]         │
-│                                                               │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                    ┌───────┴─────────┐
-                    │                 │
-        ┌───────────▼──────────┐ ┌───▼────────────────┐
-        │ Listener Thread      │ │ Console Thread     │
-        │ (Server.cs)          │ │ (ConsoleLoop.cs)   │
-        │                      │ │                    │
-        │ ListenerThread()     │ │ ReadKey() loop     │
-        │  ├─ Accept client    │ │                    │
-        │  └─ Create Session   │ │                    │
-        └──────────┬───────────┘ └────────────────────┘
-                   │
-                   │ new Session per connection
-                   │
-        ┌──────────▼────────────────────────┐
-        │      Session Threads (Many)       │
-        │                                    │
-        │  ┌──────────────────────────────┐ │
-        │  │ Session #1 Thread            │ │
-        │  │ ┌────────────────────────────┤ │
-        │  │ │ Run() loop                 │ │
-        │  │ │  ├─ Login()               │ │
-        │  │ │  ├─ InputAndExecCmd()     │ │
-        │  │ │  │   ├─ Db context        │ ◄── SHARED Access
-        │  │ │  │   └─ CommandSet cache  │ │
-        │  │ │  └─ HandleException()     │ │
-        │  │ └────────────────────────────┤ │
-        │  │ Terminal: TelnetTerminal     │ │
-        │  │  └─ TcpClient connection    │ │
-        │  └──────────────────────────────┘ │
-        │  ┌──────────────────────────────┐ │
-        │  │ Session #2 Thread            │ │
-        │  │ (same structure)             │ │
-        │  └──────────────────────────────┘ │
-        │                                    │
-        │  ... (n sessions) ...             │
-        └─────────────────────────────────────┘
-                   │
-        ┌──────────▼────────────────────────┐
-        │     Shared State (Sezam.Data)     │
-        │                                    │
-        │  ┌─────────────────────────────┐  │
-        │  │ Store (Static)              │  │
-        │  │ ├─ Sessions[] ⚠️ NOT LOCKED │  │
-        │  │ ├─ ServerName ⚠️ VOLATILE  │  │
-        │  │ ├─ Password ⚠️ VOLATILE    │  │
-        │  │ └─ GetNewContext()          │  │
-        │  └─────────────────────────────┘  │
-        │  ┌─────────────────────────────┐  │
-        │  │ CommandSet (Static Cache)   │  │
-        │  │ ├─ setCatalogs ✓ LOCKED    │  │
-        │  │ └─ BuildCatalog()           │  │
-        │  └─────────────────────────────┘  │
-        │  ┌─────────────────────────────┐  │
-        │  │ MySQL Database              │  │
-        │  │ └─ Connection Pool          │  │
-        │  └─────────────────────────────┘  │
-        └─────────────────────────────────────┘
+```mermaid
+graph TD
+    MT["Main Thread\nTelnetServer.Main()"] --> SRV["Server.Start()\n[Starts listener thread]"]
+    MT --> CON["ConsoleLoop.Start()\n[Console input thread]"]
+    MT --> WH["WaitHandle.WaitAny()\n[Blocks until shutdown]"]
+
+    SRV --> LT["Listener Thread\nServer.cs\nAccept client → Create Session"]
+    CON --> CT["Console Thread\nConsoleLoop.cs\nReadKey() loop"]
+
+    LT -->|new Session per connection| sessions
+
+    subgraph sessions["Session Threads (Many)"]
+        S1["Session #1\nRun() loop\nLogin(), InputAndExecCmd()\nHandleException()\nTerminal: TelnetTerminal"]
+        S2["Session #2\n(same structure)"]
+        SN["... (n sessions) ..."]
+    end
+
+    S1 -->|SHARED Access| STORE
+    S2 --> STORE
+    SN --> STORE
+
+    subgraph sharedState["Shared State - Sezam.Data"]
+        STORE["Store (Static)\nSessions[] ⚠️ NOT LOCKED\nServerName ⚠️ VOLATILE\nPassword ⚠️ VOLATILE\nGetNewContext()"]
+        CACHE["CommandSet (Static Cache)\nsetCatalogs ✓ LOCKED\nBuildCatalog()"]
+        DB[("MySQL Database\nConnection Pool")]
+    end
 ```
 
 ## Resource Lifecycle Diagram
 
-```
-Session Lifetime:
+```mermaid
+sequenceDiagram
+    participant LT as Listener Thread
+    participant ST as Session Thread
+    participant T as Terminal
 
-Listener Thread                  Session Thread            Terminal
-     │                               │                        │
-     ├─ Accept TcpClient ────────────┼────────────────────────┤
-     │                               │                    NEW:
-     │                               │                 TcpClient
-     ├─ Create Session ──────────────┼────                     │
-     │                               │   │              NEW:
-     │  ┌─ Session.Start() ──────────┼───┼───────────────┐     │
-     │  │                            │   │      NEW:     │     │
-     │  │                            │   └─ DbContext    │     │
-     │  │                            │      NEW:         │     │
-     │  │                            │    StreamWriter   │     │
-     │  │                            │                   │     │
-     │  │                      ┌─────▼──────────────┐    │     │
-     │  │                      │ RUN() LOOP         │    │     │
-     │  │                      │  ...execute...     │    │     │
-     │  │                      │  ...user input...  │    │     │
-     │  │                      │  ...commands...    │    │     │
-     │  │                      └─────┬──────────────┘    │     │
-     │  │                            │                   │     │
-     │  │                      Exception? ───────────────┼─────┼──> CLOSE
-     │  │                            │                   │     │
-     │  │                      Terminal.Connected? ──────┼─────┤
-     │  │                            │ No               │     │
-     │  │                            │                   │     │
-     │  │                      DISCONNECT ──────────────────────► CLOSE
-     │  │                            │                   │     │
-     │  │                        Finally: ◄───────────────┼─────┤
-     │  │                      • OnFinish() ◄────────────┼─────┤ DISPOSE?
-     │  │                      • Dispose Db ⚠️ MISSING  │     │
-     │  │                      • Close Terminal ⚠️       │     │
-     │  │                            │                   │     │
-     │  └────────────────────────────┼───────────────────┼─────┤
-     │                               │                   │     │
-    Remove from                      │                DISPOSE? │
-    sessions list                    │                ⚠️ MISSING
-     │                               │                   │     │
-     └───────────────────────────────┴───────────────────┴─────┴►
-                              Program continues
+    LT->>T: Accept TcpClient (NEW: TcpClient)
+    LT->>ST: Create Session
+    Note over ST: NEW: DbContext, StreamWriter
+    LT->>ST: Session.Start()
+
+    loop RUN() LOOP
+        ST->>ST: execute / user input / commands
+    end
+
+    alt Exception?
+        ST->>T: CLOSE
+    else Terminal.Connected? = No
+        ST->>T: DISCONNECT / CLOSE
+    end
+
+    Note over ST: Finally block
+    Note over ST: • OnFinish()
+    Note over ST: • Dispose Db ⚠️ MISSING
+    Note over ST: • Close Terminal ⚠️ MISSING
+
+    LT->>LT: Remove from sessions list
+    Note over T: DISPOSE? ⚠️ MISSING
 ```
 
 ## Thread Safety Matrix
 
-```
-┌─────────────────────┬──────────────────────┬──────┬───────────┐
-│ Shared State        │ Access Location      │ Lock │ Status    │
-├─────────────────────┼──────────────────────┼──────┼───────────┤
-│ Store.Sessions[]    │ Server.cs            │ ✓    │ OK*       │
-│ Store.ServerName    │ Server.cs (once)     │ ⚠️   │ Volatile? │
-│ Store.Password      │ Server.cs (once)     │ ⚠️   │ Volatile? │
-│ Session.Db          │ Per-session only     │ N/A  │ SAFE      │
-│ Session.cmdLine     │ Per-session only     │ N/A  │ SAFE      │
-│ Session.rootCmdSet  │ Per-session only     │ ⚠️   │ Race!     │
-│ Session.currentCmd  │ Per-session only     │ ⚠️   │ Race!     │
-│ CommandSet.Catalog  │ Multiple sessions    │ ⚠️   │ BROKEN    │
-│ Terminal.Connected  │ Per-session only     │ N/A  │ SAFE      │
-│ TelnetTerminal.in*  │ Per-session only     │ N/A  │ SAFE      │
-│ TelnetTerminal.tcp  │ Per-session & server │ ✓    │ OK        │
-└─────────────────────┴──────────────────────┴──────┴───────────┘
+| Shared State | Access Location | Lock | Status |
+|---|---|---|---|
+| Store.Sessions[] | Server.cs | ✓ | OK* |
+| Store.ServerName | Server.cs (once) | ⚠️ | Volatile? |
+| Store.Password | Server.cs (once) | ⚠️ | Volatile? |
+| Session.Db | Per-session only | N/A | SAFE |
+| Session.cmdLine | Per-session only | N/A | SAFE |
+| Session.rootCmdSet | Per-session only | ⚠️ | Race! |
+| Session.currentCmd | Per-session only | ⚠️ | Race! |
+| CommandSet.Catalog | Multiple sessions | ⚠️ | BROKEN |
+| Terminal.Connected | Per-session only | N/A | SAFE |
+| TelnetTerminal.in* | Per-session only | N/A | SAFE |
+| TelnetTerminal.tcp | Per-session & server | ✓ | OK |
 
-* Sessions list has race condition during concurrent .Add() and .Remove()
-```
+\* Sessions list has race condition during concurrent .Add() and .Remove()
 
 ## Problematic Code Patterns - Sequence Diagrams
 
 ### 1. DbContext Leak (Resource)
 
-```
-Time:  Session Start          Session Running         Session End     Process End
-       ─────────────────────────────────────────────────────────────────────────
-       CREATE Db ──────┐
-                       │ Db in use
-                       │
-                       │         SaveChanges() calls
-                       │         with various queries
-                       │
-                       │         Queries execute,
-                       │         Db still tracking changes
-                       │
-                       │         Finally block...
-                       │         • Db NOT disposed ⚠️
-                       │         • Connection returned?
-                       │         • Change tracker leak?
-                       │
-                       └─────────── LEAK ──────┐
-                                              │ Memory grows
-                                              │ Handles leak
-                                              │ After 1000s sessions
-                                              │ = Resource exhaustion
-                                              ├──→ New connections fail
-                                              │    (no db connections)
-                                              │
-                                              └─── Process restart
+```mermaid
+flowchart LR
+    START(["Session Start"]) --> CREATE["CREATE Db"]
+    CREATE --> USE["Db in use\nSaveChanges() calls\nQueries execute\nDb tracking changes"]
+    USE --> FINALLY["Finally block\n• Db NOT disposed ⚠️\n• Connection returned?\n• Change tracker leak?"]
+    FINALLY --> LEAK["LEAK"]
+    LEAK --> EFFECTS["Memory grows\nHandles leak\nAfter 1000s sessions\n= Resource exhaustion"]
+    EFFECTS --> FAIL["New connections fail\n(no db connections)"]
+    FAIL --> RESTART["Process restart"]
 ```
 
 ### 2. CommandSet Catalog Race (Concurrency)
 
-```
-Session 1 Thread                             Session 2 Thread
-──────────────────────────────────────────────────────────────
+```mermaid
+sequenceDiagram
+    participant S1 as Session 1 Thread
+    participant CAT as setCatalogs (Shared)
+    participant S2 as Session 2 Thread
 
-Catalog.get
-│
-├─ Type = GetType() = "Chat"
-│
-├─ fast path check:
-│  ├─ setCatalogs.Keys.Contains("Chat")
-│  └─ returns false (first use)
-│
-├─ WAIT... context switch!
-│                                           Catalog.get
-│                                           │
-│                                           ├─ Type = "Chat"
-│                                           │
-│                                           ├─ fast path check:
-│                                           │  ├─ Contains("Chat") = false
-│                                           │  
-│                                           ├─ lock (setCatalogs) ◄── ACQUIRE
-│                                           │
-│                                           ├─ Build catalog
-│                                           │
-│                                           ├─ setCatalogs.Add("Chat", ...) ✓
-│                                           │
-│                                           └─ lock release
-│                                           
-│ lock (setCatalogs) ◄── ACQUIRE
-│
-├─ GetCatalog()
-│
-├─ setCatalogs.Add("Chat", ...) ◄── CRASH! 
-│                                  (duplicate key exception)
-│
-└─ ⚠️ Session disconnects
+    S1->>S1: Catalog.get, Type = "Chat"
+    S1->>CAT: Contains("Chat")? → false
+    Note over S1: CONTEXT SWITCH!
+
+    S2->>S2: Catalog.get, Type = "Chat"
+    S2->>CAT: Contains("Chat")? → false
+    S2->>CAT: lock(setCatalogs) ACQUIRE
+    S2->>S2: Build catalog
+    S2->>CAT: Add("Chat", ...) ✓
+    S2->>CAT: lock release
+
+    S1->>CAT: lock(setCatalogs) ACQUIRE
+    S1->>S1: GetCatalog()
+    S1->>CAT: Add("Chat", ...) ⚠️ CRASH! Duplicate key!
+    Note over S1: Session disconnects
 ```
 
 ### 3. Exception Loop (Stability)
 
-```
-Run() exception handling:
-
-Iteration 1: InputAndExecCmd() throws
-  │
-  ├─ Exception caught
-  ├─ terminal.Line("Error: {msg}")
-  └─ continue ──┐
-                │
-Iteration 2: ◄─┘ Same exception (network stuck)
-  │
-  ├─ Exception caught
-  ├─ terminal.Line("Error: {msg}")
-  └─ continue ──┐
-                │
-Iteration 3: ◄─┘ Same exception (network stuck)
-  │
-  ├─ Exception caught
-  ├─ terminal.Line("Error: {msg}")
-  │
-  ┌─ 100% CPU loop spinning
-  │ Terminal flashing "Error: ..."
-  │ User loses connection (timeout)
-  │
-  └─ ⚠️ Resource drain until timeout
+```mermaid
+flowchart TD
+    I1["Iteration 1: InputAndExecCmd() throws"] --> C1["Exception caught"]
+    C1 --> L1["terminal.Line('Error: msg')"]
+    L1 -->|continue| I2["Iteration 2: same exception (network stuck)"]
+    I2 --> C2["Exception caught"]
+    C2 --> L2["terminal.Line('Error: msg')"]
+    L2 -->|continue| I3["Iteration 3: same exception (network stuck)"]
+    I3 --> C3["Exception caught"]
+    C3 --> L3["terminal.Line('Error: msg')"]
+    L3 --> LOOP["⚠️ 100% CPU loop spinning\nTerminal flashing 'Error: ...'\nUser loses connection (timeout)"]
+    LOOP --> DR["Resource drain until timeout"]
 ```
 
 ---
@@ -531,29 +423,20 @@ public class ServerMetrics
 
 Future improvement to async model:
 
-```csharp
-// Current: Thread per session
-public class Session
-{
-    private Thread thread;
-    public void Run() { /* blocking loop */ }
-}
+```mermaid
+flowchart LR
+    subgraph current["Current Model"]
+        TH["Thread per session\nSession.thread\nRun() blocking loop"]
+    end
 
-// Future: Async per connection
-public class SessionAsync
-{
-    public async Task RunAsync()
-    {
-        while (terminal.Connected)
-        {
-            await InputAndExecCmdAsync();
-        }
-    }
-}
+    subgraph future["Future Async Model"]
+        AS["Task per connection\nSessionAsync\nRunAsync() non-blocking"]
+    end
 
-// Benefits:
-// - 1000s concurrent users on few threads
-// - Better CPU utilization
-// - Easier to reason about control flow
-// - Compatible with ASP.NET Core
+    current -->|migrate to| future
+
+    future --> B1["1000s concurrent users\non few threads"]
+    future --> B2["Better CPU utilization"]
+    future --> B3["Easier control flow"]
+    future --> B4["Compatible with\nASP.NET Core"]
 ```
