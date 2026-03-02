@@ -52,6 +52,7 @@ namespace Sezam.Data
     {
         public static void ConfigureFrom(IConfiguration configuration)
         {
+            DbName = ResolveConfigValue(configuration, "DbName") ?? "sezam";
             ServerName = ResolveConfigValue(configuration, "ServerName");
             Password = ResolveConfigValue(configuration, "Password");
         }
@@ -67,7 +68,7 @@ namespace Sezam.Data
 
         public static DbContextOptionsBuilder GetOptionsBuilder(DbContextOptionsBuilder builder)
         {
-            var ConnectionString = $"server={ServerName};database=sezam;user=sezam;password={Password}";
+            var ConnectionString = $"server={ServerName};database={DbName};user=sezam;password={Password}";
             Debug.WriteLine("ServerName: " + Data.Store.ServerName);
             return builder
                 .UseMySQL(ConnectionString)
@@ -88,12 +89,6 @@ namespace Sezam.Data
         // the list to callers.  the setter is similarly guarded.
         private static readonly object _sessionLock = new object();
         private static List<ISession> _sessionsList = new List<ISession>();
-
-        // volatile ensures that reads/writes of the primitive string fields are
-        // not cached in registers; it's mostly defensive since they are written
-        // only during startup.
-        private static volatile string serverName;
-        private static volatile string password;
 
         public static IList<ISession> Sessions
         {
@@ -117,16 +112,8 @@ namespace Sezam.Data
             }
         }
 
-        public static string ServerName
-        {
-            get { return serverName; }
-            set { serverName = value; }
-        }
-
-        public static string Password
-        {
-            get { return password; }
-            set { password = value; }
-        }
+        public static string ServerName { get; private set; }
+        public static string Password { get; private set; }
+        public static string DbName { get; private set; }
     }
 }
