@@ -5,7 +5,6 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using Microsoft.EntityFrameworkCore;
-using Sezam.Console;
 using Sezam.Data;
 using Sezam.Data.EF;
 using Sezam.Commands;
@@ -210,10 +209,10 @@ namespace Sezam
                 if (user != null)
                 {
                     bool usePIN = user.Password == null && user.DateOfBirth != null;
-                    string prompt = usePIN ? Strings.Login_PIN : Strings.Login_Password;
+                    string prompt = usePIN ? Console.Strings.Login_PIN : Console.Strings.Login_Password;
 
                     if (usePIN)
-                        terminal.Line(Strings.Login_WelcomeNoPassword, user.Username);
+                        terminal.Line(Console.Strings.Login_WelcomeNoPassword, user.Username);
 
                     string expectPass = usePIN ?
                         string.Format("{0:ddMM}", user.DateOfBirth) : user.Password;
