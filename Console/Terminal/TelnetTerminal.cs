@@ -141,7 +141,18 @@ namespace Sezam
             outStream[0] = (byte)Command.IAC;
             outStream[1] = (byte)code;
             outStream[2] = (byte)feature;
-            netStream.Write(outStream, 0, outStream.Length);
+            try
+            {
+                netStream.Write(outStream, 0, outStream.Length);
+            }
+            catch (ObjectDisposedException)
+            {
+                throw new TerminalException(TerminalException.CodeType.ClientDisconnected);
+            }
+            catch (IOException ioEx) when (IsDisconnect(ioEx))
+            {
+                throw new TerminalException(TerminalException.CodeType.ClientDisconnected);
+            }
             Debug.Write("[SERVER: " + code.ToString() + " " + feature.ToString() + "] ");
         }
 
@@ -163,10 +174,40 @@ namespace Sezam
         {
             if (inputPos >= inputLen)
             {
-                inputLen = netStream.Read(inputBytes, 0, inputBytes.Length);
+                try
+                {
+                    inputLen = netStream.Read(inputBytes, 0, inputBytes.Length);
+                }
+                catch (ObjectDisposedException)
+                {
+                    throw new TerminalException(TerminalException.CodeType.ClientDisconnected);
+                }
+                catch (IOException ioEx) when (IsDisconnect(ioEx))
+                {
+                    throw new TerminalException(TerminalException.CodeType.ClientDisconnected);
+                }
                 if (inputLen == 0)
                     throw new TerminalException(TerminalException.CodeType.ClientDisconnected);
                 inputPos = 0;
+            }
+        }
+
+        private static bool IsDisconnect(IOException ioEx)
+        {
+            if (ioEx.InnerException is not SocketException socketEx)
+                return false;
+
+            switch (socketEx.SocketErrorCode)
+            {
+                case SocketError.ConnectionReset:
+                case SocketError.ConnectionAborted:
+                case SocketError.Shutdown:
+                case SocketError.OperationAborted:
+                case SocketError.NotConnected:
+                case SocketError.TimedOut:
+                    return true;
+                default:
+                    return false;
             }
         }
 

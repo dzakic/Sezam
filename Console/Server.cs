@@ -70,10 +70,12 @@ namespace Sezam
             listener.Start(8);
             Debug.WriteLine(String.Format("Listener started on {0}", listener.LocalEndpoint));
             while (Thread.CurrentThread.IsAlive)
+            {
+                TcpClient tcpClient = null;
                 try
                 {
                     // Accept blocks. Stop thread raises 10054 exception
-                    var tcpClient = listener.AcceptTcpClient();
+                    tcpClient = listener.AcceptTcpClient();
                     tcpClient.LingerState = new LingerOption(true, 2);
 
                     var terminal = new TelnetTerminal(tcpClient);
@@ -87,16 +89,27 @@ namespace Sezam
                         PrintServerStatistics();
                     }
                 }
+                catch (TerminalException te) when (te.Code == TerminalException.CodeType.ClientDisconnected)
+                {
+                    try { tcpClient?.Dispose(); } catch { }
+                    continue;
+                }
+                catch (IOException ioEx) when (ioEx.InnerException is SocketException se &&
+                                                (se.SocketErrorCode == SocketError.ConnectionReset ||
+                                                 se.SocketErrorCode == SocketError.ConnectionAborted ||
+                                                 se.SocketErrorCode == SocketError.OperationAborted ||
+                                                 se.SocketErrorCode == SocketError.NotConnected))
+                {
+                    try { tcpClient?.Dispose(); } catch { }
+                    continue;
+                }
                 catch (SocketException se)
                 {
-                    switch (se.ErrorCode)
+                    switch (se.SocketErrorCode)
                     {
-                        // 10054 is expected during shutdown
-                        case (int)SocketError.ConnectionReset:
-                            break;
-
-                        // 10004 is expected during shutdown
-                        case (int)SocketError.Interrupted:
+                        // listener shutdown/interrupt
+                        case SocketError.Interrupted:
+                        case SocketError.OperationAborted:
                             break;
 
                         default:
@@ -107,6 +120,7 @@ namespace Sezam
                     }
                     return;
                 }
+            }
         }
 
         private void OnSessionFinish(object sender, EventArgs e)
@@ -192,7 +206,7 @@ namespace Sezam
 
         public void PrintServerStatistics()
         {
-            System.Console.WriteLine(String.Format("SERVER: Running, {0} active connections:", sessions.Count));
+            Debug.WriteLine(String.Format("SERVER: Running, {0} active connections:", sessions.Count));
             foreach (var sess in sessions)
                 Debug.WriteLine(sess.ToString());
         }
