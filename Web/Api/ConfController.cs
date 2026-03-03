@@ -59,7 +59,7 @@ namespace Sezam.Web.Api
 
         // GET api/conf/SEZAMNET
         [HttpGet("{name:alpha}")]
-        public async Task<ActionResult<DTO.Conf>> GetByUsername(string name)
+        public async Task<ActionResult<DTO.Conf>> GetByName(string name)
         {
             var conf = await _context.Conferences
                 .Select(AsConfDto)
