@@ -52,17 +52,18 @@ namespace Sezam.Commands
 
             return conferences
                 .Include(c => c.ConfTopics
-                    //.Where(t => 
-                    // !string.IsNullOrEmpty(t.Name) &&
-                    //    !t.Status.HasFlag(ConfTopic.TopicStatus.Deleted) &&
-                    //   !t.Status.HasFlag(ConfTopic.TopicStatus.Private)
-                    //)
+                 //.Where(t => 
+                 // !string.IsNullOrEmpty(t.Name) &&
+                 //    !t.Status.HasFlag(ConfTopic.TopicStatus.Deleted) &&
+                 //   !t.Status.HasFlag(ConfTopic.TopicStatus.Private)
+                 //)
                  )
                 .OrderBy(c => c.Name)
                 .ThenBy(c => c.VolumeNo);
         }
 
-        [Command(Aliases = "Show")]
+        [Command(Aliases = ["Show"], Description = "Show a list of all conferences")]
+        [CommandSwitch('a', "Show all conferences, including resigned")]
         public void View()
         {
             string confPattern = session.cmdLine.GetToken();
@@ -91,7 +92,7 @@ namespace Sezam.Commands
             }
         }
 
-        [Command(Aliases = "Open")]
+        [Command(Aliases = ["Open"], Description = "Open a conference, make it current and default for subsequent commands")]
         public void Join()
         {
 
@@ -142,7 +143,7 @@ namespace Sezam.Commands
             }
         }
 
-        [Command]
+        [Command(Description = "Close the currently open conference")]
         public void Close()
         {
             currentConference = null;
@@ -258,7 +259,7 @@ namespace Sezam.Commands
                 session.terminal.Line(ConfFormatter.FormatTopic(topic));
         }
 
-        [Command]
+        [Command(Description = "Show a list of topics in the current conference, or all in all conferences if none open")]
         public void Directory()
         {
             if (currentConference != null)
@@ -277,7 +278,10 @@ namespace Sezam.Commands
             }
         }
 
-        [Command]
+        [Command(Description = "Show a list of new messages in the conference or a topic")]
+        [CommandParameter("topic[.msgLow[-msgHigh]]", "Topic and optional message number or range to list, e.g. 'General', 'General.5' or 'General.5-10'. Use '*' for all topics, e.g. '*.5' or '*.5-10'.")]
+        [CommandParameter("from", "Only select messages from this author, specify the username.")]
+        [CommandSwitch('f', "Select only messages with files")]
         public void List()
         {
             var selection = GetConfMsgSelection().AsListDTO();
@@ -285,7 +289,11 @@ namespace Sezam.Commands
                 session.terminal.Line(ConfFormatter.FormatConfMsgList(confListItem));
         }
 
-        [Command]
+        [Command(Description = "Read new messages in the conference or a topic")]
+        [CommandParameter("topic[.msgLow[-msgHigh]]", "Topic and optional message number or range to list, e.g. 'General', 'General.5' or 'General.5-10'. Use '*' for all topics, e.g. '*.5' or '*.5-10'.")]
+        [CommandParameter("from", "Only select messages from this author, specify the username.")]
+        [CommandSwitch('f', "Select only messages with files")]
+        [CommandSwitch('a', "Select all messages, including old")]
         public void Read()
         {
             var selection = GetConfMsgSelection().AsReadDTO();
@@ -302,7 +310,7 @@ namespace Sezam.Commands
             throw new NotImplementedException();
         }
 
-        [Command("RESign")]
+        [Command("RESign", Description = "Unfollowing this conference. To join again, use join command with the exact conference name.")]
         public void RESign()
         {
             MustHaveConf();
@@ -330,7 +338,7 @@ namespace Sezam.Commands
 
         }
 
-        [Command]
+        [Command(Description = "Make all messages 'seen'")]
         public void SEEn()
         {
             throw new NotImplementedException();

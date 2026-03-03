@@ -66,11 +66,13 @@ namespace Sezam.Commands
             ResetConfStatus(Data.EF.ConfStatus.Closed);
         }
 
+        [Command(Aliases = ["ro"])]
         public void ReadOnly()
         {
             SetConfStatus(Data.EF.ConfStatus.ReadOnly);
         }
 
+        [Command(Aliases = ["rw"])]
         public void ReadWrite()
         {
             ResetConfStatus(Data.EF.ConfStatus.ReadOnly);

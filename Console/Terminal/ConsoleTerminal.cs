@@ -2,6 +2,21 @@
 {
     public class ConsoleTerminal : Terminal, ITerminal
     {
+        public override int LineWidth
+        {
+            get
+            {
+                try
+                {
+                    return System.Console.WindowWidth > 0 ? System.Console.WindowWidth : Sezam.Terminal.DefaultLineWidth;
+                }
+                catch
+                {
+                    return Sezam.Terminal.DefaultLineWidth;
+                }
+            }
+        }
+
         public ConsoleTerminal()
         {
             System.Console.InputEncoding = System.Text.Encoding.UTF8;

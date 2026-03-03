@@ -10,6 +10,8 @@ namespace Sezam
 {
     public class TelnetTerminal : Terminal, ITerminal
     {
+        public override int LineWidth => lineWidth;
+
         // Telnet Protocol: http://support2.microsoft.com/kb/231866
 
         private enum Command
@@ -119,6 +121,7 @@ namespace Sezam
             // In = new StreamReader(netStream, true);
             Out = new StreamWriter(netStream, Encoding.UTF8) { AutoFlush = false };
             PageSize = 32;
+            lineWidth = Sezam.Terminal.DefaultLineWidth;
             Out.NewLine = "\r\n";            
             tcpClient.NoDelay = true;
             tcpClient.SendBufferSize = 1024;
@@ -294,8 +297,12 @@ namespace Sezam
                     switch (opt)
                     {
                         case Option.NegotiateAboutWindowSize:
-                            PageSize = (negotiationStr[3] + 256 * negotiationStr[2]) - 1;
-                            Trace.TraceInformation("NAWS PageSize=" + PageSize.ToString());
+                            if (negotiationStr.Count >= 4)
+                            {
+                                lineWidth = negotiationStr[1] + 256 * negotiationStr[0];
+                                PageSize = (negotiationStr[3] + 256 * negotiationStr[2]) - 1;
+                                Trace.TraceInformation("NAWS LineWidth=" + lineWidth.ToString() + ", PageSize=" + PageSize.ToString());
+                            }
                             break;
 
                         default:
@@ -358,5 +365,6 @@ namespace Sezam
         private int inputPos = 0;
         private readonly TcpClient tcpClient;
         private readonly NetworkStream netStream;
+        private int lineWidth;
     }
 }

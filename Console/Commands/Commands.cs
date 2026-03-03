@@ -25,20 +25,20 @@ namespace Sezam.Commands
             return GetType().Name;
         }
 
-        [Command(Aliases = "..")]
-        public virtual void Exit()
-        {
-            session.ExitCurrentCommand();
-        }
+        //[Command(Aliases = [".."])]
+        //public virtual void Exit()
+        //{
+        //    session.ExitCurrentCommand();
+        //}
 
-        [Command(Aliases = "?")]
-        public virtual void Help()
-        {
-            string typeDisplayName = GetDisplayName(GetType());
-            CommandInfo cmdInfo = commandsCatalog[typeDisplayName];
-            foreach (string cmdName in cmdInfo.commands.Keys)
-                session.terminal.Line("{0,-16} {1}", cmdName, cmdInfo.commands[cmdName].Name);
-        }
+        //[Command(Aliases = ["?"])]
+        //public virtual void Help()
+        //{
+        //    string typeDisplayName = GetDisplayName(GetType());
+        //    CommandInfo cmdInfo = commandsCatalog[typeDisplayName];
+        //    foreach (string cmdName in cmdInfo.commands.Keys)
+        //        session.terminal.Line("{0,-16} {1}", cmdName, cmdInfo.commands[cmdName].Name);
+        //}
 
         public MethodInfo GetCommandMethod(string cmd)
         {
@@ -89,10 +89,7 @@ namespace Sezam.Commands
             private void AddAliases(MethodInfo method)
             {
                 CommandAttribute cmdAttr = method.GetCustomAttribute(typeof(CommandAttribute)) as CommandAttribute;
-                if (string.IsNullOrWhiteSpace(cmdAttr.Aliases))
-                    return;
-                string[] aliases = cmdAttr.GetAliases();
-                foreach (string alias in aliases)
+                foreach (string alias in cmdAttr.Aliases)
                     commands.Add(alias, method);
             }
 

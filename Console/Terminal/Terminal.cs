@@ -1,5 +1,4 @@
-﻿using Microsoft.VisualBasic;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -34,6 +33,7 @@ namespace Sezam
 
     public interface ITerminal
     {
+
         void Line(string Message = "");
         void Line(string Message = "", params object[] args);
 
@@ -54,6 +54,8 @@ namespace Sezam
 
         int PageSize { get; set; }
 
+        int LineWidth { get; }
+
         string Id { get; }
 
         bool Connected { get; }
@@ -67,16 +69,20 @@ namespace Sezam
     {
 
         public const char Esc = (char)27;
+        public const int DefaultLineWidth = 80;
+
+
+        public virtual int LineWidth => DefaultLineWidth;
 
         public void Line(string Message = "")
         {
-            Out.WriteLine(Microsoft.VisualBasic.Strings.RTrim(Message));
+            Out.WriteLine(Message.TrimEnd());
             LineFinished();
         }
 
         public void Line(string Message, params object[] args)
         {
-            Out.WriteLine(Microsoft.VisualBasic.Strings.RTrim(String.Format(Message, args)));
+            Out.WriteLine(string.Format(Message, args).TrimEnd());
             LineFinished();
         }
 

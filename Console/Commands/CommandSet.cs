@@ -1,11 +1,11 @@
 ﻿namespace Sezam.Commands
 {
 
+    using Sezam.Data.EF;    
     using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Reflection;
-    using Sezam.Data.EF;    
 
     /// <summary>
     /// Executing instance of the class.
@@ -77,29 +77,196 @@
             return GetType().Name;
         }
 
-        [Command(Aliases = "..")]
+        [Command(Aliases = [".."], Description = "Exit the command context")]
         public virtual void Exit()
         {
             session.ExitCurrentCommand();
         }
 
-        [Command(Aliases = "?")]
+        [Command(Aliases = ["?"], Description = "Show help")]
         public virtual void Help()
         {
+            string topic = session.cmdLine.GetToken();
+            if (topic.HasValue())
+            {
+                PrintDetailedHelp(topic);
+                return;
+            }
+
             session.terminal.Line("== {0} HELP ==", DisplayName().ToUpper());
             foreach (var cmdSet in GetCommandSets())
             {
-                session.terminal.Line("* {0}",
-                    cmdSet.Name.ToUpper());
+                var attr = cmdSet.GetCustomAttribute(typeof(CommandAttribute)) as CommandAttribute;
+                string desc = attr != null && !string.IsNullOrEmpty(attr.Description) ? " - " + attr.Description : "";
+                session.terminal.Line("* {0,-20} {1}", cmdSet.Name.ToUpper(), desc);
             }
             foreach (var method in GetMethods())
             {
                 string line = method.Name;
-                string aliases = string.Join(", ", method.GetAliases());
-                if (aliases.HasValue())
-                    line = line + " (" + aliases + ")";
-                session.terminal.Line("- {0}", line);
+                var aliases = method.GetAliases();
+                if (aliases?.Length > 0)
+                    line = line + " (" + string.Join(",", aliases) + ")";
+                
+                var attr = method.GetCustomAttribute(typeof(CommandAttribute)) as CommandAttribute;
+                string desc = attr != null && !string.IsNullOrEmpty(attr.Description) ? attr.Description : "";
+                session.terminal.Line("- {0,-20} {1}", line, desc);
             }
+        }
+
+        private void PrintDetailedHelp(string topic)
+        {
+            CommandSet currentSet = this;
+            string currentTopic = topic;
+            
+            while (currentTopic.HasValue())
+            {
+                var nextSet = currentSet.GetCommandSet(currentTopic);
+                if (nextSet != null)
+                {
+                    nextSet.Help();
+                    return;
+                }
+                else
+                {
+                    MethodInfo method = currentSet.GetCommandMethod(currentTopic);
+                    if (method != null)
+                    {
+                        PrintHelp(method);
+
+                        return;
+                    }
+                    session.terminal.Line("Unknown command or topic: {0}", currentTopic);
+                    return;
+                }
+            }
+        }
+
+        private void PrintHelp(MethodInfo method)
+        {
+            var attr = method.GetCustomAttribute(typeof(CommandAttribute)) as CommandAttribute;
+            var parameters = method.GetCustomAttributes(typeof(CommandParameterAttribute))
+                .Cast<CommandParameterAttribute>()
+                .ToArray();
+            var switches = method.GetCustomAttributes(typeof(CommandSwitchAttribute))
+                .Cast<CommandSwitchAttribute>()
+                .ToArray();
+            var aliases = method.GetAliases();
+
+            string desc = attr != null && !string.IsNullOrEmpty(attr.Description) ? attr.Description : "No detailed description available.";
+
+            var syntaxParts = new List<string> { method.Name.ToUpper() };
+            syntaxParts.AddRange(parameters.Select(p => p.IsRequired ? $"<{p.Name}>" : $"[{p.Name}]"));
+            syntaxParts.AddRange(switches.Select(sw => "/" + sw.Switch));
+            var terminalWidth = session.terminal.LineWidth;
+
+            session.terminal.Line();
+            session.terminal.Line("Syntax: {0}", string.Join(" ", syntaxParts));
+
+            session.terminal.Line();
+            foreach (var line in WordWrap(desc, terminalWidth))
+                session.terminal.Line(line);
+
+            if (aliases?.Length > 0)
+            {
+                session.terminal.Line();
+                session.terminal.Line("Aliases: {0}", string.Join(", ", aliases));
+            }
+
+            if (parameters.Length > 0)
+            {
+                session.terminal.Line();
+                session.terminal.Line("Parameters:");
+                foreach (var parameter in parameters)
+                {
+                    var descriptionSuffix = parameter.IsRequired ? "" : " [Optional]";
+                    PrintHelpLine(parameter.Name, parameter.Description + descriptionSuffix, terminalWidth);
+                }
+            }
+
+            if (switches.Length > 0)
+            {
+                session.terminal.Line("Switches:");
+                foreach (var commandSwitch in switches)
+                    PrintHelpLine("/" + commandSwitch.Switch, commandSwitch.Description, terminalWidth);
+            }
+        }
+
+        private void PrintHelpLine(string label, string description, int terminalWidth)
+        {
+            const string leftIndent = "  ";
+            const int labelWidth = 24;
+
+            int descriptionWidth = terminalWidth - leftIndent.Length - labelWidth - 1;
+            if (descriptionWidth < 20)
+                descriptionWidth = 20;
+
+            var wrappedDescription = WordWrap(description ?? string.Empty, descriptionWidth).ToList();
+            if (wrappedDescription.Count == 0)
+                wrappedDescription.Add(string.Empty);
+
+            session.terminal.Line("{0}{1} {2}", leftIndent, (label ?? string.Empty).PadRight(labelWidth), wrappedDescription[0]);
+
+            string continuationPrefix = leftIndent + new string(' ', labelWidth) + " ";
+            foreach (var continuationLine in wrappedDescription.Skip(1))
+                session.terminal.Line(continuationPrefix + continuationLine);
+        }
+
+        private static IEnumerable<string> WordWrap(string text, int width)
+        {
+            if (string.IsNullOrEmpty(text))
+                return [string.Empty];
+
+            if (width <= 1)
+                return [text];
+
+            var wrappedLines = new List<string>();
+            var paragraphs = text.Replace("\r\n", "\n").Split('\n');
+
+            foreach (var paragraph in paragraphs)
+            {
+                if (string.IsNullOrWhiteSpace(paragraph))
+                {
+                    wrappedLines.Add(string.Empty);
+                    continue;
+                }
+
+                var currentLine = string.Empty;
+                var words = paragraph.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                foreach (var word in words)
+                {
+                    if (word.Length > width)
+                    {
+                        if (currentLine.Length > 0)
+                        {
+                            wrappedLines.Add(currentLine);
+                            currentLine = string.Empty;
+                        }
+
+                        var index = 0;
+                        while (index < word.Length)
+                        {
+                            var length = Math.Min(width, word.Length - index);
+                            wrappedLines.Add(word.Substring(index, length));
+                            index += length;
+                        }
+                        continue;
+                    }
+
+                    var candidate = currentLine.Length == 0 ? word : currentLine + " " + word;
+                    if (candidate.Length <= width)
+                        currentLine = candidate;
+                    else
+                    {
+                        wrappedLines.Add(currentLine);
+                        currentLine = word;
+                    }
+                }
+
+                if (currentLine.Length > 0)
+                    wrappedLines.Add(currentLine);
+            }
+
+            return wrappedLines;
         }
 
         public MethodInfo GetCommandMethod(string cmd)
@@ -162,8 +329,10 @@
             foreach (var method in GetMethods())
             {
                 catalog.Add(method.Name, method);
-                foreach (string alias in method.GetAliases())
-                    catalog.Add(alias, method);
+                var aliases = method.GetAliases();
+                if (aliases != null)
+                    foreach (string alias in aliases)
+                        catalog.Add(alias, method);
             }
             return catalog;
         }
@@ -234,7 +403,7 @@
                 throw new ArgumentException("Username required");
             var user = session.GetUser(username);
             if (user == null)
-                throw new ArgumentException("Unknown user {0}", username);
+                throw new ArgumentException(string.Format("Unknown user: {0}", username));
             return user;
         }
         #endregion
@@ -243,14 +412,10 @@
 
     public static class MethodExtensions
     {
-        public static IEnumerable<string> GetAliases(this MethodInfo method)
+        public static string[] GetAliases(this MethodInfo method)
         {
             CommandAttribute cmdAttr = method.GetCustomAttribute(typeof(CommandAttribute)) as CommandAttribute;
-            var Aliases = cmdAttr?.Aliases;
-            if (Aliases.HasValue())
-                return Aliases.Split(',');
-            else
-                return Array.Empty<string>();
+            return cmdAttr?.Aliases;
         }
     }
 

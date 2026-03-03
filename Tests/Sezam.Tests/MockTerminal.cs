@@ -14,6 +14,7 @@ namespace Sezam.Tests
     {
         private StringReader? reader;
         private int pageSize = 24;
+        private int lineWidth = 80;
         private string id = Guid.NewGuid().ToString().Substring(0, 8);
 
         public bool Connected { get; protected set; } = true;
@@ -74,6 +75,12 @@ namespace Sezam.Tests
         {
             get => pageSize;
             set => pageSize = value;
+        }
+
+        public int LineWidth
+        {
+            get => lineWidth;
+            set => lineWidth = value;
         }
 
         public string Id => id;
