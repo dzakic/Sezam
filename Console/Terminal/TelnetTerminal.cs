@@ -303,26 +303,92 @@ namespace Sezam
 
         protected override char ReadChar()
         {
-            byte peekChr = PeekByteFromNetworkStream();
-            switch (peekChr)
+            while (true)
             {
-                case (byte)Command.IAC:
+                byte peekChr = PeekByteFromNetworkStream();
+                if (peekChr == (byte)Command.IAC)
+                {
                     ProcessTelnetCommands();
-                    break;
-                case 13:
-                    GetByteFromNetworkStream();
-                    if (PeekByteFromNetworkStream() == 10)
-                        GetByteFromNetworkStream();
-                    return '\r';
+                    continue;
+                }
+                // UTF decode the next character, which may be multiple bytes
+                char[] chars = Encoding.UTF8.GetChars(inputBytes, inputPos, inputLen - inputPos);
+                if (chars.Length == 0)
+                    return NulChar;
+
+                int len = Encoding.UTF8.GetByteCount([chars[0]]);
+                inputPos += len;
+                return chars[0];
             }
-            // TODO Is it excessive to decode all buffered chars?
-            char[] chars = Encoding.UTF8.GetChars(inputBytes, inputPos, inputLen - inputPos);
-            if (chars.Length == 0)
-                return (char)0;
+        }
+
+        /// <summary>
+        /// Telnet implementation that detects arrow key sequences (ESC [ A/B/C/D)
+        /// and Home/End sequences (ESC [ H/F or ESC [ 1/4 ~)
+        /// A=Up, B=Down, C=Right, D=Left, H=Home, F=End
+        /// </summary>
+        protected override KeyInfo ReadKeyInfo()
+        {
+            var chr = ReadChar();
             
-            int len = Encoding.UTF8.GetByteCount([chars[0]]);
-            inputPos += len;
-            return chars[0];
+            // Handle carriage return
+            if (chr == CR)
+            {
+               if (PeekByteFromNetworkStream() == LF)
+                    GetByteFromNetworkStream();
+                return new KeyInfo { Char = CR };
+            }
+
+            // Check for escape sequence (arrow keys, home, end)
+            if (chr == Del)
+            {
+                return new KeyInfo { Key = ConsoleKey.Backspace };
+            }
+
+            if (chr == Esc)
+            {
+                chr = ReadChar();
+
+                
+                if (chr == '[')
+                {
+                    chr = ReadChar();
+                    
+                    // Handle standard arrow keys and Home/End
+                    if (chr is >= 'A' and <= 'F')
+                    {
+                        return chr switch
+                        {
+                            'A' => new KeyInfo { Key = ConsoleKey.UpArrow },
+                            'B' => new KeyInfo { Key = ConsoleKey.DownArrow },
+                            'C' => new KeyInfo { Key = ConsoleKey.RightArrow },
+                            'D' => new KeyInfo { Key = ConsoleKey.LeftArrow },
+                            'H' => new KeyInfo { Key = ConsoleKey.Home },
+                            'F' => new KeyInfo { Key = ConsoleKey.End },
+                            _ => new KeyInfo { }
+                        };
+                    }
+                    
+                    // Handle tilde sequences: ESC [ 1 ~ (Home), ESC [ 4 ~ (End), etc.
+                    if (chr is >='1' and <= '4')
+                    {                        
+                        if (ReadChar() == '~')
+                        {
+                            return chr switch
+                            {
+                                '1' => new KeyInfo { Key = ConsoleKey.Home },
+                                // '2' => new KeyInfo { Key = ConsoleKey.Insert },
+                                '3' => new KeyInfo { Key = ConsoleKey.Delete },
+                                '4' => new KeyInfo { Key = ConsoleKey.End },
+                                _ => new KeyInfo { }
+                            };
+                        }
+                    }
+                }
+            }
+
+            // Regular character            
+            return new KeyInfo { Char = chr };
         }
 
         private void SendANSI(char code, params string[] parameters) =>

@@ -27,6 +27,19 @@
         protected override char ReadChar() =>
             System.Console.ReadKey(true).KeyChar;
 
+        /// <summary>
+        /// Console implementation that captures full key information including arrow keys
+        /// </summary>
+        protected override KeyInfo ReadKeyInfo()
+        {
+            var cki = System.Console.ReadKey(true);
+            return new KeyInfo
+            {
+                Char = cki.KeyChar,
+                Key = cki.Key
+            };
+        }
+
         public override void ClearScreen() =>
             System.Console.Clear();
 

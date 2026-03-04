@@ -15,8 +15,7 @@ namespace Sezam
                 else
                     PrintException(se);
             }
-            else
-                PrintException(e);
+            PrintException(e);
         }
 
         public static void PrintException(Exception e)

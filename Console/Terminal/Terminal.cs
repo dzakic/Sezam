@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Diagnostics;
+
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -47,9 +47,23 @@ namespace Sezam
         void ClearToEOL();
     }
 
+    /// <summary>
+    /// Enhanced key information for cursor-aware input handling
+    /// </summary>
+    public struct KeyInfo
+    {
+        public char Char { get; set; }
+        public ConsoleKey? Key { get; set; }
+        public bool IsArrowKey => Key is ConsoleKey.LeftArrow or ConsoleKey.RightArrow;
+    }
+
     public abstract class Terminal
     {
+        public const char NulChar = (char)0;
+        public const char LF = (char)10;
+        public const char CR = (char)13;
         public const char Esc = (char)27;
+        public const char Del = (char)127;
         public const int DefaultLineWidth = 80;
 
         public virtual int LineWidth => DefaultLineWidth;
@@ -68,7 +82,6 @@ namespace Sezam
 
         protected void LineFinished()
         {
-
             if (lineCount > 0)
                 lineCount++;
             
@@ -106,6 +119,15 @@ namespace Sezam
         private void ResetPageCount() => lineCount = 1;
 
         protected virtual char ReadChar() => ' ';
+
+        /// <summary>
+        /// Enhanced ReadKey that returns key information for arrow key handling.
+        /// Default implementation returns character only; console can override for full key info.
+        /// </summary>
+        protected virtual KeyInfo ReadKeyInfo()
+        {
+            return new KeyInfo { Char = ReadChar() };
+        }
 
         public virtual Task<string> PromptEditAsync(string prompt = "", InputFlags flags = 0, CancellationToken cancellationToken = default) =>
             cancellationToken.IsCancellationRequested
@@ -165,41 +187,80 @@ namespace Sezam
             Out.Flush();
             
             var line = string.Empty;
+            int cursorPos = 0; // Position within the line
             char c = ' ';
+            bool isPassword = flags.HasFlag(InputFlags.Password);
             
             while (c != '\r')
             {
-                c = ReadChar();
+                var keyInfo = ReadKeyInfo();
+                c = keyInfo.Char;
+                
+                switch(keyInfo.Key)
+                {
+                    case ConsoleKey.LeftArrow:
+                        if (cursorPos > 0)
+                        {
+                            cursorPos--;
+                            Out.Write(Esc + "[D");
+                        }
+                        break;
+                    case ConsoleKey.RightArrow:
+                        if (cursorPos < line.Length)
+                        {
+                            cursorPos++;
+                            Out.Write(Esc + "[C");
+                        }
+                        break;
+                    case ConsoleKey.Home:
+                        if (cursorPos > 0)
+                        {
+                            Out.Write(Esc + "[" + cursorPos + "D");
+                            cursorPos = 0;
+                        }
+                        break;
+                    case ConsoleKey.End:
+                        if (cursorPos < line.Length)
+                        {
+                            int remaining = line.Length - cursorPos;
+                            Out.Write(Esc + "[" + remaining + "C");
+                            cursorPos = line.Length;
+                        }
+                        break;
+                    case ConsoleKey.Backspace:
+                        if (cursorPos > 0)
+                        {
+                            line = line.Remove(cursorPos - 1, 1);
+                            cursorPos--;
+                            Out.Write("\b \b");
+                            RedrawLine(line, cursorPos, isPassword);
+                        }
+                        break;
+                    case ConsoleKey.Delete:
+                        if (cursorPos < line.Length)
+                        {
+                            line = line.Remove(cursorPos, 1);
+                            RedrawLine(line, cursorPos, isPassword);
+                        }
+                        break;
+                }
+
                 switch (c)
                 {
+                    case NulChar:
                     case Esc:
-                        c = ReadChar();
-                        if (c == '~' && line.Length > 0)
-                        {
-                            Out.Write("\b \b");
-                            line = line[..^1];
-                        }
-                        if (c == '[')
-                            c = ReadChar();
-                        break;
-                    
-                    case (char)127:
+                    case Del:
                     case '\b':
-                        if (line.Length > 0)
-                        {
-                            Out.Write("\b \b");
-                            line = line[..^1];
-                        }
-                        break;
-                    
                     case '\r':
-                    case (char)0:
-                        continue;
+                        break;
                     
                     default:
-                        line += c;
-                        Out.Write(flags.HasFlag(InputFlags.Password) ? "*" : c.ToString());
-                        break;
+                        // Insert character at cursor position
+                        line = line.Insert(cursorPos, c.ToString());
+                        Out.Write(isPassword ? "*" : c);
+                        cursorPos++;
+                        RedrawLine(line, cursorPos, isPassword);
+                    break;
                 }
                 Out.Flush();
             }
@@ -207,6 +268,37 @@ namespace Sezam
             Out.WriteLine();
             Out.Flush();
             return line;
+        }
+
+        /// <summary>
+        /// Redraw the line from the cursor position onward.
+        /// Clears to end of line and redraws remaining content, then repositions cursor.
+        /// </summary>
+        private void RedrawLine(string line, int cursorPos, bool isPassword)
+        {
+
+            if (cursorPos == line.Length)
+                return; // No need to redraw if cursor is at end of line
+
+            // Move to cursor position in the line
+            var beforeCursor = line[..cursorPos];
+            var afterCursor = line[cursorPos..];
+            
+            // Erase from cursor to end of line
+            Out.Write(Esc + "[K");
+            
+            // Redraw the rest of the line
+            if (!string.IsNullOrEmpty(afterCursor))
+            {
+                var displayText = isPassword ? new string('*', afterCursor.Length) : afterCursor;
+                Out.Write(displayText);
+            }
+            
+            // Move cursor back to its position
+            if (!string.IsNullOrEmpty(afterCursor))
+            {
+                Out.Write(Esc + "[" + afterCursor.Length + "D");
+            }
         }
 
         public string InputStr(string label = "", InputFlags flags = 0) =>

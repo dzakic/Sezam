@@ -62,10 +62,11 @@ namespace Sezam
                             {
                                 switch (e.Code)
                                 {
-                                    case TerminalException.CodeType.ClientDisconnected:
-                                        throw;
                                     case TerminalException.CodeType.UserOutputInterrupted:
                                         continue;
+                                    case TerminalException.CodeType.ClientDisconnected:
+                                        terminal.Close();
+                                        break;
                                 }
                             }
                             catch (ArgumentException e)
