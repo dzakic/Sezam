@@ -34,7 +34,7 @@ namespace Sezam
         public void Start()
         {
             sessions.Clear();
-            mainThread = new Thread(new ThreadStart(ListenerThread));
+            mainThread = new Thread(ListenerThread);
             mainThread.Start();
         }
 

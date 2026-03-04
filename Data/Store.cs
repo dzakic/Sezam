@@ -8,10 +8,8 @@ using Sezam.Data.EF;
 
 namespace Sezam.Data
 {
-    // Database context, per session
     public class SezamDbContext(DbContextOptions options) : DbContext(options)
     {
-
         public int UserId { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -21,6 +19,7 @@ namespace Sezam.Data
             modelBuilder.Entity<UserConf>()
                    .HasQueryFilter(uc => uc.UserId == UserId)
                    .HasKey(c => new { c.UserId, c.ConferenceId });
+            
             modelBuilder.Entity<UserTopic>()
                    .HasKey(c => new { c.UserId, c.TopicId });
 
@@ -31,12 +30,10 @@ namespace Sezam.Data
 
             modelBuilder.Entity<UserTopic>()
                 .HasQueryFilter(ut => ut.UserId == UserId);
-
         }
 
         public override int SaveChanges()
         {
-            // CheckDates();
             return base.SaveChanges();
         }
 
@@ -47,7 +44,6 @@ namespace Sezam.Data
         public DbSet<UserConf> UserConfs { get; set; }
     }
 
-    // A global object accessible to all sessions
     public static class Store
     {
         public static void ConfigureFrom(IConfiguration configuration)
@@ -57,21 +53,19 @@ namespace Sezam.Data
             Password = ResolveConfigValue(configuration, "Password");
         }
 
-        public static string ResolveConfigValue(IConfiguration configuration, string name)
-        {
-            return Environment.GetEnvironmentVariable(name)
+        public static string ResolveConfigValue(IConfiguration configuration, string name) =>
+            Environment.GetEnvironmentVariable(name)
                 ?? Environment.GetEnvironmentVariable($"ConnectionStrings__{name}")
                 ?? configuration?.GetConnectionString(name)
                 ?? configuration?[$"ConnectionStrings:{name}"]
                 ?? configuration?[name];
-        }
 
         public static DbContextOptionsBuilder GetOptionsBuilder(DbContextOptionsBuilder builder)
         {
-            var ConnectionString = $"server={ServerName};database={DbName};user=sezam;password={Password}";
-            Debug.WriteLine("ServerName: " + Data.Store.ServerName);
+            var connectionString = $"server={ServerName};database={DbName};user=sezam;password={Password}";
+            Debug.WriteLine($"ServerName: {ServerName}");
             return builder
-                .UseMySQL(ConnectionString)
+                .UseMySQL(connectionString)
                 .EnableSensitiveDataLogging()
                 .UseLazyLoadingProxies();
         }
@@ -79,16 +73,11 @@ namespace Sezam.Data
         public static SezamDbContext GetNewContext()
         {
             var optionsBuilder = GetOptionsBuilder(new DbContextOptionsBuilder());
-            var options = optionsBuilder.Options;
-            return new SezamDbContext(options);
+            return new SezamDbContext(optionsBuilder.Options);
         }
 
-        // underlying storage for sessions.  original implementation exposed a
-        // mutable list directly which allowed concurrent readers/writers to
-        // race.  the fix introduces a private lock and only returns a copy of
-        // the list to callers.  the setter is similarly guarded.
-        private static readonly object _sessionLock = new object();
-        private static List<ISession> _sessionsList = new List<ISession>();
+        private static readonly object _sessionLock = new();
+        private static List<ISession> _sessionsList = [];
 
         public static IList<ISession> Sessions
         {
@@ -96,8 +85,6 @@ namespace Sezam.Data
             {
                 lock (_sessionLock)
                 {
-                    // return a shallow copy to prevent callers from modifying our
-                    // internal list without synchronization.
                     return new List<ISession>(_sessionsList);
                 }
             }
@@ -106,7 +93,7 @@ namespace Sezam.Data
                 lock (_sessionLock)
                 {
                     _sessionsList.Clear();
-                    if (value != null)
+                    if (value is not null)
                         _sessionsList.AddRange(value);
                 }
             }

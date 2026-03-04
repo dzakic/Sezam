@@ -17,30 +17,24 @@ namespace Sezam
         {
             this.terminal = terminal;
             id = Guid.NewGuid();
-            thread = new Thread(new ThreadStart(Run));
-            commandSets = new Dictionary<Type, CommandSet>();
-            // NodeNo = dataStore.getNodeNo();
+            thread = new Thread(Run);
+            commandSets = [];
             NodeNo = 1;
-            // disposable DbContext created once per session
             Db = Store.GetNewContext();
-            // Lazy initialization for root command set (ROBUSTNESS: Fix #6)
             lazyRootCommandSet = new Lazy<CommandSet>(
                 () => GetCommandProcessor(CommandSet.RootType()),
                 LazyThreadSafetyMode.ExecutionAndPublication);
         }
 
         // ROBUSTNESS: Fix #8 - Error loop prevention counter
-        private int consecutiveExceptionCount = 0;
+        private int consecutiveExceptionCount;
         private const int MaxConsecutiveExceptions = 3;
 
         // ROBUSTNESS: Issue #12 - User cache to avoid N+1 queries
-        private readonly object _lockUserCache = new object();
+        private readonly object _lockUserCache = new();
         private Dictionary<string, User> userCache;
 
-        public void Start()
-        {
-            thread.Start();
-        }
+        public void Start() => thread.Start();
 
         // Background thread run
         public void Run()
@@ -58,35 +52,26 @@ namespace Sezam
                         }
                         catch (TerminalException e)
                         {
-                            // ROBUSTNESS: Fix #8 - Reset error counter on expected terminal exceptions
                             consecutiveExceptionCount = 0;
-                            switch (e.Code)
-                            {
-                                case TerminalException.CodeType.ClientDisconnected:
-                                    throw;
-                                case TerminalException.CodeType.UserOutputInterrupted:
-                                    continue;
-                            }
+                            if (e.Code == TerminalException.CodeType.ClientDisconnected)
+                                throw;
+                            if (e.Code == TerminalException.CodeType.UserOutputInterrupted)
+                                continue;
                         }
                         catch (ArgumentException e)
                         {
-                            // ROBUSTNESS: Fix #8 - Reset error counter on expected user errors
                             consecutiveExceptionCount = 0;
-                            terminal.Line("* " + e.Message);
+                            terminal.Line($"* {e.Message}");
                             continue;
                         }
-
                         catch (NotImplementedException e)
                         {
-                            // ROBUSTNESS: Fix #8 - Reset error counter on feature placeholders
                             consecutiveExceptionCount = 0;
-                            terminal.Line("* " + e.Message);
+                            terminal.Line($"* {e.Message}");
                             continue;
                         }
-
                         catch (Exception e)
                         {
-                            // ROBUSTNESS: Fix #8 - Count consecutive errors to detect infinite loops
                             consecutiveExceptionCount++;
                             terminal.Line("Blimey! System Error: {0}", e.Message);
                             ErrorHandling.Handle(e);
@@ -97,7 +82,6 @@ namespace Sezam
                                 throw new TerminalException(TerminalException.CodeType.ClientDisconnected);
                             }
                             
-                            // ROBUSTNESS: Fix #8 - Brief delay prevents rapid spinning on stuck errors
                             Thread.Sleep(100);
                             continue;
                         }
@@ -105,7 +89,6 @@ namespace Sezam
                 }
                 catch (Exception e)
                 {
-                    // ROBUSTNESS: Fix #8 - Reset counter on outer exception (means loop should exit normally)
                     consecutiveExceptionCount = 0;
                     terminal.Line(Console.Strings.ErrorUnrecoverable, e.Message);
                     ErrorHandling.Handle(e);
@@ -113,26 +96,26 @@ namespace Sezam
             }
             finally
             {
-                // log first
-                try { SysLog("Disconnected"); } catch { }
-                // dispose db context to avoid leaks
-                try { Db?.Dispose(); } catch (Exception ex) { Debug.WriteLine($"Db dispose error: {ex.Message}"); }
-                // fire finish event
-                try { OnFinish?.Invoke(this, null); } catch (Exception ex) { ErrorHandling.Handle(ex); }
+                try { SysLog("Disconnected"); } 
+                catch { }
+                try { Db?.Dispose(); } 
+                catch (Exception ex) { Debug.WriteLine($"Db dispose error: {ex.Message}"); }
+                try { OnFinish?.Invoke(this, null); } 
+                catch (Exception ex) { ErrorHandling.Handle(ex); }
                 thread = null;
             }
         }
 
         private void WelcomeAndLogin()
         {
-            Debug.WriteLine("Session thread running for " + terminal.Id);
+            Debug.WriteLine($"Session thread running for {terminal.Id}");
             ConnectTime = DateTime.Now;
 
             PrintBanner();
             SysLog("Connected");
 
             User = Login();
-            if (User == null)
+            if (User is null)
             {
                 terminal.Line(Console.Strings.Login_UnknownUser);
                 terminal.Close();
@@ -147,7 +130,6 @@ namespace Sezam
                 Db.UserId = User.Id;
                 User.LastCall = LoginTime;
                 
-                // ROBUSTNESS: Fix #9 - SaveChanges with proper error handling (not fire-and-forget)
                 try
                 {
                     Db.SaveChanges();
@@ -155,17 +137,13 @@ namespace Sezam
                 catch (DbUpdateException ex)
                 {
                     Debug.WriteLine($"Login save failed: {ex.Message}");
-                    // Don't fail login if audit save fails
                     ErrorHandling.Handle(ex);
                 }
             }
         }
 
-        protected void PrintBanner()
-        {
+        protected void PrintBanner() =>
             terminal.Line(Console.Strings.BannerConnected, ConnectTime, terminal.Id);
-            terminal.Line();
-        }
 
         /// <summary>
         /// ROBUSTNESS: Issue #12 - Retrieve user with caching to avoid N+1 queries
@@ -173,21 +151,16 @@ namespace Sezam
         /// </summary>
         public User GetUser(string username)
         {
-            User user = null;
-            // Return from cache (case-insensitive)
-            if (userCache != null)
-            {
-                if (userCache.TryGetValue(username, out user))
-                    return user;
-            }
+            if (userCache?.TryGetValue(username, out var user) == true)
+                return user;
 
-            user = Db.Users.Where(u => u.Username == username).FirstOrDefault();
-            if (user == null) return null;
+            user = Db.Users.FirstOrDefault(u => u.Username == username);
+            if (user is null)
+                return null;
 
             lock (_lockUserCache)
             {
-                if (userCache == null)
-                    userCache = new Dictionary<string, User>(StringComparer.OrdinalIgnoreCase);
+                userCache ??= new Dictionary<string, User>(StringComparer.OrdinalIgnoreCase);
                 userCache[username] = user;
             }
 

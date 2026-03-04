@@ -2,20 +2,8 @@
 {
     public class ConsoleTerminal : Terminal, ITerminal
     {
-        public override int LineWidth
-        {
-            get
-            {
-                try
-                {
-                    return System.Console.WindowWidth > 0 ? System.Console.WindowWidth : Sezam.Terminal.DefaultLineWidth;
-                }
-                catch
-                {
-                    return Sezam.Terminal.DefaultLineWidth;
-                }
-            }
-        }
+        public override int LineWidth =>
+            System.Console.WindowWidth > 0 ? System.Console.WindowWidth : DefaultLineWidth;
 
         public ConsoleTerminal()
         {
@@ -26,9 +14,9 @@
             connected = true;
         }
 
-        public string Id { get { return "System Console"; } }
+        public string Id => "System Console";
 
-        public bool Connected { get { return connected; } }
+        public bool Connected => connected;
 
         public void Close()
         {
@@ -36,16 +24,11 @@
             connected = false;
         }
 
-        protected override char ReadChar()
-        {
-            // true: do not display the pressed key on console
-            return System.Console.ReadKey(true).KeyChar;
-        }
+        protected override char ReadChar() =>
+            System.Console.ReadKey(true).KeyChar;
 
-        public override void ClearScreen()
-        {
+        public override void ClearScreen() =>
             System.Console.Clear();
-        }
 
         public override void ClearToEOL()
         {

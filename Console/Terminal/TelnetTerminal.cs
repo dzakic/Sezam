@@ -56,26 +56,25 @@ namespace Sezam
             NewEnvironment = 39
         }
 
-        class TelnetOption
+        private class TelnetOption
         {
-
-            const int MAXRETRY = 2;
+            private const int MAXRETRY = 2;
 
             internal TelnetOption(Option code, bool myDesired, bool? clientDesired = null)
             {
-                this.opt = code;
-                this.myDesiredState = myDesired;
-                this.clientDesiredState = clientDesired;
-                myRequestCount = 0;
-                clientRequestCount = 0;
+                opt = code;
+                myDesiredState = myDesired;
+                clientDesiredState = clientDesired;
             }
             
             public bool ClientCommandConflictsDesired(Command cmd)
             {
-                if (clientDesiredState == null || clientRequestCount > MAXRETRY)
+                if (clientDesiredState is null || clientRequestCount > MAXRETRY)
                     return false;
+                
                 bool conflict = (cmd == Command.WILL && clientDesiredState.Value == false) ||
                     (cmd == Command.WONT && clientDesiredState.Value == true);
+                
                 if (conflict)
                     clientRequestCount++;
                 return conflict;
@@ -85,6 +84,7 @@ namespace Sezam
             {
                 if (myRequestCount > MAXRETRY)
                     return false;
+                
                 bool conflict = (cmd == Command.DO && myDesiredState == false) ||
                     (cmd == Command.DONT && myDesiredState == true);
                 if (conflict)
@@ -95,58 +95,60 @@ namespace Sezam
             public Option opt;
             public bool? myState;
             public bool myDesiredState;
-            public Command MyDesiredCommand { get { return myDesiredState ? Command.WILL : Command.WONT; } }
+            public Command MyDesiredCommand => myDesiredState ? Command.WILL : Command.WONT;
             public int myRequestCount;
             public bool? clientState;
-            public Command ClientDesiredCommand { get { return clientDesiredState != null ? clientDesiredState.Value ? Command.DO : Command.DONT : Command.NOP; } }
+            public Command ClientDesiredCommand => clientDesiredState switch
+            {
+                true => Command.DO,
+                false => Command.DONT,
+                _ => Command.NOP
+            };
             public bool? clientDesiredState;
             public int clientRequestCount;
         }
 
         private readonly List<TelnetOption> telnetOptions = new List<TelnetOption>
-            {
-                new TelnetOption(Option.Echo, true, false), // Server controls what is displayed on screen
-                new TelnetOption(Option.SuppressGoAhead, true, true), // Full duplex
-                new TelnetOption(Option.LineMode, false, false), // Server edits input line (tab?)
-                new TelnetOption(Option.BinaryTransmission, true), 
-                new TelnetOption(Option.NegotiateAboutWindowSize, false, true), // I won't, you please do let me know about window resize
-                new TelnetOption(Option.TerminalType, false), 
-                new TelnetOption(Option.TerminalSpeed, false),
-            };
+        {
+            new TelnetOption(Option.Echo, true, false), // Server controls what is displayed on screen
+            new TelnetOption(Option.SuppressGoAhead, true, true), // Full duplex
+            new TelnetOption(Option.LineMode, false, false), // Server edits input line (tab?)
+            new TelnetOption(Option.BinaryTransmission, true),
+            new TelnetOption(Option.NegotiateAboutWindowSize, false, true), // I won't, you let me know
+            new TelnetOption(Option.TerminalType, false),
+            new TelnetOption(Option.TerminalSpeed, false),
+        };
 
         public TelnetTerminal(TcpClient tcpClient)
         {
             this.tcpClient = tcpClient;
             netStream = tcpClient.GetStream();
-            // In = new StreamReader(netStream, true);
             Out = new StreamWriter(netStream, Encoding.UTF8) { AutoFlush = false };
             PageSize = 32;
-            lineWidth = Sezam.Terminal.DefaultLineWidth;
+            lineWidth = Terminal.DefaultLineWidth;
             Out.NewLine = "\r\n";            
             tcpClient.NoDelay = true;
             tcpClient.SendBufferSize = 1024;
 
-            foreach (TelnetOption telOpt in telnetOptions)
+            foreach (var telOpt in telnetOptions)
             {
                 SendCode(telOpt.MyDesiredCommand, telOpt.opt); // I Will-Wont
                 var clientCommand = telOpt.ClientDesiredCommand;
                 if (clientCommand != Command.NOP)
-                    SendCode(clientCommand, telOpt.opt); // You Do-Dont
+                    SendCode(clientCommand, telOpt.opt);
             }
-
-            // Trace.TraceInformation("TCPClient recv buffer size: {0}", tcpClient.ReceiveBufferSize);
-            // Trace.TraceInformation("TCPClient send buffer size: {0}", tcpClient.SendBufferSize);
         }
 
         private void SendCode(Command code, Option feature)
         {
-            byte[] outStream = new byte[3];
+            Span<byte> outStream = stackalloc byte[3];
             outStream[0] = (byte)Command.IAC;
             outStream[1] = (byte)code;
             outStream[2] = (byte)feature;
+            
             try
             {
-                netStream.Write(outStream, 0, outStream.Length);
+                netStream.Write(outStream);
             }
             catch (ObjectDisposedException)
             {
@@ -156,21 +158,22 @@ namespace Sezam
             {
                 throw new TerminalException(TerminalException.CodeType.ClientDisconnected);
             }
-            Debug.Write("[SERVER: " + code.ToString() + " " + feature.ToString() + "] ");
+            
+            Debug.Write($"[SERVER: {code} {feature}] ");
         }
 
-        public string Id { get { return Connected ? tcpClient.Client.RemoteEndPoint.ToString() : "Disconnected"; } }
+        public string Id => Connected ? tcpClient.Client.RemoteEndPoint?.ToString() ?? "Disconnected" : "Disconnected";
 
-        public bool Connected
-        {
-            get { return tcpClient.Connected; }
-        }
+        public bool Connected => tcpClient.Connected;
 
         public void Close()
         {
-            try { Out?.Flush(); } catch { }
-            try { Out?.Dispose(); } catch { }
-            try { tcpClient?.Dispose(); } catch { }
+            try { Out?.Flush(); } 
+            catch { }
+            try { Out?.Dispose(); } 
+            catch { }
+            try { tcpClient?.Dispose(); } 
+            catch { }
         }
 
         private void FillInputBuffer()
@@ -189,30 +192,25 @@ namespace Sezam
                 {
                     throw new TerminalException(TerminalException.CodeType.ClientDisconnected);
                 }
+                
                 if (inputLen == 0)
                     throw new TerminalException(TerminalException.CodeType.ClientDisconnected);
+                
                 inputPos = 0;
             }
         }
 
-        private static bool IsDisconnect(IOException ioEx)
-        {
-            if (ioEx.InnerException is not SocketException socketEx)
-                return false;
-
-            switch (socketEx.SocketErrorCode)
+        private static bool IsDisconnect(IOException ioEx) =>
+            ioEx.InnerException is SocketException socketEx && socketEx.SocketErrorCode switch
             {
-                case SocketError.ConnectionReset:
-                case SocketError.ConnectionAborted:
-                case SocketError.Shutdown:
-                case SocketError.OperationAborted:
-                case SocketError.NotConnected:
-                case SocketError.TimedOut:
-                    return true;
-                default:
-                    return false;
-            }
-        }
+                SocketError.ConnectionReset or
+                SocketError.ConnectionAborted or
+                SocketError.Shutdown or
+                SocketError.OperationAborted or
+                SocketError.NotConnected or
+                SocketError.TimedOut => true,
+                _ => false
+            };
 
         private byte PeekByteFromNetworkStream()
         {
@@ -226,22 +224,17 @@ namespace Sezam
             return inputBytes[inputPos++];
         }
 
-    // Array of states. Count sent requests, give up after MAX(3?)
-    //    { [Option, desiredState] }
-    // if command in [do, dont]
-    //    if (requested == desired) send cfm, else request(desired)
-    // if command in (will, wont)
-    //    if (confirmation != desired) send request(desired) else silent
-
-    private void ProcessTelnetCommands()
+        private void ProcessTelnetCommands()
         {
             int next = PeekByteFromNetworkStream();
             Debug.Assert(next == (byte)Command.IAC, "We should not be here if telnet command not pending");
+            
             while (next == (byte)Command.IAC)
             {
-                Command iac = (Command)GetByteFromNetworkStream();
-                Command cmd = (Command)GetByteFromNetworkStream();
-                Option opt = Option.NONE;
+                var iac = (Command)GetByteFromNetworkStream();
+                var cmd = (Command)GetByteFromNetworkStream();
+                var opt = Option.NONE;
+                
                 switch (cmd)
                 {
                     case Command.DO:
@@ -249,25 +242,22 @@ namespace Sezam
                     case Command.WILL:
                     case Command.WONT:
                         opt = (Option)GetByteFromNetworkStream();
-                        Debug.Write("[CLIENT: " + cmd.ToString() + " " + opt.ToString() + "] ");
-                        TelnetOption telOpt = telnetOptions.Where(topt => topt.opt == opt).FirstOrDefault();
-                        if (telOpt != null)
+                        Debug.Write($"[CLIENT: {cmd} {opt}] ");
+                        
+                        var telOpt = telnetOptions.FirstOrDefault(topt => topt.opt == opt);
+                        if (telOpt is not null)
                         {
-                            if (cmd == Command.DO || cmd == Command.DONT)
+                            if (cmd is Command.DO or Command.DONT)
                             {
                                 telOpt.myState = cmd == Command.DO;
                                 if (telOpt.MyCommandConflictsDesired(cmd))
-                                {
                                     SendCode(telOpt.MyDesiredCommand, opt);
-                                }
                             }
-                            if (cmd == Command.WILL || cmd == Command.WONT)
+                            if (cmd is Command.WILL or Command.WONT)
                             {
                                 telOpt.clientState = cmd == Command.WILL;
                                 if (telOpt.ClientCommandConflictsDesired(cmd))
-                                {
                                     SendCode(telOpt.ClientDesiredCommand, opt);
-                                }
                             }
                         }
                         break;
@@ -275,45 +265,40 @@ namespace Sezam
                     case Command.SB:
                         ProcessSubnegotiation();
                         break;
-
-                    default:
-                        break;
                 }
+                
                 next = PeekByteFromNetworkStream();
             }
         }
 
         private void ProcessSubnegotiation()
         {
-            Option opt = (Option)GetByteFromNetworkStream();
-            List<byte> negotiationStr = new List<byte>();
+            var opt = (Option)GetByteFromNetworkStream();
+            var negotiationStr = new List<byte>();
+            
             while (Connected)
             {
                 byte b = GetByteFromNetworkStream();
                 if (b == (byte)Command.IAC && PeekByteFromNetworkStream() == (byte)Command.SE)
                 {
-                    b = GetByteFromNetworkStream(); // pop peeked SE
-                    // Trace.TraceInformation("TELNET Got SB " + opt.ToString() + " " + BitConverter.ToString(negotiationStr.ToArray()) + " SE.");
+                    GetByteFromNetworkStream(); // pop peeked SE
+                    
                     switch (opt)
                     {
-                        case Option.NegotiateAboutWindowSize:
-                            if (negotiationStr.Count >= 4)
-                            {
-                                lineWidth = negotiationStr[1] + 256 * negotiationStr[0];
-                                PageSize = (negotiationStr[3] + 256 * negotiationStr[2]) - 1;
-                                Trace.TraceInformation("NAWS LineWidth=" + lineWidth.ToString() + ", PageSize=" + PageSize.ToString());
-                            }
+                        case Option.NegotiateAboutWindowSize when negotiationStr.Count >= 4:
+                            lineWidth = negotiationStr[1] + 256 * negotiationStr[0];
+                            PageSize = (negotiationStr[3] + 256 * negotiationStr[2]) - 1;
+                            Trace.TraceInformation($"NAWS LineWidth={lineWidth}, PageSize={PageSize}");
                             break;
 
                         default:
-                            Trace.TraceWarning("TELNET Unsupported negotiation type " + opt.ToString());
+                            Trace.TraceWarning($"TELNET Unsupported negotiation type {opt}");
                             break;
                     }
                     break;
                 }
                 negotiationStr.Add(b);
             }
-            return;
         }
 
         protected override char ReadChar()
@@ -334,35 +319,24 @@ namespace Sezam
             char[] chars = Encoding.UTF8.GetChars(inputBytes, inputPos, inputLen - inputPos);
             if (chars.Length == 0)
                 return (char)0;
-            char[] char1 = new char[1] { chars[0] };
-            int len = Encoding.UTF8.GetByteCount(char1);
+            
+            int len = Encoding.UTF8.GetByteCount([chars[0]]);
             inputPos += len;
             return chars[0];
         }
 
-        private void SendANSI(char code, params string[] parameters)
-        {
-            Out.Write(Esc + "[" + string.Join(";", parameters) + code);
-        }
+        private void SendANSI(char code, params string[] parameters) =>
+            Out.Write($"{Esc}[{string.Join(";", parameters)}{code}");
 
-        public override void ClearScreen()
-        {
-            SendANSI('J', "2");
-        }
+        public override void ClearScreen() => SendANSI('J', "2");
 
-        public override void ClearToEOL()
-        {
-            SendANSI('K');
-        }
+        public override void ClearToEOL() => SendANSI('K');
 
-        public void ClearLine()
-        {
-            SendANSI('K', "2");
-        }
+        public void ClearLine() => SendANSI('K', "2");
 
         private readonly byte[] inputBytes = new byte[256];
-        private int inputLen = 0;
-        private int inputPos = 0;
+        private int inputLen;
+        private int inputPos;
         private readonly TcpClient tcpClient;
         private readonly NetworkStream netStream;
         private int lineWidth;

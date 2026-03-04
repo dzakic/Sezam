@@ -8,26 +8,23 @@ namespace Sezam
     {
         public static void Handle(Exception e)
         {
-            if (e.InnerException is SocketException)
+            if (e.InnerException is SocketException se)
             {
-                var se = e.InnerException as SocketException;
-                if (se.ErrorCode == (int)SocketError.ConnectionAborted ||
-                      se.ErrorCode == (int)SocketError.ConnectionReset)
+                if (se.ErrorCode is (int)SocketError.ConnectionAborted or (int)SocketError.ConnectionReset)
                     Trace.TraceInformation("SocketException: Peer disconnected");
                 else
-                    ErrorHandling.PrintException(se);
+                    PrintException(se);
             }
             else
-                ErrorHandling.PrintException(e);
+                PrintException(e);
         }
 
         public static void PrintException(Exception e)
         {
-            Trace.TraceError("{0}.{1}: {2}",
-               e.Source, e.GetType().Name, e.Message);
-            Debug.WriteLine("Unhandled Exception: {0}", e.Message);
+            Trace.TraceError("{0}.{1}: {2}", e.Source, e.GetType().Name, e.Message);
+            Debug.WriteLine($"Unhandled Exception: {e.Message}");
             Debug.WriteLine(e.StackTrace);
-            if (e.InnerException != null)
+            if (e.InnerException is not null)
                 PrintException(e.InnerException);
         }
     }

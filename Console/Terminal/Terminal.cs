@@ -16,13 +16,9 @@ namespace Sezam
             UserOutputInterrupted = 2
         }
 
-        public TerminalException(CodeType code) :
-           base("")
-        {
-            this.Code = code;
-        }
+        public TerminalException(CodeType code) : base("") => Code = code;
 
-        public CodeType Code { get; private set; }
+        public CodeType Code { get; }
     }
 
     [Flags]
@@ -33,44 +29,28 @@ namespace Sezam
 
     public interface ITerminal
     {
-
         void Line(string Message = "");
         void Line(string Message = "", params object[] args);
-
         void Text(string Text);
-
         void Close();
-
         string PromptEdit(string prompt = "", InputFlags flags = 0);
         Task<string> PromptEditAsync(string prompt = "", InputFlags flags = 0, CancellationToken cancellationToken = default);
-
         string InputStr(string label = "", InputFlags flags = 0);
         Task<string> InputStrAsync(string label = "", InputFlags flags = 0, CancellationToken cancellationToken = default);
-
         int PromptSelection(string promptAnswers);
         Task<int> PromptSelectionAsync(string promptAnswers, CancellationToken cancellationToken = default);
-
-        // int PromptSelection(string prompt, params string[] options);
-
         int PageSize { get; set; }
-
         int LineWidth { get; }
-
         string Id { get; }
-
         bool Connected { get; }
-
         void ClearScreen();
-
         void ClearToEOL();
     }
 
     public abstract class Terminal
     {
-
         public const char Esc = (char)27;
         public const int DefaultLineWidth = 80;
-
 
         public virtual int LineWidth => DefaultLineWidth;
 
@@ -88,9 +68,10 @@ namespace Sezam
 
         protected void LineFinished()
         {
-            // 0 means forever
+
             if (lineCount > 0)
                 lineCount++;
+            
             if (lineCount >= PageSize)
             {
                 int more = PromptSelection("More?Yes/No/All");
@@ -99,7 +80,6 @@ namespace Sezam
                     case 0:
                         ResetPageCount();
                         break;
-
                     case 1:
                         throw new TerminalException(TerminalException.CodeType.UserOutputInterrupted);
                     case 2:
@@ -112,11 +92,10 @@ namespace Sezam
         /// <summary>
         /// Output multi-line text to terminal, counting lines for pagination
         /// </summary>
-        /// <param name="Text"></param>
         public void Text(string Text)
         {
-            string[] Lines = Text.Split(new string[] { "\r\n" }, StringSplitOptions.None);
-            foreach (string line in Lines.Take(Lines.Length - 1))
+            var lines = Text.Split(["\r\n"], StringSplitOptions.None);
+            foreach (var line in lines.Take(lines.Length - 1))
             {
                 Out.WriteLine(line);
                 LineFinished();
@@ -124,69 +103,50 @@ namespace Sezam
             Out.Flush();
         }
 
-        private void ResetPageCount()
-        {
-            lineCount = 1;
-        }
+        private void ResetPageCount() => lineCount = 1;
 
-        protected virtual char ReadChar()
-        {
-            return ' ';
-        }
+        protected virtual char ReadChar() => ' ';
 
-        #region async wrappers
+        public virtual Task<string> PromptEditAsync(string prompt = "", InputFlags flags = 0, CancellationToken cancellationToken = default) =>
+            cancellationToken.IsCancellationRequested
+                ? Task.FromCanceled<string>(cancellationToken)
+                : Task.Run(() => PromptEdit(prompt, flags), cancellationToken);
 
-        public virtual Task<string> PromptEditAsync(string prompt = "", InputFlags flags = 0, CancellationToken cancellationToken = default)
-        {
-            if (cancellationToken.IsCancellationRequested)
-                return Task.FromCanceled<string>(cancellationToken);
-            return Task.Run(() => PromptEdit(prompt, flags), cancellationToken);
-        }
+        public virtual Task<string> InputStrAsync(string label = "", InputFlags flags = 0, CancellationToken cancellationToken = default) =>
+            cancellationToken.IsCancellationRequested
+                ? Task.FromCanceled<string>(cancellationToken)
+                : Task.Run(() => InputStr(label, flags), cancellationToken);
 
-        public virtual Task<string> InputStrAsync(string label = "", InputFlags flags = 0, CancellationToken cancellationToken = default)
-        {
-            if (cancellationToken.IsCancellationRequested)
-                return Task.FromCanceled<string>(cancellationToken);
-            return Task.Run(() => InputStr(label, flags), cancellationToken);
-        }
-
-        public virtual Task<int> PromptSelectionAsync(string promptAnswers, CancellationToken cancellationToken = default)
-        {
-            if (cancellationToken.IsCancellationRequested)
-                return Task.FromCanceled<int>(cancellationToken);
-            return Task.Run(() => PromptSelection(promptAnswers), cancellationToken);
-        }
-
-        #endregion
+        public virtual Task<int> PromptSelectionAsync(string promptAnswers, CancellationToken cancellationToken = default) =>
+            cancellationToken.IsCancellationRequested
+                ? Task.FromCanceled<int>(cancellationToken)
+                : Task.Run(() => PromptSelection(promptAnswers), cancellationToken);
 
         public int PromptSelection(string promptOptions)
         {
             var prompts = promptOptions.Split('?');
             var prompt = prompts.Length > 0 ? prompts[0] : string.Empty;
-            var options = prompts.Length > 1 ? prompts[1].Split('/') : new string[1] { "" };
+            var options = prompts.Length > 1 ? prompts[1].Split('/') : [""];
 
             ResetPageCount();
             if (!string.IsNullOrWhiteSpace(prompt))
-                Out.Write(prompt + "? ");
+                Out.Write($"{prompt}? ");
 
-            Out.Write("[" + string.Join('/', options) + "] ");
-
+            Out.Write($"[{string.Join('/', options)}] ");
             Out.Flush();
 
             while (true)
+            {
                 try
                 {
-                    char ch = Char.ToLower(ReadChar());
-                    int i = ch;
-                    // Trace.Write(string.Format("[Debug:ReadChar=%{0}]", i));
-                    if (ch == '\r' || ch == '\n')
+                    char ch = char.ToLower(ReadChar());
+                    if (ch is '\r' or '\n')
                         return 0;
+                    
                     for (int choice = 0; choice < options.Length; choice++)
                     {
-                        if (ch == Char.ToLower(options[choice][0]))
-                        {
+                        if (ch == char.ToLower(options[choice][0]))
                             return choice;
-                        }
                     }
                 }
                 finally
@@ -194,74 +154,69 @@ namespace Sezam
                     Out.Write('\r');
                     ClearToEOL();
                 }
+            }
         }
 
         public string PromptEdit(string prompt = "", InputFlags flags = 0)
         {
-            // WaitHandle.
             ResetPageCount();
             if (!string.IsNullOrWhiteSpace(prompt))
                 Out.Write(prompt);
             Out.Flush();
-            string line = string.Empty;
+            
+            var line = string.Empty;
             char c = ' ';
+            
             while (c != '\r')
             {
                 c = ReadChar();
-                // Trace.Write(string.Format("[Debug:ReadChar=%{0}]", (byte)c));
                 switch (c)
                 {
                     case Esc:
                         c = ReadChar();
-                        if (c == '~') // DEL
-                        { 
-                            if (line.Length > 0)
-                            {
-                                Out.Write("\b \b");
-                                line = line.Remove(line.Length - 1, 1);
-                            }
+                        if (c == '~' && line.Length > 0)
+                        {
+                            Out.Write("\b \b");
+                            line = line[..^1];
                         }
                         if (c == '[')
                             c = ReadChar();
                         break;
+                    
                     case (char)127:
                     case '\b':
-                        // Backspace
                         if (line.Length > 0)
                         {
                             Out.Write("\b \b");
-                            line = line.Remove(line.Length - 1, 1);
+                            line = line[..^1];
                         }
                         break;
-                    // Ignore non-printables
+                    
                     case '\r':
                     case (char)0:
                         continue;
+                    
                     default:
                         line += c;
-                        if (flags.HasFlag(InputFlags.Password))
-                            Out.Write("*");
-                        else
-                            Out.Write(c);
+                        Out.Write(flags.HasFlag(InputFlags.Password) ? "*" : c.ToString());
                         break;
                 }
-                Out.Flush(); // interactive command editing
+                Out.Flush();
             }
+            
             Out.WriteLine();
             Out.Flush();
             return line;
         }
 
-        public string InputStr(string label = "", InputFlags flags = 0)
-        {
-            return PromptEdit(label + ": ", flags);
-        }
+        public string InputStr(string label = "", InputFlags flags = 0) =>
+            PromptEdit($"{label}: ", flags);
 
-        private int pageSize;
+        private int lineCount;
 
         public int PageSize
         {
-            get { return pageSize; }
+            get => pageSize;
             set
             {
                 pageSize = value;
@@ -269,17 +224,12 @@ namespace Sezam
             }
         }
 
-        public virtual void ClearScreen()
-        {
-        }
+        private int pageSize;
 
-        public virtual void ClearToEOL()
-        {
-        }
+        public virtual void ClearScreen() { }
 
-        // protected TextReader In;
+        public virtual void ClearToEOL() { }
+
         protected TextWriter Out;
-
-        private uint lineCount = 0;
     }
 }

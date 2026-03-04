@@ -1,21 +1,18 @@
 ﻿namespace Sezam.Commands
 {
-
-    using Sezam.Data.EF;    
+    using Sezam.Data.EF;
     using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Reflection;
+    using System.Runtime.ExceptionServices;
 
     /// <summary>
     /// Executing instance of the class.
     /// </summary>
     public class CommandSet
     {
-        public CommandSet(Session session)
-        {
-            this.session = session;
-        }
+        public CommandSet(Session session) => this.session = session;
 
         public bool ExecuteCommand(string cmd)
         {
@@ -46,42 +43,31 @@
         // Returns true if command was found and executed
         private bool InvokeCommand(string cmd)
         {
-            MethodInfo command = GetCommandMethod(cmd);
-            if (command == null)
+            var command = GetCommandMethod(cmd);
+            if (command is null)
                 return false;
+
             try
             {
                 command.Invoke(this, null);
             }
             catch (TargetInvocationException e)
             {
-                throw e.InnerException;
+                if (e.InnerException is not null)
+                    throw e.InnerException!;
             }
             return true;
         }
 
-        protected static string GetDisplayName(Type type)
-        {
-            CommandAttribute cmdAttr = type.GetCustomAttribute(typeof(CommandAttribute)) as CommandAttribute;
-            return cmdAttr?.DisplayName == null ? type.Name : cmdAttr.DisplayName;
-        }
+        protected static string GetDisplayName(Type type) =>
+            type.GetCustomAttribute<CommandAttribute>()?.DisplayName ?? type.Name;
 
-        private string DisplayName()
-        {
-            return GetDisplayName(GetType());
-        }
+        private string DisplayName() => GetDisplayName(GetType());
 
-        // Might need to recurse to parent...
-        public virtual string GetPrompt()
-        {
-            return GetType().Name;
-        }
+        public virtual string GetPrompt() => GetType().Name;
 
         [Command(Aliases = [".."], Description = "Exit the command context")]
-        public virtual void Exit()
-        {
-            session.ExitCurrentCommand();
-        }
+        public virtual void Exit() => session.ExitCurrentCommand();
 
         [Command(Aliases = ["?"], Description = "Show help")]
         public virtual void Help()
@@ -94,69 +80,63 @@
             }
 
             session.terminal.Line("== {0} HELP ==", DisplayName().ToUpper());
+
             foreach (var cmdSet in GetCommandSets())
             {
-                var attr = cmdSet.GetCustomAttribute(typeof(CommandAttribute)) as CommandAttribute;
-                string desc = attr != null && !string.IsNullOrEmpty(attr.Description) ? " - " + attr.Description : "";
+                var desc = cmdSet.GetCustomAttribute<CommandAttribute>()?.Description
+                    is { Length: > 0 } d ? $" - {d}" : "";
                 session.terminal.Line("* {0,-20} {1}", cmdSet.Name.ToUpper(), desc);
             }
+
             foreach (var method in GetMethods())
             {
-                string line = method.Name;
                 var aliases = method.GetAliases();
-                if (aliases?.Length > 0)
-                    line = line + " (" + string.Join(",", aliases) + ")";
-                
-                var attr = method.GetCustomAttribute(typeof(CommandAttribute)) as CommandAttribute;
-                string desc = attr != null && !string.IsNullOrEmpty(attr.Description) ? attr.Description : "";
+                var line = aliases is { Length: > 0 }
+                    ? $"{method.Name} ({string.Join(",", aliases)})"
+                    : method.Name;
+
+                var desc = method.GetCustomAttribute<CommandAttribute>()?.Description ?? "";
                 session.terminal.Line("- {0,-20} {1}", line, desc);
             }
         }
 
         private void PrintDetailedHelp(string topic)
         {
-            CommandSet currentSet = this;
-            string currentTopic = topic;
-            
+            var currentSet = this;
+            var currentTopic = topic;
+
             while (currentTopic.HasValue())
             {
-                var nextSet = currentSet.GetCommandSet(currentTopic);
-                if (nextSet != null)
+                if (currentSet.GetCommandSet(currentTopic) is { } nextSet)
                 {
                     nextSet.Help();
                     return;
                 }
-                else
-                {
-                    MethodInfo method = currentSet.GetCommandMethod(currentTopic);
-                    if (method != null)
-                    {
-                        PrintHelp(method);
 
-                        return;
-                    }
-                    session.terminal.Line("Unknown command or topic: {0}", currentTopic);
+                if (currentSet.GetCommandMethod(currentTopic) is { } method)
+                {
+                    PrintHelp(method);
                     return;
                 }
+
+                session.terminal.Line("Unknown command or topic: {0}", currentTopic);
+                return;
             }
         }
 
         private void PrintHelp(MethodInfo method)
         {
-            var attr = method.GetCustomAttribute(typeof(CommandAttribute)) as CommandAttribute;
-            var parameters = method.GetCustomAttributes(typeof(CommandParameterAttribute))
-                .Cast<CommandParameterAttribute>()
-                .ToArray();
-            var switches = method.GetCustomAttributes(typeof(CommandSwitchAttribute))
-                .Cast<CommandSwitchAttribute>()
-                .ToArray();
+            var attr = method.GetCustomAttribute<CommandAttribute>();
+            var parameters = method.GetCustomAttributes<CommandParameterAttribute>().ToArray();
+            var switches = method.GetCustomAttributes<CommandSwitchAttribute>().ToArray();
             var aliases = method.GetAliases();
 
-            string desc = attr != null && !string.IsNullOrEmpty(attr.Description) ? attr.Description : "No detailed description available.";
+            var desc = attr?.Description ?? "No detailed description available.";
 
             var syntaxParts = new List<string> { method.Name.ToUpper() };
             syntaxParts.AddRange(parameters.Select(p => p.IsRequired ? $"<{p.Name}>" : $"[{p.Name}]"));
-            syntaxParts.AddRange(switches.Select(sw => "/" + sw.Switch));
+            syntaxParts.AddRange(switches.Select(sw => $"/{sw.Switch}"));
+
             var terminalWidth = session.terminal.LineWidth;
 
             session.terminal.Line();
@@ -166,13 +146,13 @@
             foreach (var line in WordWrap(desc, terminalWidth))
                 session.terminal.Line(line);
 
-            if (aliases?.Length > 0)
+            if (aliases is { Length: > 0 })
             {
                 session.terminal.Line();
                 session.terminal.Line("Aliases: {0}", string.Join(", ", aliases));
             }
 
-            if (parameters.Length > 0)
+            if (parameters is { Length: > 0 })
             {
                 session.terminal.Line();
                 session.terminal.Line("Parameters:");
@@ -187,7 +167,7 @@
             {
                 session.terminal.Line("Switches:");
                 foreach (var commandSwitch in switches)
-                    PrintHelpLine("/" + commandSwitch.Switch, commandSwitch.Description, terminalWidth);
+                    PrintHelpLine($"/{commandSwitch.Switch}", commandSwitch.Description, terminalWidth);
             }
         }
 
@@ -252,7 +232,7 @@
                         continue;
                     }
 
-                    var candidate = currentLine.Length == 0 ? word : currentLine + " " + word;
+                    var candidate = currentLine.Length == 0 ? word : $"{currentLine} {word}";
                     if (candidate.Length <= width)
                         currentLine = candidate;
                     else
@@ -269,49 +249,42 @@
             return wrappedLines;
         }
 
-        public MethodInfo GetCommandMethod(string cmd)
-        {
-            string cmdFound = PartialMatch(Catalog.Keys, cmd);
-            if (cmdFound != null)
-                return Catalog[cmdFound] as MethodInfo;
-            return null;
-        }
+        public MethodInfo GetCommandMethod(string cmd) =>
+            PartialMatch(Catalog.Keys, cmd) is { } cmdFound
+                ? Catalog[cmdFound] as MethodInfo
+                : null;
 
         private static bool PartialMatch(string command, string cmd)
         {
-            bool match = command.StartsWith(cmd, true, System.Globalization.CultureInfo.CurrentCulture);
-            if (match)
-            {
-                //check min length (RESign vs Read)
-                var cmdLen = cmd.Length;
-                match = cmdLen == command.Length || char.IsLower(command[cmdLen]);
-            }
-            return match;
+            if (!command.StartsWith(cmd, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            var cmdLen = cmd.Length;
+            return cmdLen == command.Length || char.IsLower(command[cmdLen]);
         }
 
         private static string PartialMatch(IEnumerable<string> strings, string cmd)
         {
-            if (strings.Count(s => PartialMatch(s, cmd)) == 1)
-            {
-                return strings.First(s => PartialMatch(s, cmd));
-            }
-            return null;
+            var enumerator = strings.Where(s => PartialMatch(s, cmd)).GetEnumerator();
+            if (!enumerator.MoveNext()) return null;
+            var first = enumerator.Current;
+            if (enumerator.MoveNext()) return null;            
+            return first;
         }
 
-        #region Catalog
         public Dictionary<string, object> Catalog
         {
             get
             {
                 var type = GetType();
-                Dictionary<string, object> catalog;
-                if (setCatalogs.TryGetValue(type, out catalog))
+                if (setCatalogs.TryGetValue(type, out var catalog))
                     return catalog;
 
                 lock (setCatalogs)
                 {
                     if (setCatalogs.TryGetValue(type, out catalog))
                         return catalog;
+
                     catalog = GetCatalog();
                     setCatalogs[type] = catalog;
                     return catalog;
@@ -329,11 +302,11 @@
             foreach (var method in GetMethods())
             {
                 catalog.Add(method.Name, method);
-                var aliases = method.GetAliases();
-                if (aliases != null)
-                    foreach (string alias in aliases)
+                if (method.GetAliases() is { } aliases)
+                    foreach (var alias in aliases)
                         catalog.Add(alias, method);
             }
+
             return catalog;
         }
 
@@ -345,47 +318,36 @@
                 // cmdSet = session.rootCmdSet...
             }
 
-            string cmdSetName = PartialMatch(Catalog.Keys, cmd);
-            if (cmdSetName == null)
+            if (PartialMatch(Catalog.Keys, cmd) is not { } cmdSetName)
                 return null;
-            Type cmdSetType = Catalog[cmdSetName] as Type;
-            if (cmdSetType == null)
-                return null;
-            return session.GetCommandProcessor(cmdSetType);
+
+            return Catalog[cmdSetName] is Type cmdSetType
+                ? session.GetCommandProcessor(cmdSetType)
+                : null;
         }
 
         public static Type RootType()
         {
             var assembly = Assembly.Load("Sezam.Commands");
             var rootType = assembly.GetType("Sezam.Commands.Root");
-            return rootType.IsSubclassOf(typeof(CommandSet)) ?
-                rootType : null;
-        }        
-
-        private IEnumerable<MethodInfo> GetMethods()
-        {
-            return
-             from method in this.GetType().GetRuntimeMethods()
-             where (method.IsPublic || method.IsDefined(typeof(CommandAttribute)))
-                 && method.ReturnType == typeof(void)
-                 && method.GetParameters().Length == 0
-             select method;
+            return rootType?.IsSubclassOf(typeof(CommandSet)) == true ? rootType : null;
         }
 
-        private IEnumerable<MethodInfo> GetCommandSets()
-        {
-            return
-             from method in this.GetType().GetRuntimeMethods()
-             where (method.IsPublic || method.IsDefined(typeof(CommandAttribute)))
-                 && method.ReturnType.IsSubclassOf(typeof(CommandSet))
-                 && method.GetParameters().Length == 0
-             select method;
-        }
-        #endregion
+        private IEnumerable<MethodInfo> GetMethods() =>
+            GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                .Where(m => (m.IsPublic || m.IsDefined(typeof(CommandAttribute)))
+                    && m.ReturnType == typeof(void)
+                    && m.GetParameters().Length == 0);
+
+        private IEnumerable<MethodInfo> GetCommandSets() =>
+            GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                .Where(m => (m.IsPublic || m.IsDefined(typeof(CommandAttribute)))
+                    && m.ReturnType.IsSubclassOf(typeof(CommandSet))
+                    && m.GetParameters().Length == 0);
 
         // string -> MethodInfo or CommandSet type
         private static readonly Dictionary<Type, Dictionary<string, object>> setCatalogs =
-            new Dictionary<Type, Dictionary<string, object>>();
+            new();
 
         public Session session;
 
@@ -401,9 +363,9 @@
             var username = session.cmdLine.GetToken();
             if (!username.HasValue())
                 throw new ArgumentException("Username required");
-            var user = session.GetUser(username);
-            if (user == null)
-                throw new ArgumentException(string.Format("Unknown user: {0}", username));
+
+            var user = session.GetUser(username)
+                ?? throw new ArgumentException($"Unknown user: {username}");
             return user;
         }
         #endregion
@@ -412,11 +374,7 @@
 
     public static class MethodExtensions
     {
-        public static string[] GetAliases(this MethodInfo method)
-        {
-            CommandAttribute cmdAttr = method.GetCustomAttribute(typeof(CommandAttribute)) as CommandAttribute;
-            return cmdAttr?.Aliases;
-        }
+        public static string[] GetAliases(this MethodInfo method) =>
+            method.GetCustomAttribute<CommandAttribute>()?.Aliases;
     }
-
 }

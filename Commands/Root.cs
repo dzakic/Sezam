@@ -9,43 +9,17 @@ namespace Sezam.Commands
     [Command("")]
     public class Root : CommandSet
     {
-        public Root(Session session)
-           : base(session)
-        {
-        }
+        public Root(Session session) : base(session) { }
 
-        public override string GetPrompt()
-        {
-            return string.Empty; // "/"; // 
-        }
+        public override string GetPrompt() => string.Empty;
 
-        public Conference Conference()
-        {
-            return null;
-        }
+        public Conference Conference() => null;
 
+        public Mail Mail() => null;
 
-        public Mail Mail()
-        {
-            return null;
-        }
+        public Set Set() => null;
 
-        public Set Set()
-        {
-            return null;
-        }
-
-        public Chat Chat()
-        {
-            return null;
-        }
-
-        /// <summary>
-        ///  Advanced, try later
-        /// </summary>
-        /*
-        public virtual Mail Mail { get; set; }
-        */
+        public Chat Chat() => null;
 
         [Command(Description = "Sends a message to another online user")]
         [CommandParameter("user", "Username of the user to page", true)]
@@ -71,10 +45,12 @@ namespace Sezam.Commands
             var pattern = session.cmdLine.GetToken();
             if (pattern.Length < 2)
                 throw new ArgumentException("Morate navesti najmanje dva karaktera za pretragu.");
+            
             var selection = session.Db.Users
                 .Where(u => u.LastCall != null &&
                     (u.Username.Contains(pattern) || u.City.Contains(pattern) || u.FullName.Contains(pattern)))
                 .OrderByDescending(u => u.LastCall);
+            
             foreach (var user in selection)
                 session.terminal.Line($"{user.Username,-16} {user.FullName,-28} {user.City,-16} {user.LastCall:dd MMM yyyy HH:mm}");
         }

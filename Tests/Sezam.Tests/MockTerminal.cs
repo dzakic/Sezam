@@ -15,45 +15,24 @@ namespace Sezam.Tests
         private StringReader? reader;
         private int pageSize = 24;
         private int lineWidth = 80;
-        private string id = Guid.NewGuid().ToString().Substring(0, 8);
+        private string id = Guid.NewGuid().ToString()[..8];
 
         public bool Connected { get; protected set; } = true;
 
-        public MockTerminal(string? input = null)
-        {
-            reader = new StringReader(input ?? "");
-        }
+        public MockTerminal(string? input = null) => reader = new StringReader(input ?? "");
 
-        public void Line(string text = "")
-        {
-            /* Mock: discard output */
-        }
+        public void Line(string text = "") { }
 
-        public void Line(string text = "", params object[] args)
-        {
-            /* Mock: discard output */
-        }
+        public void Line(string text = "", params object[] args) { }
 
-        public void Text(string text)
-        {
-            /* Mock: discard output */
-        }
+        public void Text(string text) { }
 
-        public string InputStr(string label = "", InputFlags flags = 0)
-        {
-            var line = reader?.ReadLine();
-            return line ?? "";
-        }
+        public string InputStr(string label = "", InputFlags flags = 0) => reader?.ReadLine() ?? "";
 
-        public virtual string PromptEdit(string prompt = "", InputFlags flags = 0)
-        {
-            return InputStr(prompt, flags);
-        }
+        public virtual string PromptEdit(string prompt = "", InputFlags flags = 0) =>
+            InputStr(prompt, flags);
 
-        public virtual int PromptSelection(string promptAnswers)
-        {
-            return 0;
-        }
+        public virtual int PromptSelection(string promptAnswers) => 0;
 
         public void Close()
         {
@@ -61,15 +40,9 @@ namespace Sezam.Tests
             reader?.Dispose();
         }
 
-        public void ClearScreen()
-        {
-            /* Mock: no-op */
-        }
+        public void ClearScreen() { }
 
-        public void ClearToEOL()
-        {
-            /* Mock: no-op */
-        }
+        public void ClearToEOL() { }
 
         public int PageSize
         {
@@ -85,26 +58,20 @@ namespace Sezam.Tests
 
         public string Id => id;
 
-        public Task<string> InputStrAsync(string label = "", InputFlags flags = 0, CancellationToken cancellationToken = default)
-        {
-            if (cancellationToken.IsCancellationRequested)
-                return Task.FromCanceled<string>(cancellationToken);
-            return Task.FromResult(InputStr(label, flags));
-        }
+        public Task<string> InputStrAsync(string label = "", InputFlags flags = 0, CancellationToken cancellationToken = default) =>
+            cancellationToken.IsCancellationRequested
+                ? Task.FromCanceled<string>(cancellationToken)
+                : Task.FromResult(InputStr(label, flags));
 
-        public virtual Task<string> PromptEditAsync(string prompt = "", InputFlags flags = 0, CancellationToken cancellationToken = default)
-        {
-            if (cancellationToken.IsCancellationRequested)
-                return Task.FromCanceled<string>(cancellationToken);
-            return Task.FromResult(PromptEdit(prompt, flags));
-        }
+        public virtual Task<string> PromptEditAsync(string prompt = "", InputFlags flags = 0, CancellationToken cancellationToken = default) =>
+            cancellationToken.IsCancellationRequested
+                ? Task.FromCanceled<string>(cancellationToken)
+                : Task.FromResult(PromptEdit(prompt, flags));
 
-        public virtual Task<int> PromptSelectionAsync(string promptAnswers, CancellationToken cancellationToken = default)
-        {
-            if (cancellationToken.IsCancellationRequested)
-                return Task.FromCanceled<int>(cancellationToken);
-            return Task.FromResult(PromptSelection(promptAnswers));
-        }
+        public virtual Task<int> PromptSelectionAsync(string promptAnswers, CancellationToken cancellationToken = default) =>
+            cancellationToken.IsCancellationRequested
+                ? Task.FromCanceled<int>(cancellationToken)
+                : Task.FromResult(PromptSelection(promptAnswers));
     }
 
     /// <summary>
@@ -115,7 +82,6 @@ namespace Sezam.Tests
     {
         public override string PromptEdit(string prompt = "", InputFlags flags = 0)
         {
-            // Sleep forever to simulate hung I/O
             Thread.Sleep(Timeout.Infinite);
             return "";
         }
