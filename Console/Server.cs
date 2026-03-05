@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -20,6 +20,7 @@ namespace Sezam
             Data.Store.ConfigureFrom(configuration);
             sessions = new List<ISession>();
             Data.Store.Sessions = sessions;
+            sessionFinished = new AutoResetEvent(false);
         }
 
         public void Dispose()
@@ -34,8 +35,59 @@ namespace Sezam
         public void Start()
         {
             sessions.Clear();
+            isDraining = false;
             mainThread = new Thread(ListenerThread);
             mainThread.Start();
+        }
+
+        public void BeginDrain()
+        {
+            if (isDraining)
+                return;
+
+            isDraining = true;
+            Trace.TraceInformation("Server entering drain mode. No new sessions will be accepted.");
+
+            try
+            {
+                listener?.Stop();
+            }
+            catch (Exception ex)
+            {
+                ErrorHandling.Handle(ex);
+            }
+        }
+
+        public bool WaitForDrain(TimeSpan timeout)
+        {
+            var deadline = DateTime.UtcNow + timeout;
+
+            while (DateTime.UtcNow < deadline)
+            {
+                lock (sessions)
+                {
+                    if (sessions.Count == 0)
+                        return true;
+                }
+
+                var remaining = deadline - DateTime.UtcNow;
+                if (remaining <= TimeSpan.Zero)
+                    break;
+
+                sessionFinished.WaitOne(remaining);
+            }
+
+            lock (sessions)
+                return sessions.Count == 0;
+        }
+
+        public int ActiveSessionCount
+        {
+            get
+            {
+                lock (sessions)
+                    return sessions.Count;
+            }
         }
 
         // Return false only if ESC pressed
@@ -76,6 +128,13 @@ namespace Sezam
                 {
                     // Accept blocks. Stop thread raises 10054 exception
                     tcpClient = listener.AcceptTcpClient();
+
+                    if (isDraining)
+                    {
+                        try { tcpClient?.Dispose(); } catch { }
+                        continue;
+                    }
+
                     tcpClient.LingerState = new LingerOption(true, 2);
 
                     var terminal = new TelnetTerminal(tcpClient);
@@ -142,34 +201,14 @@ namespace Sezam
                 {
                     try { sessions.Remove(sender as ISession); } catch (Exception ex) { ErrorHandling.Handle(ex); }
                     try { PrintServerStatistics(); } catch (Exception ex) { ErrorHandling.Handle(ex); }
-                    if (sessions.Count == 0)
-                        CheckNewVersion();
                 }
+
+                sessionFinished.Set();
             }
             catch (Exception ex)
             {
                 ErrorHandling.Handle(ex);
             }
-        }
-
-        public bool CheckNewVersion()
-        {
-
-            if (sessions.Count > 0)
-                return false;
-
-#if false
-            // check file system
-            string updateZip = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "update", "" +
-                "nvs.7z");
-            if (File.Exists(updateZip))
-            {
-                NewVersionAvailable.Set();
-                return true;
-            }
-#endif
-            return false;
-
         }
 
         /// <summary>
@@ -187,7 +226,6 @@ namespace Sezam
             }
             Debug.Write(" main thread.. ");
             
-            // ROBUSTNESS: Issue #13 - Don't hang forever on mainThread join
             try
             {
                 mainThread.Interrupt();
@@ -206,16 +244,18 @@ namespace Sezam
 
         public void PrintServerStatistics()
         {
-            Debug.WriteLine(String.Format("SERVER: Running, {0} active connections:", sessions.Count));
+            Trace.TraceInformation($"SERVER: Running, {sessions.Count} active connections:");
             foreach (var sess in sessions)
-                Debug.WriteLine(sess.ToString());
+                Trace.TraceInformation(sess.ToString());
         }
 
         private TcpListener listener;
         private Thread mainThread;
         private readonly List<ISession> sessions;
-
-        public EventWaitHandle NewVersionAvailable = new EventWaitHandle(false, EventResetMode.ManualReset);
+        private readonly AutoResetEvent sessionFinished;
+        private volatile bool isDraining;
 
     }
 }
+
+

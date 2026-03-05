@@ -27,12 +27,10 @@ namespace Sezam
             {
                 if (!server.RunConsoleSession())
                 {
-                    System.Console.WriteLine("ESC is pressed");
                     EscPressed.Set();
                     break;
                 }
             }
-            System.Console.WriteLine("Exiting consoleLoop");
         }
 
         private readonly Server server;
