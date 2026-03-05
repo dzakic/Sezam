@@ -240,7 +240,13 @@ namespace Sezam
                         if (cursorPos < line.Length)
                         {
                             line = line.Remove(cursorPos, 1);
+                            Out.Write(" \b");
                             RedrawLine(line, cursorPos, isPassword);
+                        }
+                        break;
+                    case ConsoleKey.Tab:
+                        {
+
                         }
                         break;
                 }
@@ -252,6 +258,7 @@ namespace Sezam
                     case Del:
                     case '\b':
                     case '\r':
+                    case '\t':
                         break;
                     
                     default:
