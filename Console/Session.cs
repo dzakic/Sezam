@@ -34,7 +34,8 @@ namespace Sezam
         private readonly object _lockUserCache = new();
         private Dictionary<string, User> userCache;
 
-        public void Start() => thread.Start();
+
+        public virtual void Start() => thread.Start();
 
         // Background thread run
         public void Run()
@@ -87,10 +88,14 @@ namespace Sezam
                         }
                     }
                 }
+                catch (TerminalException)
+                {
+                    // silent
+                }
                 catch (Exception e)
                 {
                     consecutiveExceptionCount = 0;
-                    terminal.Line(Console.Strings.ErrorUnrecoverable, e.Message);
+                    terminal.Line(Console.strings.ErrorUnrecoverable, e.Message);
                     ErrorHandling.Handle(e);
                 }
             }
@@ -117,19 +122,21 @@ namespace Sezam
             User = Login();
             if (User is null)
             {
-                terminal.Line(Console.Strings.Login_UnknownUser);
+                terminal.Line(Console.strings.Login_UnknownUser);
                 terminal.Close();
                 SysLog("Unknown user. Disconnected.");
             }
             else
             {
-                terminal.Line();
-                terminal.Line(Console.Strings.WelcomeUserLastCall, User.FullName, User.LastCall);
                 SysLog("Loggedin");
                 LoginTime = DateTime.Now;
                 Db.UserId = User.Id;
                 User.LastCall = LoginTime;
-                
+
+                // Set session culture based on user preference
+                // SetSessionCulture(User.Language);
+                SetSessionCulture("sr");
+
                 try
                 {
                     Db.SaveChanges();
@@ -142,8 +149,35 @@ namespace Sezam
             }
         }
 
+        /// <summary>
+        /// Sets the current thread's culture based on user language preference.
+        /// This affects all resource lookups for this session only.
+        /// </summary>
+        private void SetSessionCulture(string languageCode)
+        {
+            if (string.IsNullOrWhiteSpace(languageCode))
+                languageCode = "en";
+
+            try
+            {
+                var cultureInfo = new System.Globalization.CultureInfo(languageCode);
+                SessionCulture = cultureInfo;
+                Thread.CurrentThread.CurrentCulture = cultureInfo;
+                Thread.CurrentThread.CurrentUICulture = cultureInfo;
+                Debug.WriteLine($"Session culture set to: {languageCode}");
+            }
+            catch (System.Globalization.CultureNotFoundException)
+            {
+                Debug.WriteLine($"Culture '{languageCode}' not found, falling back to 'en'");
+                var defaultCulture = new System.Globalization.CultureInfo("en");
+                SessionCulture = defaultCulture;
+                Thread.CurrentThread.CurrentCulture = defaultCulture;
+                Thread.CurrentThread.CurrentUICulture = defaultCulture;
+            }
+        }
+
         protected void PrintBanner() =>
-            terminal.Line(Console.Strings.BannerConnected, ConnectTime, terminal.Id);
+            terminal.Line(Console.strings.BannerConnected, ConnectTime, Environment.MachineName + '/' + thread.ManagedThreadId);
 
         /// <summary>
         /// ROBUSTNESS: Issue #12 - Retrieve user with caching to avoid N+1 queries
@@ -173,7 +207,7 @@ namespace Sezam
             int userTryCount = 0;
             while (userTryCount < NUM_RETRIES)
             {
-                string username = terminal.InputStr(Console.Strings.Login_Username);
+                string username = terminal.InputStr(Console.strings.Login_Username);
                 if (string.IsNullOrWhiteSpace(username))
                     continue;
                 var user = GetUser(username);
@@ -182,10 +216,10 @@ namespace Sezam
                 if (user != null)
                 {
                     bool usePIN = user.Password == null && user.DateOfBirth != null;
-                    string prompt = usePIN ? Console.Strings.Login_PIN : Console.Strings.Login_Password;
+                    string prompt = usePIN ? Console.strings.Login_PIN : Console.strings.Login_Password;
 
                     if (usePIN)
-                        terminal.Line(Console.Strings.Login_WelcomeNoPassword, user.Username);
+                        terminal.Line(Console.strings.Login_WelcomeNoPassword, user.Username);
 
                     string expectPass = usePIN ?
                         string.Format("{0:ddMM}", user.DateOfBirth) : user.Password;
@@ -250,13 +284,13 @@ namespace Sezam
                 ConstructorInfo ctor = cmdProcessorType.GetConstructor(new Type[] { typeof(Session) });
                 if (ctor != null)
                 {
-                    Debug.WriteLine(string.Format("New command processor {0} constructed", cmdProcessorType.FullName));
+                    Debug.WriteLine("New CommandSet", cmdProcessorType.FullName);
                     object instance = ctor.Invoke(new object[] { this });
                     cmdSet = instance as CommandSet;
                     commandSets[cmdProcessorType] = cmdSet;
                 }
                 else
-                    Debug.WriteLine("Constructor for {0} not found", cmdProcessorType.Name);
+                    Debug.WriteLine("CommandSet not found", cmdProcessorType.Name);
             }
             return cmdSet;
         }
@@ -359,12 +393,42 @@ namespace Sezam
             Trace.TraceInformation("{0:yyMMdd HHmmss} {1,-3} {2,-16} {3}", DateTime.Now, NodeNo, GetUsername(), string.Format(Message, args));
         }
 
+        /// <summary>
+        /// Gets the culture for this session based on user preference.
+        /// Use this for resource lookups in async contexts where thread culture is unreliable.
+        /// </summary>
+        public System.Globalization.CultureInfo GetSessionCulture()
+        {
+            return SessionCulture;
+        }
+
+        /// <summary>
+        /// Retrieves a localized string with format arguments.
+        /// Uses cached ResourceManager for efficiency.
+        /// </summary>
+        public string GetStr(string resourceKey, params object[] args)
+        {
+            var format = GetStr(resourceKey);
+            if (args.Length == 0)
+                return format;
+            try
+            {
+                return string.Format(format, args);
+            }
+            catch (FormatException ex)
+            {
+                Debug.WriteLine($"Format error for resource '{resourceKey}': {ex.Message}");
+                return format;
+            }
+        }
+
         public CommandLine cmdLine = null;
         public int NodeNo { get; private set; }
 
         public User User;
         public DateTime ConnectTime;
         public DateTime LoginTime;
+        public System.Globalization.CultureInfo SessionCulture { get; set; }
 
         private Thread thread;
         private Guid id;

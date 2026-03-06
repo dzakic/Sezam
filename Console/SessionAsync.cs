@@ -89,7 +89,7 @@ namespace Sezam
                     }
                     catch (Exception e)
                     {
-                        terminal.Line(Strings.ErrorUnrecoverable, e.Message);
+                        terminal.Line(strings.ErrorUnrecoverable, e.Message);
                         ErrorHandling.Handle(e);
                     }
                 }
@@ -118,14 +118,14 @@ namespace Sezam
             User = await LoginAsync();
             if (User == null)
             {
-                terminal.Line(Strings.Login_UnknownUser);
+                terminal.Line(strings.Login_UnknownUser);
                 terminal.Close();
                 SysLog("Unknown user. Disconnected.");
             }
             else
             {
-                terminal.Line();
-                terminal.Line(Strings.WelcomeUserLastCall, User.FullName, User.LastCall);
+
+
                 SysLog("Loggedin");
                 LoginTime = DateTime.Now;
                 Db.UserId = User.Id;
@@ -143,7 +143,7 @@ namespace Sezam
                 using (var ctsTimeout = CancellationTokenSource.CreateLinkedTokenSource(cts.Token))
                 {
                     ctsTimeout.CancelAfter(TimeSpan.FromMinutes(5));
-                    string username = await terminal.InputStrAsync(Strings.Login_Username, cancellationToken: ctsTimeout.Token);
+                    string username = await terminal.InputStrAsync(strings.Login_Username, cancellationToken: ctsTimeout.Token);
                     if (string.IsNullOrWhiteSpace(username))
                         continue;
                     var user = GetUser(username);
@@ -151,10 +151,10 @@ namespace Sezam
                     if (user != null)
                     {
                         bool usePIN = user.Password == null && user.DateOfBirth != null;
-                        string prompt = usePIN ? Strings.Login_PIN : Strings.Login_Password;
+                        string prompt = usePIN ? strings.Login_PIN : strings.Login_Password;
 
                         if (usePIN)
-                            terminal.Line(Strings.Login_WelcomeNoPassword, user.Username);
+                            terminal.Line(strings.Login_WelcomeNoPassword, user.Username);
 
                         string expectPass = usePIN ?
                             string.Format("{0:ddMM}", user.DateOfBirth) : user.Password;
@@ -202,6 +202,11 @@ namespace Sezam
             cts.Cancel();
             try { runTask?.Wait(1000); } catch { }
             base.Close();
+        }
+
+        public override void Start()
+        { 
+           var _ = RunAsync();
         }
 
         // only async-specific state lives here

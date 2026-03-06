@@ -22,14 +22,14 @@ namespace Sezam.Console {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "18.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    public class Strings {
-        
+    public class strings {
+
         private static global::System.Resources.ResourceManager resourceMan;
         
         private static global::System.Globalization.CultureInfo resourceCulture;
         
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
-        internal Strings() {
+        internal strings() {
         }
         
         /// <summary>
@@ -39,7 +39,7 @@ namespace Sezam.Console {
         public static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Sezam.Console.strings", typeof(Strings).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Sezam.Console.strings", typeof(strings).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -70,7 +70,7 @@ namespace Sezam.Console {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unrecoverable error. This sucks. {0}.
+        ///   Looks up a localized string similar to Unrecoverable error. {0}.
         /// </summary>
         public static string ErrorUnrecoverable {
             get {
@@ -115,22 +115,13 @@ namespace Sezam.Console {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Zdravo {0}.
-        ///Za početni pristup sistemu, ukucajte četiri cifre svog datuma rođenja bez godine (DDMM).
-        ///Nakon uspešnog prijavljivanja, možete promeniti lozinku sa SET PASS..
+        ///   Looks up a localized string similar to Welcome {0}.
+        ///For initial access to the system, enter the four digits of your date of birth without the year (DDMM).
+        ///After successful login, you can change the password with SET PASS..
         /// </summary>
         public static string Login_WelcomeNoPassword {
             get {
                 return ResourceManager.GetString("Login_WelcomeNoPassword", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Welcome {0}..
-        /// </summary>
-        public static string Login_WelcomePassword {
-            get {
-                return ResourceManager.GetString("Login_WelcomePassword", resourceCulture);
             }
         }
         
@@ -140,15 +131,6 @@ namespace Sezam.Console {
         public static string PressEscToStop {
             get {
                 return ResourceManager.GetString("PressEscToStop", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Dobrodošli {0}, vaš poslednji poziv je bio {1:dd MMM yyyy}.
-        /// </summary>
-        public static string WelcomeUserLastCall {
-            get {
-                return ResourceManager.GetString("WelcomeUserLastCall", resourceCulture);
             }
         }
     }

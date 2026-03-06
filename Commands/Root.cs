@@ -3,13 +3,18 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 
 namespace Sezam.Commands
 {
     [Command("")]
     public class Root : CommandSet
     {
-        public Root(Session session) : base(session) { }
+        public Root(Session session) : base(session) 
+        {
+            session.terminal.Line();
+            session.terminal.Line(L("Root_WelcomeUser"), session.User.FullName, session.User.LastCall);
+        }
 
         public override string GetPrompt() => string.Empty;
 
@@ -84,7 +89,8 @@ namespace Sezam.Commands
         [Command(Aliases = ["Date"], Description = "Show current time")]
         public void Time()
         {
-            session.terminal.Line(Strings.Root_Time, DateTime.Now);
+            // session.terminal.Line(Strings.Root_Time, DateTime.Now);
+            session.terminal.Line(L("Root_Time"), DateTime.Now);
         }
 
         [Command(Aliases = ["Clear"], Description = "Clear screan")]
@@ -98,9 +104,9 @@ namespace Sezam.Commands
         public void Quit()
         {
             bool yes = session.cmdLine.Switch("y");
-            if (yes || session.terminal.PromptSelection("Kraj rada?Ne/Da") == 1)
+            if (yes || session.terminal.PromptSelection(L("Root_Bye_Prompt")) == 1)
             {
-                session.terminal.Line("Goodbye now.");
+                session.terminal.Line(L("Root_Bye"));
                 session.terminal.Close();
             }
         }

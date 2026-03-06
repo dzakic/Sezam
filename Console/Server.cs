@@ -8,6 +8,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using Sezam.Data;
+using System.Threading.Tasks.Dataflow;
 
 namespace Sezam
 {
@@ -15,6 +16,9 @@ namespace Sezam
 
     public class Server : IDisposable
     {
+        // Using synchronous Session (thread-per-session) for now
+        const bool ASYNC_SESSIONS = true;
+
         public Server(IConfigurationRoot configuration)
         {
             Data.Store.ConfigureFrom(configuration);
@@ -30,7 +34,7 @@ namespace Sezam
         }
 
         /// <summary>
-        /// Start the Telnet server. Begin listening on port 23.
+        /// Start the Telnet server. Begin listening on configured port.
         /// </summary>
         public void Start()
         {
@@ -47,6 +51,7 @@ namespace Sezam
 
             isDraining = true;
             Trace.TraceInformation("Server entering drain mode. No new sessions will be accepted.");
+            // LocalBroadcast("SERVER: Server is entering drain mode. No new sessions will be accepted.");
 
             try
             {
@@ -95,7 +100,7 @@ namespace Sezam
         {
             while (Thread.CurrentThread.IsAlive && System.Console.WindowHeight + System.Console.WindowWidth > 0) 
             {               
-                System.Console.WriteLine(Console.Strings.PressEscToStop);
+                System.Console.WriteLine(Console.strings.PressEscToStop);
                 var key = System.Console.ReadKey().Key;
 
                 if (key == ConsoleKey.Escape)
@@ -138,10 +143,21 @@ namespace Sezam
                     tcpClient.LingerState = new LingerOption(true, 2);
 
                     var terminal = new TelnetTerminal(tcpClient);
-                    // use the new async session type; we don't start a dedicated thread
-                    var session = new SessionAsync(terminal) { OnFinish = OnSessionFinish };
-                    Debug.WriteLine(String.Format("Starting async session {0}", session));
-                    var _ = session.RunAsync(); // fire and forget
+
+                    ISession session;
+                    if (ASYNC_SESSIONS)
+                    {
+                        // SessionAsync implementation does not handle LocaleCulture correctly, so use Session for now until SessionAsync is updated
+                        session = new SessionAsync(terminal) { OnFinish = OnSessionFinish };
+                        Debug.WriteLine(String.Format("Starting async session {0}", session));
+                        session.Start(); // fire and forget
+                    } else
+                    {
+                        // SYNC: Thread per session
+                        session = new Session(terminal) { OnFinish = OnSessionFinish };
+                        Debug.WriteLine(String.Format("Starting session {0}", session));
+                        session.Start(); // Start on dedicated thread
+                    }
                     lock (sessions)
                     {
                         sessions.Add(session);
@@ -203,6 +219,7 @@ namespace Sezam
                     try { PrintServerStatistics(); } catch (Exception ex) { ErrorHandling.Handle(ex); }
                 }
 
+                // Signal potential waiters that a session has finished and they can check if all sessions are done
                 sessionFinished.Set();
             }
             catch (Exception ex)
@@ -212,7 +229,7 @@ namespace Sezam
         }
 
         /// <summary>
-        ///  Stop the Telnet server. Discontinue listening on port 23.
+        ///  Stop the Telnet server. Discontinue listening on tcp port.
         /// </summary>
         public void Stop()
         {

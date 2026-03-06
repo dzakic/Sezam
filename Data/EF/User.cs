@@ -65,6 +65,10 @@ namespace Sezam.Data.EF
 
         public string Password { get; set; }
 
+        //[StringLength(5)]
+        //[DisplayName("Language")]
+        //public string Language { get; set; } = "en"; // "en" for English, "sr" for Serbian
+
         // Navigation
         public virtual ICollection<UserConf> UserConfs { get; set; }
 

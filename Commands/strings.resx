@@ -118,36 +118,41 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="Conf_UnknownTopic" xml:space="preserve">
-    <value>Не постоји тема {0}</value>
+    <value>Topic {0} does not exist</value>
     <comment>Topic {0} does not exist</comment>
   </data>
   <data name="ConnectedBanner" xml:space="preserve">
-    <value>Здраво рођаци</value>
-  </data>
-  <data name="EscToStop" xml:space="preserve">
-    <value>ESC to stop</value>
-    <comment>Press ESC to stop the server</comment>
+    <value>Hello relatives</value>
   </data>
   <data name="Root_Time" xml:space="preserve">
-    <value>Тачно време је: {0: HH:mm:ss dd MMMM yyyy}</value>
+    <value>Current time is: {0: HH:mm:ss dd MMMM yyyy}</value>
   </data>
   <data name="Set_Msg_PasswordsMismatch" xml:space="preserve">
-    <value>Unete šifre se ne podudaraju</value>
+    <value>Passwords don't match</value>
     <comment>Passwords don't match</comment>
   </data>
   <data name="Set_Password_Changed" xml:space="preserve">
-    <value>Шифра је промењена.</value>
+    <value>Password has been changed.</value>
   </data>
   <data name="Set_Prompt_CurrentPassword" xml:space="preserve">
-    <value>Trenutno važeća šifra</value>
+    <value>Current Password</value>
     <comment>Current Password</comment>
   </data>
   <data name="Set_Prompt_NewPassword" xml:space="preserve">
-    <value>Nova šifra</value>
+    <value>New Password</value>
     <comment>New Password</comment>
   </data>
   <data name="Set_Prompt_VerifyPassword" xml:space="preserve">
-    <value>Potvrda šifre</value>
+    <value>Verify Password</value>
     <comment>Verify Password</comment>
+  </data>
+  <data name="Root_Bye_Prompt" xml:space="preserve">
+    <value>Hangup?No/Yes</value>
+  </data>
+  <data name="Root_Bye" xml:space="preserve">
+    <value>Goodbye now.</value>
+  </data>
+  <data name="Root_WelcomeUser" xml:space="preserve">
+    <value>Welcome {0}, your last visit was {1:dd MMM yyyy}</value>
   </data>
 </root>

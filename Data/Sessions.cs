@@ -14,5 +14,6 @@ namespace Sezam.Data
         /// invoke it without awaiting.
         /// </summary>
         void Close();
+        void Start();
     }
 }

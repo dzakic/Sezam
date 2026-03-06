@@ -19,17 +19,17 @@ namespace Sezam.Commands {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "18.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class Strings {
+    internal class strings {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
         private static global::System.Globalization.CultureInfo resourceCulture;
         
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
-        internal Strings() {
+        internal strings() {
         }
         
         /// <summary>
@@ -39,7 +39,7 @@ namespace Sezam.Commands {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Sezam.Commands.Strings", typeof(Strings).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Sezam.Commands.strings", typeof(strings).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -61,7 +61,7 @@ namespace Sezam.Commands {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Не постоји тема {0}.
+        ///   Looks up a localized string similar to Topic {0} does not exist.
         /// </summary>
         internal static string Conf_UnknownTopic {
             get {
@@ -70,7 +70,7 @@ namespace Sezam.Commands {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Здраво рођаци.
+        ///   Looks up a localized string similar to Hello relatives.
         /// </summary>
         internal static string ConnectedBanner {
             get {
@@ -79,16 +79,25 @@ namespace Sezam.Commands {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ESC to stop.
+        ///   Looks up a localized string similar to Goodbye now..
         /// </summary>
-        internal static string EscToStop {
+        internal static string Root_Bye {
             get {
-                return ResourceManager.GetString("EscToStop", resourceCulture);
+                return ResourceManager.GetString("Root_Bye", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Тачно време је: {0: HH:mm:ss dd MMMM yyyy}.
+        ///   Looks up a localized string similar to Hangup?No/Yes.
+        /// </summary>
+        internal static string Root_Bye_Prompt {
+            get {
+                return ResourceManager.GetString("Root_Bye_Prompt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Current time is: {0: HH:mm:ss dd MMMM yyyy}.
         /// </summary>
         internal static string Root_Time {
             get {
@@ -97,7 +106,16 @@ namespace Sezam.Commands {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unete šifre se ne podudaraju.
+        ///   Looks up a localized string similar to Welcome {0}, your last visit was {1:dd MMM yyyy}.
+        /// </summary>
+        internal static string Root_WelcomeUser {
+            get {
+                return ResourceManager.GetString("Root_WelcomeUser", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Passwords don&apos;t match.
         /// </summary>
         internal static string Set_Msg_PasswordsMismatch {
             get {
@@ -106,7 +124,7 @@ namespace Sezam.Commands {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Шифра је промењена..
+        ///   Looks up a localized string similar to Password has been changed..
         /// </summary>
         internal static string Set_Password_Changed {
             get {
@@ -115,7 +133,7 @@ namespace Sezam.Commands {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Trenutno važeća šifra.
+        ///   Looks up a localized string similar to Current Password.
         /// </summary>
         internal static string Set_Prompt_CurrentPassword {
             get {
@@ -124,7 +142,7 @@ namespace Sezam.Commands {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Nova šifra.
+        ///   Looks up a localized string similar to New Password.
         /// </summary>
         internal static string Set_Prompt_NewPassword {
             get {
@@ -133,7 +151,7 @@ namespace Sezam.Commands {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Potvrda šifre.
+        ///   Looks up a localized string similar to Verify Password.
         /// </summary>
         internal static string Set_Prompt_VerifyPassword {
             get {

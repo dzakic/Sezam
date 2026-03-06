@@ -3,16 +3,54 @@
     using Sezam.Data.EF;
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Linq;
     using System.Reflection;
     using System.Runtime.ExceptionServices;
 
     /// <summary>
-    /// Executing instance of the class.
+    /// CommandSet represents a context for executing commands. It can contain methods that are commands, 
+    /// as well as nested CommandSets for sub-contexts. CommandSets are responsible for parsing and executing 
+    /// commands within their context, and can delegate to nested CommandSets as needed. Each session has a 
+    /// current CommandSet which determines how input is interpreted and which commands are available. 
+    /// The Root CommandSet serves as the entry point for all command processing.
     /// </summary>
     public class CommandSet
     {
-        public CommandSet(Session session) => this.session = session;
+
+        // Localization: Cached ResourceManager for efficient string lookups
+        private static System.Resources.ResourceManager _resourceManager;
+
+        public CommandSet(Session session)
+        {
+            this.session = session;
+
+            // Initialize ResourceManager once at CmdSet is created
+            try
+            {
+                var assembly = GetType().Assembly;
+                var assemblyName = assembly.GetName().Name;
+                var stringsType = assembly.GetType(assemblyName + ".strings");
+                Debug.WriteLine("Initialising CommandSet: " + stringsType);
+                var resourceManagerProperty = stringsType?.GetProperty("ResourceManager",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+                _resourceManager = resourceManagerProperty?.GetValue(null) as System.Resources.ResourceManager;
+                if (_resourceManager != null)
+                    Debug.WriteLine("Resource Manager successfully initialised");
+                else
+                    Debug.WriteLine("Resource Manager was NOT initialised!!");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to initialize ResourceManager: {ex.Message}");
+                _resourceManager = null;
+            }
+        }
+
+        /// <summary>
+        /// Localise string using ResourceManager, fallback to key if not found or if ResourceManager is unavailable
+        /// </summary>
+        public string L(string Key) => _resourceManager?.GetString(Key, session.SessionCulture) ?? Key;
 
         public bool ExecuteCommand(string cmd)
         {
@@ -27,8 +65,7 @@
                 {
                     // execute command in the context of cmdSet
                     if (!cmdSet.ExecuteCommand(cmd))
-                        session.terminal.Line("Unknown {0} command {1}", cmdSet.DisplayName(), cmd);
-                }
+                        session.terminal.Line("Unknown {0} command {1}", cmdSet.DisplayName(), cmd);                }
                 else
                 {
                     // we are changing the current command set for this session
@@ -40,7 +77,10 @@
             return InvokeCommand(cmd);
         }
 
-        // Returns true if command was found and executed
+        /// <summary>
+        /// Returns true if command was found and executed
+        /// </summary>
+
         private bool InvokeCommand(string cmd)
         {
             var command = GetCommandMethod(cmd);
@@ -191,6 +231,7 @@
                 session.terminal.Line(continuationPrefix + continuationLine);
         }
 
+        // TODO: Move to a utility class, this can be useful elsewhere
         private static IEnumerable<string> WordWrap(string text, int width)
         {
             if (string.IsNullOrEmpty(text))
