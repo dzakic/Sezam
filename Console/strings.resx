@@ -140,13 +140,7 @@
 For initial access to the system, enter the four digits of your date of birth without the year (DDMM).
 After successful login, you can change the password with SET PASS.</value>
   </data>
-  <data name="Login_WelcomePassword" xml:space="preserve">
-    <value>Welcome {0}.</value>
-  </data>
   <data name="PressEscToStop" xml:space="preserve">
     <value>Press ESC key to stop the server</value>
-  </data>
-  <data name="WelcomeUserLastCall" xml:space="preserve">
-    <value>Welcome {0}, your last visit was {1:dd MMM yyyy}</value>
   </data>
 </root>
