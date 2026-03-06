@@ -391,12 +391,8 @@ namespace Sezam
             return new KeyInfo { Char = chr };
         }
 
-        private void SendANSI(char code, params string[] parameters) =>
-            Out.Write($"{Esc}[{string.Join(";", parameters)}{code}");
-
         public override void ClearScreen() => SendANSI('J', "2");
 
-        public override void ClearToEOL() => SendANSI('K');
 
         public void ClearLine() => SendANSI('K', "2");
 

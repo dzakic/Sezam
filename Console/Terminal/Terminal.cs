@@ -162,18 +162,18 @@ namespace Sezam
                 try
                 {
                     char ch = char.ToLower(ReadChar());
-                    if (ch is '\r' or '\n')
+                    if (ch is CR or LF)
                         return 0;
                     
                     for (int choice = 0; choice < options.Length; choice++)
                     {
-                        if (ch == char.ToLower(options[choice][0]))
+                        if (options[choice].Length > 0 && ch == char.ToLower(options[choice][0]))
                             return choice;
                     }
                 }
                 finally
                 {
-                    Out.Write('\r');
+                    Out.Write(CR);
                     ClearToEOL();
                 }
             }
@@ -202,20 +202,20 @@ namespace Sezam
                         if (cursorPos > 0)
                         {
                             cursorPos--;
-                            Out.Write(Esc + "[D");
+                            CursorLeft();
                         }
                         break;
                     case ConsoleKey.RightArrow:
                         if (cursorPos < line.Length)
                         {
                             cursorPos++;
-                            Out.Write(Esc + "[C");
+                            CursorRight();
                         }
                         break;
                     case ConsoleKey.Home:
                         if (cursorPos > 0)
                         {
-                            Out.Write(Esc + "[" + cursorPos + "D");
+                            CursorLeft(cursorPos);
                             cursorPos = 0;
                         }
                         break;
@@ -223,7 +223,7 @@ namespace Sezam
                         if (cursorPos < line.Length)
                         {
                             int remaining = line.Length - cursorPos;
-                            Out.Write(Esc + "[" + remaining + "C");
+                            CursorRight(remaining);
                             cursorPos = line.Length;
                         }
                         break;
@@ -292,7 +292,7 @@ namespace Sezam
             var afterCursor = line[cursorPos..];
             
             // Erase from cursor to end of line
-            Out.Write(Esc + "[K");
+            ClearToEOL();
             
             // Redraw the rest of the line
             if (!string.IsNullOrEmpty(afterCursor))
@@ -304,7 +304,7 @@ namespace Sezam
             // Move cursor back to its position
             if (!string.IsNullOrEmpty(afterCursor))
             {
-                Out.Write(Esc + "[" + afterCursor.Length + "D");
+                CursorLeft(afterCursor.Length);
             }
         }
 
@@ -325,9 +325,23 @@ namespace Sezam
 
         private int pageSize;
 
+        protected void SendANSI(char code, params object[] parameters)
+        {
+            if (parameters.Length == 1 && parameters[0] is int singleParam && singleParam == 1)
+            {
+                // If ommitted, default is 1 for simple cursor movement e.g. ESC[D for left
+                Out.Write($"{Esc}[{code}");
+                return;
+            }
+            Out.Write($"{Esc}[{string.Join(";", parameters.ToString())}{code}");
+        }
+
+        public virtual void CursorRight(int right = 1) => SendANSI('C', right);
+        public virtual void CursorLeft(int left = 1) => SendANSI('D', left);
+
         public virtual void ClearScreen() { }
 
-        public virtual void ClearToEOL() { }
+        public virtual void ClearToEOL() => SendANSI('K');
 
         protected TextWriter Out;
     }
