@@ -61,11 +61,38 @@ namespace Sezam.Commands {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Resigned from topic {0}.
+        /// </summary>
+        internal static string Conf_Resigned {
+            get {
+                return ResourceManager.GetString("Conf_Resigned", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resigned from conf {0}.
+        /// </summary>
+        internal static string Conf_TopicResigned {
+            get {
+                return ResourceManager.GetString("Conf_TopicResigned", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Topic {0} does not exist.
         /// </summary>
         internal static string Conf_UnknownTopic {
             get {
                 return ResourceManager.GetString("Conf_UnknownTopic", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Welcome to conf {0}.
+        /// </summary>
+        internal static string Conf_Welcome {
+            get {
+                return ResourceManager.GetString("Conf_Welcome", resourceCulture);
             }
         }
         
@@ -111,6 +138,24 @@ namespace Sezam.Commands {
         internal static string Root_WelcomeUser {
             get {
                 return ResourceManager.GetString("Root_WelcomeUser", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Current language: {0}.
+        /// </summary>
+        internal static string Set_Lang_ShowCurrent {
+            get {
+                return ResourceManager.GetString("Set_Lang_ShowCurrent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Language preference updated to: {0} ({1}).
+        /// </summary>
+        internal static string Set_LangUpdated {
+            get {
+                return ResourceManager.GetString("Set_LangUpdated", resourceCulture);
             }
         }
         

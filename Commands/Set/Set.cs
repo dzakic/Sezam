@@ -22,10 +22,10 @@ namespace Sezam.Commands
                 if (verifyPass != session.User.Password)
                     return;
             }
-            var newPass = session.terminal.InputStr(strings.Set_Prompt_NewPassword, InputFlags.Password);
+            var newPass = session.terminal.InputStr(L("Set_Prompt_NewPassword"), InputFlags.Password);
             if (!newPass.HasValue())
                 return;
-            var againPass = session.terminal.InputStr(strings.Set_Prompt_VerifyPassword, InputFlags.Password);
+            var againPass = session.terminal.InputStr(L("Set_Prompt_VerifyPassword"), InputFlags.Password);
             if (newPass != againPass)
             {
                 session.terminal.Line("");
@@ -43,7 +43,7 @@ namespace Sezam.Commands
             var langCode = session.cmdLine.GetToken();
             if (string.IsNullOrWhiteSpace(langCode))
             {
-                // session.terminal.Line("Current language: {0}", session.User.Language ?? "en");
+                session.terminal.Line(L("Set_Lang_ShowCurrent"), session.SessionCulture.NativeName ?? "en");
                 return;
             }
 
@@ -55,7 +55,7 @@ namespace Sezam.Commands
             
             // Apply the culture immediately for this session
             SetSessionCulture(langCode);
-            session.terminal.Line("Language preference updated to: {0}", langCode);
+            session.terminal.Line(L("Set_LangUpdated"), session.SessionCulture.NativeName, langCode);
         }
 
         private void SetSessionCulture(string languageCode)

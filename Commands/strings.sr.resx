@@ -155,4 +155,19 @@
   <data name="Root_WelcomeUser" xml:space="preserve">
     <value>Добродошли {0}, ваш последњи позив је био {1:d}</value>
   </data>
+  <data name="Conf_Welcome" xml:space="preserve">
+    <value>Добродошли у конференцију {0}</value>
+  </data>
+  <data name="Conf_TopicResigned" xml:space="preserve">
+    <value>Напустили сте тему {0}</value>
+  </data>
+  <data name="Conf_Resigned" xml:space="preserve">
+    <value>Напустили сте конференцију {0}</value>
+  </data>
+  <data name="Set_Lang_ShowCurrent" xml:space="preserve">
+    <value>Тренутно корисите језик: {0}</value>
+  </data>
+  <data name="Set_LangUpdated" xml:space="preserve">
+    <value>Језик промењен у {0} ({1})</value>
+  </data>
 </root>

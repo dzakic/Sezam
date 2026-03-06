@@ -155,4 +155,19 @@
   <data name="Root_WelcomeUser" xml:space="preserve">
     <value>Welcome {0}, your last visit was {1:dd MMM yyyy}</value>
   </data>
+  <data name="Conf_Welcome" xml:space="preserve">
+    <value>Welcome to conf {0}</value>
+  </data>
+  <data name="Conf_TopicResigned" xml:space="preserve">
+    <value>Resigned from conf {0}</value>
+  </data>
+  <data name="Conf_Resigned" xml:space="preserve">
+    <value>Resigned from topic {0}</value>
+  </data>
+  <data name="Set_Lang_ShowCurrent" xml:space="preserve">
+    <value>Current language: {0}</value>
+  </data>
+  <data name="Set_LangUpdated" xml:space="preserve">
+    <value>Language preference updated to: {0} ({1})</value>
+  </data>
 </root>

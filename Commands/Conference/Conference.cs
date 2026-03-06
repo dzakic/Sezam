@@ -86,9 +86,9 @@ namespace Sezam.Commands
             {
                 userConfData.Status &= ~UserConf.UserConfStat.Resigned;
                 // Show welcome?
-                session.terminal.Line("Welcome to conf {0}", currentConference.Name);
+                session.terminal.Line(L("Conf_Welcome"), currentConference.VolumeName);
                 session.Db.SaveChanges();
-                Debug.WriteLine(string.Format("Joined conf {0}", currentConference.Name));
+                Debug.WriteLine($"Joined conf {0}", currentConference.VolumeName);
             }
         }
 
@@ -323,14 +323,14 @@ namespace Sezam.Commands
                 // Resign Topic
                 var utData = session.User.GetUserTopicfInfo(topic);
                 utData.Status |= UserTopic.UserTopicStat.Resigned;
-                session.terminal.Line("Resigned from topic {0}", topic.Name);
+                session.terminal.Line(L("Conf_TopicResigned"), topic.Name);
             }
             else
             {
                 // Resign Conference
                 var ucData = session.User.GetUserConfInfo(currentConference);
                 ucData.Status |= UserConf.UserConfStat.Resigned;
-                session.terminal.Line("Resigned from conference {0}", currentConference.VolumeName);
+                session.terminal.Line(L("Conf_Resigned"), currentConference.VolumeName);
                 currentConference = null;
             }
 
