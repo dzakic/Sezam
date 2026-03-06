@@ -126,7 +126,7 @@ namespace Sezam
             Out = new StreamWriter(netStream, Encoding.UTF8) { AutoFlush = false };
             PageSize = 32;
             lineWidth = Terminal.DefaultLineWidth;
-            Out.NewLine = "\r\n";            
+            Out.NewLine = CRLF;
             tcpClient.NoDelay = true;
             tcpClient.SendBufferSize = 1024;
 
@@ -390,11 +390,6 @@ namespace Sezam
             // Regular character            
             return new KeyInfo { Char = chr };
         }
-
-        public override void ClearScreen() => SendANSI('J', "2");
-
-
-        public void ClearLine() => SendANSI('K', "2");
 
         private readonly byte[] inputBytes = new byte[256];
         private int inputLen;

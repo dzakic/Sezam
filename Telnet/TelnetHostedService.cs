@@ -73,7 +73,7 @@ namespace Sezam
             var drained = server.WaitForDrain(TimeSpan.FromSeconds(drainSeconds));
             if (!drained)
             {
-                Trace.TraceWarning("Drain timeout reached. Continuing shutdown with active sessions: {0}", server.ActiveSessionCount);
+                Trace.TraceWarning("Drain timeout reached. Continuing shutdown with active sessions: {0}", Data.Store.Sessions.Count);
             }
         }
 

@@ -64,10 +64,10 @@ namespace Sezam.Commands
         public void Who()
         {
             session.terminal.Line("Logged in as {0}, {1}", session.User.Username, session.User.FullName);
-            foreach (var s in Data.Store.Sessions)
+            foreach (var _ in Data.Store.Sessions.Values)
             {
-                if (!string.IsNullOrWhiteSpace(s.GetUsername()))
-                    session.terminal.Line("{0,-16} -- {1:HH:mm}", s.GetUsername(), s.GetLoginTime());
+                if (!string.IsNullOrWhiteSpace(_.Username))
+                    session.terminal.Line("{0,-16} -- {1:HH:mm}", _.Username, _.LoginTime);
             }
         }
 

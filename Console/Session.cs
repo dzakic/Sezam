@@ -16,10 +16,10 @@ namespace Sezam
         public Session(ITerminal terminal)
         {
             this.terminal = terminal;
-            id = Guid.NewGuid();
+            Id = Guid.NewGuid();
             thread = new Thread(Run);
             commandSets = [];
-            NodeNo = 1;
+            NodeNo = thread.ManagedThreadId;
             Db = Store.GetNewContext();
             lazyRootCommandSet = new Lazy<CommandSet>(
                 () => GetCommandProcessor(CommandSet.RootType()),
@@ -119,17 +119,26 @@ namespace Sezam
             PrintBanner();
             SysLog("Connected");
 
-            User = Login();
-            if (User is null)
+            var user = Login();
+            if (user is null)
             {
                 terminal.Line(Console.strings.Login_UnknownUser);
                 terminal.Close();
-                SysLog("Unknown user. Disconnected.");
+                SysLog("Unknown user. Disconnecting.");
             }
             else
             {
+                var previousSession = Data.Store.Sessions.Values.Where(s => s.Username == user.Username).FirstOrDefault();
+                if (previousSession != null)
+                {
+                    terminal.Line($"User {User.Username} is already online since {previousSession.ConnectTime}");
+                    terminal.Close();
+                    SysLog("User already online. Disconnecting.");
+                }
+
+                User = user;
                 SysLog("Loggedin");
-                LoginTime = DateTime.Now;
+                LoginTime = DateTime.UtcNow;
                 Db.UserId = User.Id;
                 User.LastCall = LoginTime;
 
@@ -177,7 +186,7 @@ namespace Sezam
         }
 
         protected void PrintBanner() =>
-            terminal.Line(Console.strings.BannerConnected, ConnectTime, Environment.MachineName + '/' + thread.ManagedThreadId);
+            terminal.Line(Console.strings.BannerConnected, ConnectTime, Environment.MachineName + '/' + NodeNo);
 
         /// <summary>
         /// ROBUSTNESS: Issue #12 - Retrieve user with caching to avoid N+1 queries
@@ -303,7 +312,7 @@ namespace Sezam
             if (!cmd.HasValue())
                 return;
 
-            SysLog(string.Format("Cmd {0} >> {1} > {2}", currentCommandSet.GetType().Name, cmd, string.Join(" ", cmdLine.GetRemainingTokens())));
+            SysLog($"Cmd {0} >> {1} > {2}", currentCommandSet.GetType().Name, cmd, string.Join(" ", cmdLine.GetRemainingTokens()));
 
             if (!currentCommandSet.ExecuteCommand(cmd))
             {
@@ -345,7 +354,7 @@ namespace Sezam
                     if (!joined)
                     {
                         SysLog("Warning: Session thread did not terminate gracefully");
-                        Debug.WriteLine($"Session thread {id} did not stop within {ThreadJoinTimeoutMs}ms");
+                        Debug.WriteLine($"Session thread {Id} did not stop within {ThreadJoinTimeoutMs}ms");
                     }
                 }
             }
@@ -378,19 +387,9 @@ namespace Sezam
             currentCommandSet = null;
         }
 
-        public string GetUsername()
-        {
-            return User?.Username;
-        }
-
-        public DateTime GetLoginTime()
-        {
-            return LoginTime;
-        }
-
         public void SysLog(string Message, params string[] args)
         {
-            Trace.TraceInformation("{0:yyMMdd HHmmss} {1,-3} {2,-16} {3}", DateTime.Now, NodeNo, GetUsername(), string.Format(Message, args));
+            Trace.TraceInformation("{0:yyMMdd HHmmss} {1,-3} {2,-16} {3}", DateTime.Now, NodeNo, Username, string.Format(Message, args));
         }
 
         /// <summary>
@@ -426,19 +425,37 @@ namespace Sezam
         public int NodeNo { get; private set; }
 
         public User User;
-        public DateTime ConnectTime;
-        public DateTime LoginTime;
+
+        public string Username { get { return User?.Username ?? "Unknown"; } }
+        public DateTime ConnectTime { get; set;  }
+        public DateTime LoginTime { get; set; }
+        public DateTime LastCommand { get; set; }
         public System.Globalization.CultureInfo SessionCulture { get; set; }
 
         private Thread thread;
-        private Guid id;
+        
+        public Guid Id { get; private set; }
+
         private readonly Dictionary<Type, CommandSet> commandSets;
+        
         // legacy field kept for compatibility but no longer used
         // (initialization performed via lazyRootCommandSet)
         // protected volatile CommandSet rootCommandSet;
-        public volatile CommandSet currentCommandSet;
 
-        // Lazy root provider (ROBUSTNESS: Fix #6 alternative/upgrade)
+        /// <summary>
+        /// Gets or sets the current command set used for executing commands.
+        /// </summary>
+        /// <remarks>Updates to this field are visible across threads due to the use of the volatile
+        /// modifier. This field is part of a legacy implementation and may not be used in future versions.</remarks>
+        public CommandSet currentCommandSet { get; set; }
+
+        /// <summary>
+        /// Provides lazy initialization for the root command set, ensuring that the command set is created only when it
+        /// is first accessed.
+        /// </summary>
+        /// <remarks>Using lazy initialization can improve performance and reduce resource usage,
+        /// especially in scenarios where the root command set may not be needed immediately. This approach defers the
+        /// creation of the command set until it is actually required.</remarks>
         private readonly Lazy<CommandSet> lazyRootCommandSet;
 
         public ITerminal terminal;

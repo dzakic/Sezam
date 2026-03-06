@@ -74,6 +74,7 @@
                 return true;
             }
 
+            session.LastCommand = DateTime.UtcNow;
             return InvokeCommand(cmd);
         }
 

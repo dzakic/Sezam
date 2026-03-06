@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Configuration;
+using MySqlX.XDevAPI;
+using Sezam.Data;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -7,7 +9,6 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
-using Sezam.Data;
 using System.Threading.Tasks.Dataflow;
 
 namespace Sezam
@@ -22,8 +23,6 @@ namespace Sezam
         public Server(IConfigurationRoot configuration)
         {
             Data.Store.ConfigureFrom(configuration);
-            sessions = new List<ISession>();
-            Data.Store.Sessions = sessions;
             sessionFinished = new AutoResetEvent(false);
         }
 
@@ -38,7 +37,6 @@ namespace Sezam
         /// </summary>
         public void Start()
         {
-            sessions.Clear();
             isDraining = false;
             mainThread = new Thread(ListenerThread);
             mainThread.Start();
@@ -67,13 +65,12 @@ namespace Sezam
         {
             var deadline = DateTime.UtcNow + timeout;
 
+            var sessions = Data.Store.Sessions;
+
             while (DateTime.UtcNow < deadline)
             {
-                lock (sessions)
-                {
-                    if (sessions.Count == 0)
-                        return true;
-                }
+                if (sessions.Count == 0)
+                    return true;
 
                 var remaining = deadline - DateTime.UtcNow;
                 if (remaining <= TimeSpan.Zero)
@@ -82,17 +79,7 @@ namespace Sezam
                 sessionFinished.WaitOne(remaining);
             }
 
-            lock (sessions)
-                return sessions.Count == 0;
-        }
-
-        public int ActiveSessionCount
-        {
-            get
-            {
-                lock (sessions)
-                    return sessions.Count;
-            }
+            return sessions.Count == 0;
         }
 
         // Return false only if ESC pressed
@@ -111,8 +98,7 @@ namespace Sezam
                     var console = new ConsoleTerminal();
                     // console sessions are still synchronous for now
                     var consoleSession = new Session(console) { OnFinish = OnSessionFinish };
-                    lock (sessions)
-                        sessions.Add(consoleSession);
+                    Data.Store.AddSession(consoleSession);
                     consoleSession.Run();
                 }
 
@@ -158,11 +144,8 @@ namespace Sezam
                         Debug.WriteLine(String.Format("Starting session {0}", session));
                         session.Start(); // Start on dedicated thread
                     }
-                    lock (sessions)
-                    {
-                        sessions.Add(session);
-                        PrintServerStatistics();
-                    }
+                    Data.Store.AddSession(session);
+                    PrintServerStatistics();
                 }
                 catch (TerminalException te) when (te.Code == TerminalException.CodeType.ClientDisconnected)
                 {
@@ -207,18 +190,13 @@ namespace Sezam
                 {
                     Debug.WriteLine(String.Format("SERVER: {0} finished", session));
                     try { session?.terminal?.Close(); } catch (Exception ex) { ErrorHandling.Handle(ex); }
+                    try { Data.Store.RemoveSession(session); } catch (Exception ex) { ErrorHandling.Handle(ex); }
+                    try { PrintServerStatistics(); } catch (Exception ex) { ErrorHandling.Handle(ex); }
                 }
                 else
                 {
                     Debug.WriteLine("SERVER: unknown session type finished");
                 }
-
-                lock (sessions)
-                {
-                    try { sessions.Remove(sender as ISession); } catch (Exception ex) { ErrorHandling.Handle(ex); }
-                    try { PrintServerStatistics(); } catch (Exception ex) { ErrorHandling.Handle(ex); }
-                }
-
                 // Signal potential waiters that a session has finished and they can check if all sessions are done
                 sessionFinished.Set();
             }
@@ -234,12 +212,12 @@ namespace Sezam
         public void Stop()
         {
             listener?.Stop();
-            Debug.Write(String.Format("Stopping {0} connections.. ", sessions.Count));
+            Debug.Write(String.Format("Stopping {0} connections.. ", Data.Store.Sessions.Count));
             // close server
-            foreach (var session in sessions.ToList())
+            foreach (var session in Data.Store.Sessions.ToList())
             {
                 Debug.Write(".");
-                try { session.Close(); } catch (Exception ex) { ErrorHandling.Handle(ex); }
+                try { session.Value.Close(); } catch (Exception ex) { ErrorHandling.Handle(ex); }
             }
             Debug.Write(" main thread.. ");
             
@@ -261,14 +239,13 @@ namespace Sezam
 
         public void PrintServerStatistics()
         {
-            Trace.TraceInformation($"SERVER: Running, {sessions.Count} active connections:");
-            foreach (var sess in sessions)
+            Trace.TraceInformation($"SERVER: Running, {Data.Store.Sessions.Count} active connections:");
+            foreach (var sess in Data.Store.Sessions)
                 Trace.TraceInformation(sess.ToString());
         }
 
         private TcpListener listener;
         private Thread mainThread;
-        private readonly List<ISession> sessions;
         private readonly AutoResetEvent sessionFinished;
         private volatile bool isDraining;
 

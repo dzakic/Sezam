@@ -1,10 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Configuration;
 using Sezam.Data.EF;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace Sezam.Data
 {
@@ -76,27 +77,16 @@ namespace Sezam.Data
             return new SezamDbContext(optionsBuilder.Options);
         }
 
-        private static readonly object _sessionLock = new();
-        private static List<ISession> _sessionsList = [];
+        public static readonly ConcurrentDictionary<Guid, ISession> Sessions = new();
 
-        public static IList<ISession> Sessions
+
+        public static void AddSession(ISession session)
         {
-            get
-            {
-                lock (_sessionLock)
-                {
-                    return new List<ISession>(_sessionsList);
-                }
-            }
-            set
-            {
-                lock (_sessionLock)
-                {
-                    _sessionsList.Clear();
-                    if (value is not null)
-                        _sessionsList.AddRange(value);
-                }
-            }
+            Sessions.TryAdd(session.Id, session);
+        }
+        public static void RemoveSession(ISession session)
+        {
+            Sessions.TryRemove(session.Id, out _);
         }
 
         public static string ServerName { get; private set; }

@@ -59,12 +59,14 @@ namespace Sezam
 
     public abstract class Terminal
     {
-        public const char NulChar = (char)0;
-        public const char LF = (char)10;
-        public const char CR = (char)13;
-        public const char Esc = (char)27;
-        public const char Del = (char)127;
+        public const char NulChar = '\0';
+        public const char LF = '\n';
+        public const char CR = '\r';
+        public const char Esc = '\e';
+        public const char BEL = '\a';
+        public const char Del = (char)0x7F;
         public const int DefaultLineWidth = 80;
+        public const string CRLF = "\r\n";
 
         public virtual int LineWidth => DefaultLineWidth;
 
@@ -327,19 +329,31 @@ namespace Sezam
 
         protected void SendANSI(char code, params object[] parameters)
         {
-            if (parameters.Length == 1 && parameters[0] is int singleParam && singleParam == 1)
-            {
-                // If ommitted, default is 1 for simple cursor movement e.g. ESC[D for left
-                Out.Write($"{Esc}[{code}");
-                return;
-            }
-            Out.Write($"{Esc}[{string.Join(";", parameters.ToString())}{code}");
+            Out.Write($"{Esc}[{string.Join(";", parameters)}{code}");
         }
 
-        public virtual void CursorRight(int right = 1) => SendANSI('C', right);
-        public virtual void CursorLeft(int left = 1) => SendANSI('D', left);
+        public virtual void CursorRight(int right = 1)
+        {
+            if (right == 1)
+                SendANSI('C');
+            else
+                SendANSI('C', right);
+        }
+        public virtual void CursorLeft(int left = 1)
+        {
+            if (left == 1)
+                SendANSI('D');
+            else
+                SendANSI('D', left);
+        }
 
-        public virtual void ClearScreen() { }
+
+        public virtual void ClearScreen()
+        {
+            //SendANSI('J', "2"); // erase entire screen
+            //SendANSI('H'); // move cursor to home position
+            Out.Write('\f'); // Form feed character to clear screen and move cursor to home
+        }
 
         public virtual void ClearToEOL() => SendANSI('K');
 

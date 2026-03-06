@@ -131,30 +131,6 @@ namespace Sezam.Tests
                 }));
             }
 
-            // 10 writer threads
-            for (int i = 0; i < 10; i++)
-            {
-                int idx = i;
-                threads.Add(new Thread(() =>
-                {
-                    try
-                    {
-                        var current = Store.Sessions.ToList();
-                        // Simulate mutation
-                        if (idx < sessions.Count)
-                        {
-                            current.Remove(sessions[idx]);
-                        }
-                        Store.Sessions = current;  // Thread-safe write
-                        lock (syncLock) { writeCount++; }
-                    }
-                    catch (Exception)
-                    {
-                        lock (syncLock) { errorCount++; }
-                    }
-                }));
-            }
-
             // Start all threads
             threads.ForEach(t => t.Start());
             threads.ForEach(t => t.Join(1000));
