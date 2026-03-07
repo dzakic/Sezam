@@ -29,9 +29,9 @@ namespace Sezam
 
     public interface ITerminal
     {
-        void Line(string Message = "");
-        void Line(string Message = "", params object[] args);
-        void Text(string Text);
+        Task Line(string Message = "");
+        Task Line(string Message = "", params object[] args);
+        Task Text(string Text);
         void Close();
         Task<string> PromptEdit(string prompt = "", InputFlags flags = 0);
         Task<string> InputStr(string label = "", InputFlags flags = 0);
@@ -67,19 +67,19 @@ namespace Sezam
 
         public virtual int LineWidth => DefaultLineWidth;
 
-        public void Line(string Message = "")
+        public async Task Line(string Message = "")
         {
             Out.WriteLine(Message.TrimEnd());
-            LineFinished();
+            await LineFinished();
         }
 
-        public void Line(string Message, params object[] args)
+        public async Task Line(string Message, params object[] args)
         {
             Out.WriteLine(string.Format(Message, args).TrimEnd());
-            LineFinished();
+            await LineFinished();
         }
 
-        protected async void LineFinished()
+        protected async Task LineFinished()
         {
             if (lineCount > 0)
                 lineCount++;
@@ -104,20 +104,20 @@ namespace Sezam
         /// <summary>
         /// Output multi-line text to terminal, counting lines for pagination
         /// </summary>
-        public void Text(string Text)
+        public async Task Text(string Text)
         {
             var lines = Text.Split(["\r\n"], StringSplitOptions.None);
             foreach (var line in lines.Take(lines.Length - 1))
             {
                 Out.WriteLine(line);
-                LineFinished();
+                await LineFinished();
             }
             Out.Flush();
         }
 
         private void ResetPageCount() => lineCount = 1;
 
-        protected virtual Task<char> ReadChar() => Task.FromResult(' ');
+        protected abstract Task<char> ReadChar();
 
         /// <summary>
         /// Enhanced ReadKey that returns key information for arrow key handling.
@@ -146,8 +146,10 @@ namespace Sezam
                 {
                     // Synchronous wrapper for async ReadChar
                     char ch = char.ToLower(await ReadChar());
-                    if (ch is CR or LF)
+                    if (ch == CR)
+                    {
                         return 0;
+                    }
 
                     for (int choice = 0; choice < options.Length; choice++)
                     {
@@ -244,6 +246,7 @@ namespace Sezam
                     case '\b':
                     case '\r':
                     case '\t':
+                    case LF:
                         break;
 
                     default:

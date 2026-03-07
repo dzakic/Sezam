@@ -32,14 +32,14 @@ namespace Sezam
         /// <summary>
         /// Console implementation that captures full key information including arrow keys
         /// </summary>
-        protected override Task<KeyInfo> ReadKeyInfo()
+        protected override async Task<KeyInfo> ReadKeyInfo()
         {
             var cki = System.Console.ReadKey(true);
-            return Task.FromResult(new KeyInfo
+            return new KeyInfo
             {
                 Char = cki.KeyChar,
                 Key = cki.Key
-            });
+            };
         }
 
         public override void ClearScreen() =>

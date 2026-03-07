@@ -29,12 +29,12 @@ namespace Sezam.Commands
             var againPass = await session.terminal.InputStr(L("Set_Prompt_VerifyPassword"), InputFlags.Password);
             if (newPass != againPass)
             {
-                session.terminal.Line("");
+                await session.terminal.Line("");
                 return;
             }
             session.User.Password = newPass;
             session.Db.SaveChanges();
-            session.terminal.Line(strings.Set_Password_Changed);
+            await session.terminal.Line(strings.Set_Password_Changed);
         }
 
         [Command(Description = "Set your language preference")]

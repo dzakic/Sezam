@@ -78,7 +78,7 @@ namespace Sezam.Commands
 
         [Command(Aliases = ["Show"], Description = "Show a list of all conferences")]
         [CommandSwitch('a', "Show all conferences, including resigned")]
-        public void View()
+        public async Task View()
         {
             string confPattern = session.cmdLine.GetToken();
             bool showAll = session.cmdLine.Switch("a");
@@ -86,13 +86,13 @@ namespace Sezam.Commands
                 .Where(c => EF.Functions.Like(c.Name, confPattern + "%"));
             foreach (var g in conferences.DisplayOrder())
             {
-                session.terminal.Line("{0,-16} {1,5} {2:MMM yyyy} - {3:MMM yyyy}",
+                await session.terminal.Line("{0,-16} {1,5} {2:MMM yyyy} - {3:MMM yyyy}",
                     g.VolumeName, g.ConfTopics.Sum(t => t.NextSequence), g.FromDate, g.ToDate);
             }
         }
 
         [Command]
-        private void Unresign()
+        private async Task Unresign()
         {
             // Unresign
             var userConfData = session.User.GetUserConfInfo(currentConference);
@@ -100,14 +100,14 @@ namespace Sezam.Commands
             {
                 userConfData.Status &= ~UserConf.UserConfStat.Resigned;
                 // Show welcome?
-                session.terminal.Line(L("Conf_Welcome"), currentConference.VolumeName);
+                await session.terminal.Line(L("Conf_Welcome"), currentConference.VolumeName);
                 session.Db.SaveChanges();
                 Debug.WriteLine($"Joined conf {0}", currentConference.VolumeName);
             }
         }
 
         [Command(Aliases = ["Open"], Description = "Open a conference, make it current and default for subsequent commands")]
-        public void Join()
+        public async Task Join()
         {
 
             string userInput = session.cmdLine.GetToken();
@@ -135,7 +135,7 @@ namespace Sezam.Commands
             if (conf != null)
             {
                 currentConference = conf;
-                Unresign();
+                await Unresign();
             }
             else
             {
@@ -153,7 +153,7 @@ namespace Sezam.Commands
                 if (conf != null)
                     currentConference = conf;
                 else
-                    session.terminal.Line("Unknown conference {0}", confName);
+                    await session.terminal.Line("Unknown conference {0}", confName);
             }
         }
 
@@ -274,7 +274,7 @@ namespace Sezam.Commands
         }
 
         [Command(Description = "Show a list of topics in the current conference, or all in all conferences if none open")]
-        public void Directory()
+        public async Task Directory()
         {
             if (currentConference != null)
                 ConfDir(currentConference);
@@ -285,9 +285,9 @@ namespace Sezam.Commands
                     .DisplayOrder();
                 foreach (var conf in activeConferences)
                 {
-                    session.terminal.Line("Conference {0}", conf.VolumeName);
+                    await session.terminal.Line("Conference {0}", conf.VolumeName);
                     ConfDir(conf);
-                    session.terminal.Line();
+                    await session.terminal.Line();
                 }
             }
         }
@@ -296,11 +296,11 @@ namespace Sezam.Commands
         [CommandParameter("topic[.msgLow[-msgHigh]]", "Topic and optional message number or range to list, e.g. 'General', 'General.5' or 'General.5-10'. Use '*' for all topics, e.g. '*.5' or '*.5-10'.")]
         [CommandParameter("from", "Only select messages from this author, specify the username.")]
         [CommandSwitch('f', "Select only messages with files")]
-        public async void List()
+        public async Task List()
         {
             var selection = (await GetConfMsgSelection()).AsListDTO();
             foreach (var confListItem in selection)
-                session.terminal.Line(ConfFormatter.FormatConfMsgList(confListItem));
+                await session.terminal.Line(ConfFormatter.FormatConfMsgList(confListItem));
         }
 
         [Command(Description = "Read new messages in the conference or a topic")]
@@ -325,7 +325,7 @@ namespace Sezam.Commands
         }
 
         [Command("RESign", Description = "Unfollowing this conference. To join again, use join command with the exact conference name.")]
-        public void RESign()
+        public async Task RESign()
         {
             MustHaveConf();
 
@@ -337,18 +337,18 @@ namespace Sezam.Commands
                 // Resign Topic
                 var utData = session.User.GetUserTopicfInfo(topic);
                 utData.Status |= UserTopic.UserTopicStat.Resigned;
-                session.terminal.Line(L("Conf_TopicResigned"), topic.Name);
+                await session.terminal.Line(L("Conf_TopicResigned"), topic.Name);
             }
             else
             {
                 // Resign Conference
                 var ucData = session.User.GetUserConfInfo(currentConference);
                 ucData.Status |= UserConf.UserConfStat.Resigned;
-                session.terminal.Line(L("Conf_Resigned"), currentConference.VolumeName);
+                await session.terminal.Line(L("Conf_Resigned"), currentConference.VolumeName);
                 currentConference = null;
             }
 
-            session.Db.SaveChanges();
+            await session.Db.SaveChangesAsync();
 
         }
 

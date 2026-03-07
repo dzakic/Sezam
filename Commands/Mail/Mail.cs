@@ -8,7 +8,7 @@
         {
         }
 
-        [Command]
+        [Command(Description = "Read Mail")]
         public void Read()
         {
             throw new System.NotImplementedException("No Mail support yet");

@@ -66,7 +66,7 @@
                 {
                     // execute command in the context of cmdSet
                     if (!await cmdSet.ExecuteCommand(cmd))
-                        session.terminal.Line("Unknown {0} command {1}", cmdSet.DisplayName(), cmd);                }
+                        await session.terminal.Line("Unknown {0} command {1}", cmdSet.DisplayName(), cmd);                }
                 else
                 {
                     // we are changing the current command set for this session

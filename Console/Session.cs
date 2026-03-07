@@ -67,24 +67,24 @@ namespace Sezam
                         catch (ArgumentException e)
                         {
                             consecutiveExceptionCount = 0;
-                            terminal.Line($"* {e.Message}");
+                            await terminal.Line($"* {e.Message}");
                             continue;
                         }
                         catch (NotImplementedException e)
                         {
                             consecutiveExceptionCount = 0;
-                            terminal.Line($"* {e.Message}");
+                            await terminal.Line($"* {e.Message}");
                             continue;
                         }
                         catch (Exception e)
                         {
                             consecutiveExceptionCount++;
-                            terminal.Line("Blimey! System Error: {0}", e.Message);
+                            await terminal.Line("Blimey! System Error: {0}", e.Message);
                             ErrorHandling.Handle(e);
 
                             if (consecutiveExceptionCount > MaxConsecutiveExceptions)
                             {
-                                terminal.Line("Too many errors. Disconnecting.");
+                                await terminal.Line("Too many errors. Disconnecting.");
                                 throw new TerminalException(TerminalException.CodeType.ClientDisconnected);
                             }
 
@@ -100,7 +100,7 @@ namespace Sezam
                 catch (Exception e)
                 {
                     consecutiveExceptionCount = 0;
-                    terminal.Line(Console.strings.ErrorUnrecoverable, e.Message);
+                    await terminal.Line(Console.strings.ErrorUnrecoverable, e.Message);
                     ErrorHandling.Handle(e);
                 }
             }
@@ -126,7 +126,7 @@ namespace Sezam
             var user = await Login();
             if (user is null)
             {
-                terminal.Line(Console.strings.Login_UnknownUser);
+                await terminal.Line(Console.strings.Login_UnknownUser);
                 terminal.Close();
                 SysLog("Unknown user. Disconnecting.");
             }
@@ -135,7 +135,7 @@ namespace Sezam
                 var previousSession = Data.Store.Sessions.Values.Where(s => s.Username == user.Username).FirstOrDefault();
                 if (previousSession != null)
                 {
-                    terminal.Line($"User {user.Username} is already online since {previousSession.ConnectTime}");
+                    await terminal.Line($"User {user.Username} is already online since {previousSession.ConnectTime}");
                     terminal.Close();
                     SysLog("User already online. Disconnecting.");
                 }
@@ -226,7 +226,7 @@ namespace Sezam
                     string prompt = usePIN ? Console.strings.Login_PIN : Console.strings.Login_Password;
 
                     if (usePIN)
-                        terminal.Line(Console.strings.Login_WelcomeNoPassword, user.Username);
+                        await terminal.Line(Console.strings.Login_WelcomeNoPassword, user.Username);
 
                     string expectPass = usePIN ?
                         string.Format("{0:ddMM}", user.DateOfBirth) : user.Password;
@@ -246,7 +246,7 @@ namespace Sezam
                 }
 
                 userTryCount++;
-                terminal.Line();
+                await terminal.Line();
             }
             return null;
         }
@@ -316,7 +316,7 @@ namespace Sezam
             {
                 var root = lazyRootCommandSet.Value;
                 if (!await root.ExecuteCommand(cmd))
-                    terminal.Line("Unknown command {0}", cmd);
+                    await terminal.Line("Unknown command {0}", cmd);
             }
         }
 

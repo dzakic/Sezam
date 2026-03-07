@@ -39,14 +39,14 @@ namespace Sezam.Commands
                 if (message.IsWhiteSpace())
                     break;
                 // TODO: check if user is online, fail if not
-                session.terminal.Line($"Will page user '{user.Username}' with message '{message}'. ToDo.");
+                await session.terminal.Line($"Will page user '{user.Username}' with message '{message}'. ToDo.");
                 // TODO: Implement actual paging logic, e.g. by sending a message to the user's session or storing it for later retrieval
             }
         }
 
         [Command(Description = "Show a list of system users")]
         [CommandParameter("pattern", "Search pattern for username, city or full name")]
-        public void Users()
+        public async Task Users()
         {
             var pattern = session.cmdLine.GetToken();
             if (pattern.Length < 2)
@@ -58,17 +58,17 @@ namespace Sezam.Commands
                 .OrderByDescending(u => u.LastCall);
             
             foreach (var user in selection)
-                session.terminal.Line($"{user.Username,-16} {user.FullName,-28} {user.City,-16} {user.LastCall:dd MMM yyyy HH:mm}");
+                await  session.terminal.Line($"{user.Username,-16} {user.FullName,-28} {user.City,-16} {user.LastCall:dd MMM yyyy HH:mm}");
         }
 
         [Command(Description = "Show a list of current sessions")]
-        public void Who()
+        public async Task Who()
         {
-            session.terminal.Line("Logged in as {0}, {1}", session.User.Username, session.User.FullName);
+            await session.terminal.Line("Logged in as {0}, {1}", session.User.Username, session.User.FullName);
             foreach (var _ in Data.Store.Sessions.Values)
             {
                 if (!string.IsNullOrWhiteSpace(_.Username))
-                    session.terminal.Line("{0,-16} -- {1:HH:mm}", _.Username, _.LoginTime);
+                    await session.terminal.Line("{0,-16} -- {1:HH:mm}", _.Username, _.LoginTime);
             }
         }
 
@@ -102,12 +102,12 @@ namespace Sezam.Commands
 
         [Command(Aliases = ["BYe" ,"LOGout"], Description = "Disconnect and end current session")]
         [CommandSwitch('y', "Skip confirmation")]
-        public async void Quit()
+        public async Task Quit()
         {
             bool yes = session.cmdLine.Switch("y");
             if (yes || await session.terminal.PromptSelection(L("Root_Bye_Prompt")) == 1)
             {
-                session.terminal.Line(L("Root_Bye"));
+                await session.terminal.Line(L("Root_Bye"));
                 session.terminal.Close();
             }
         }
