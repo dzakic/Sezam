@@ -13,205 +13,21 @@ using Sezam.Commands;
 namespace Sezam
 {
     /// <summary>
-    /// Async variant of <see cref="Session"/>.  The goal of this class is to
-    /// demonstrate the future migration path called out in the robustness
-    /// documentation: use async/await instead of one thread per connection.
-    ///
-    /// Only the surface area required by the current server implementation has
-    /// been moved over; most of the existing sync logic is reused by simply
-    /// delegating to the original <see cref="Session"/> helpers via
-    /// <see cref="Task.Run"/>.  That keeps the change small while still giving
-    /// us the ability to schedule hundreds or thousands of connections on the
-    /// thread pool rather than allocating a dedicated thread for each one.
+    /// Async variant of <see cref="Session"/>. Now that Session is fully async,
+    /// this class just delegates to the base implementation. Kept for compatibility.
     /// </summary>
     public class SessionAsync : Session
     {
         public SessionAsync(ITerminal terminal) : base(terminal)
         {
-            // base constructor already initialises most state including Db and terminal
-            cts = new CancellationTokenSource();
         }
 
         /// <summary>
-        /// Starts processing the connection.  The returned task completes when
-        /// the session has finished (either due to disconnect, error or explicit
-        /// close).  The caller is free to fire-and-forget the task; the session
-        /// object itself will raise <see cref="OnFinish"/> in all cases so the
-        /// server can perform cleanup.
+        /// Starts processing the connection. Delegates to base.Start().
         /// </summary>
         public Task RunAsync()
         {
-            // store the task so Close() can wait on it if necessary
-            if (runTask != null)
-                return runTask;
-
-            runTask = Task.Run(async () =>
-            {
-                try
-                {
-                    try
-                    {
-                        await WelcomeAndLoginAsync();
-                        while (terminal.Connected && !cts.IsCancellationRequested)
-                        {
-                            try
-                            {
-                                await InputAndExecCmdAsync();
-                            }
-                            catch (TerminalException e)
-                            {
-                                switch (e.Code)
-                                {
-                                    case TerminalException.CodeType.UserOutputInterrupted:
-                                        continue;
-                                    case TerminalException.CodeType.ClientDisconnected:
-                                        terminal.Close();
-                                        break;
-                                }
-                            }
-                            catch (ArgumentException e)
-                            {
-                                terminal.Line("* " + e.Message);
-                                continue;
-                            }
-                            catch (NotImplementedException e)
-                            {
-                                terminal.Line("* " + e.Message);
-                                continue;
-                            }
-                            catch (Exception e)
-                            {
-                                terminal.Line("Blimey! System Error: {0}", e.Message);
-                                ErrorHandling.Handle(e);
-                                continue;
-                            }
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        terminal.Line(strings.ErrorUnrecoverable, e.Message);
-                        ErrorHandling.Handle(e);
-                    }
-                }
-                finally
-                {
-                    // log first
-                    try { SysLog("Disconnected"); } catch { }
-                    // dispose db context to avoid leaks
-                    try { Db?.Dispose(); } catch (Exception ex) { Debug.WriteLine($"Db dispose error: {ex.Message}"); }
-                    // fire finish event
-                    try { OnFinish?.Invoke(this, null); } catch (Exception ex) { ErrorHandling.Handle(ex); }
-                }
-            }, cts.Token);
-
-            return runTask;
+            return Start();
         }
-
-        private async Task WelcomeAndLoginAsync()
-        {
-            Debug.WriteLine("SessionAsync loop starting for " + terminal.Id);
-            ConnectTime = DateTime.Now;
-
-            PrintBanner();
-            SysLog("Connected");
-
-            User = await LoginAsync();
-            if (User == null)
-            {
-                terminal.Line(strings.Login_UnknownUser);
-                terminal.Close();
-                SysLog("Unknown user. Disconnected.");
-            }
-            else
-            {
-
-
-                SysLog("Loggedin");
-                LoginTime = DateTime.Now;
-                Db.UserId = User.Id;
-                User.LastCall = LoginTime;
-                await Db.SaveChangesAsync();
-            }
-        }
-
-        private async Task<User> LoginAsync()
-        {
-            const int NUM_RETRIES = 3;
-            int userTryCount = 0;
-            while (userTryCount < NUM_RETRIES && !cts.IsCancellationRequested)
-            {
-                using (var ctsTimeout = CancellationTokenSource.CreateLinkedTokenSource(cts.Token))
-                {
-                    ctsTimeout.CancelAfter(TimeSpan.FromMinutes(5));
-                    string username = await terminal.InputStrAsync(strings.Login_Username, cancellationToken: ctsTimeout.Token);
-                    if (string.IsNullOrWhiteSpace(username))
-                        continue;
-                    var user = GetUser(username);
-
-                    if (user != null)
-                    {
-                        bool usePIN = user.Password == null && user.DateOfBirth != null;
-                        string prompt = usePIN ? strings.Login_PIN : strings.Login_Password;
-
-                        if (usePIN)
-                            terminal.Line(strings.Login_WelcomeNoPassword, user.Username);
-
-                        string expectPass = usePIN ?
-                            string.Format("{0:ddMM}", user.DateOfBirth) : user.Password;
-
-                        int passTryCount = 0;
-                        while (passTryCount < NUM_RETRIES && !cts.IsCancellationRequested)
-                        {
-                            using (var ctsTimeoutPass = CancellationTokenSource.CreateLinkedTokenSource(cts.Token))
-                            {
-                                ctsTimeoutPass.CancelAfter(TimeSpan.FromMinutes(5));
-                                string pass = await terminal.InputStrAsync(prompt, InputFlags.Password, ctsTimeoutPass.Token);
-                                if (pass == expectPass)
-                                {
-                                    return user;
-                                }
-                                passTryCount++;
-                            }
-                        }
-                        return null;
-                    }
-
-                    userTryCount++;
-                    terminal.Line();
-                }
-            }
-            return null;
-        }
-
-        private Task InputAndExecCmdAsync()
-        {
-            // simply delegate to the synchronous implementation in base; it
-            // already uses a lazy root command set and handles locking.
-            return Task.Run(() => base.InputAndExecCmd(), cts.Token);
-        }
-
-
-        /// <summary>
-        /// Request that the session end; the cancellation token will signal the
-        /// loop and we also wait briefly for the background task.  Finally we
-        /// call <see cref="Session.Close"/> to perform the normal shutdown
-        /// behaviour (close terminal, interrupt any stray thread etc).
-        /// </summary>
-        public override void Close()
-        {
-            cts.Cancel();
-            try { runTask?.Wait(1000); } catch { }
-            base.Close();
-        }
-
-        public override void Start()
-        { 
-           var _ = RunAsync();
-        }
-
-        // only async-specific state lives here
-        private Task runTask;
-        private CancellationTokenSource cts;
-
     }
 }

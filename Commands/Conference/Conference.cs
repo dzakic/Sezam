@@ -6,9 +6,23 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Sezam.Data.EF;
+using System.Threading.Tasks;
 
 namespace Sezam.Commands
 {
+
+
+    // TODO: Implement topic management commands (create, delete, redirect, etc.)
+    [Command]
+    public class Topic : CommandSet
+    {
+        public Topic(Session session)
+           : base(session)
+        {
+            // currentTopic = null;
+        }
+    }
+
     [Command]
     public class Conference : CommandSet
     {
@@ -159,7 +173,7 @@ namespace Sezam.Commands
         ///
         /// </summary>
         /// <returns></returns>
-        private IQueryable<ConfMessage> GetConfMsgSelection()
+        private async Task<IQueryable<ConfMessage>> GetConfMsgSelection()
         {
             MustHaveConf();
 
@@ -226,7 +240,7 @@ namespace Sezam.Commands
                     fromUser = session.User;
                 else
                 {
-                    fromUser = session.GetUser(fromStr);
+                    fromUser = await session.GetUser(fromStr);
                     if (fromUser == null)
                         throw new ArgumentException("Unknown User", fromStr);
                 }
@@ -282,9 +296,9 @@ namespace Sezam.Commands
         [CommandParameter("topic[.msgLow[-msgHigh]]", "Topic and optional message number or range to list, e.g. 'General', 'General.5' or 'General.5-10'. Use '*' for all topics, e.g. '*.5' or '*.5-10'.")]
         [CommandParameter("from", "Only select messages from this author, specify the username.")]
         [CommandSwitch('f', "Select only messages with files")]
-        public void List()
+        public async void List()
         {
-            var selection = GetConfMsgSelection().AsListDTO();
+            var selection = (await GetConfMsgSelection()).AsListDTO();
             foreach (var confListItem in selection)
                 session.terminal.Line(ConfFormatter.FormatConfMsgList(confListItem));
         }
@@ -294,19 +308,19 @@ namespace Sezam.Commands
         [CommandParameter("from", "Only select messages from this author, specify the username.")]
         [CommandSwitch('f', "Select only messages with files")]
         [CommandSwitch('a', "Select all messages, including old")]
-        public void Read()
+        public async void Read()
         {
-            var selection = GetConfMsgSelection().AsReadDTO();
+            var selection = (await GetConfMsgSelection()).AsReadDTO();
             foreach (var msg in selection)
             {
                 ConfFormatter.ConfMsgRead(session.terminal, msg);
             }
         }
 
-        [Command]
+        [Command(Description = "Topic management. Not implemented.")]
         public void Topic()
         {
-            // Needs to parse a further topic command (from a class?)
+            // Needs to parse a further topic command (Nexted CommandSet?))
             throw new NotImplementedException();
         }
 

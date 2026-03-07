@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading;
+using System.Threading.Tasks;
 
 namespace Sezam.Commands
 {
@@ -29,18 +29,19 @@ namespace Sezam.Commands
         [Command(Description = "Sends a message to another online user")]
         [CommandParameter("user", "Username of the user to page", true)]
         [CommandParameter("message", "Message to send to the user", true)]
-        public void Page()
+        public async Task Page()
         {
-            var user = GetRequiredUser();
-            var message = session.terminal.PromptEdit($"Enter message to page {user.Username}: ");
-            if (message.IsWhiteSpace())
-                throw new ArgumentException("Message cannot be empty");
+            var user = await GetRequiredUser();
 
-            // TODO: check if user is online, fail if not
-            session.terminal.Line($"Will page user '{user.Username}' with message '{message}'. ToDo.");
-            
-            // TODO: Implement actual paging logic, e.g. by sending a message to the user's session or storing it for later retrieval
-            
+            while (true)
+            {
+                var message = await session.terminal.PromptEdit($"Enter message to page {user.Username}: ");
+                if (message.IsWhiteSpace())
+                    break;
+                // TODO: check if user is online, fail if not
+                session.terminal.Line($"Will page user '{user.Username}' with message '{message}'. ToDo.");
+                // TODO: Implement actual paging logic, e.g. by sending a message to the user's session or storing it for later retrieval
+            }
         }
 
         [Command(Description = "Show a list of system users")]
@@ -101,10 +102,10 @@ namespace Sezam.Commands
 
         [Command(Aliases = ["BYe" ,"LOGout"], Description = "Disconnect and end current session")]
         [CommandSwitch('y', "Skip confirmation")]
-        public void Quit()
+        public async void Quit()
         {
             bool yes = session.cmdLine.Switch("y");
-            if (yes || session.terminal.PromptSelection(L("Root_Bye_Prompt")) == 1)
+            if (yes || await session.terminal.PromptSelection(L("Root_Bye_Prompt")) == 1)
             {
                 session.terminal.Line(L("Root_Bye"));
                 session.terminal.Close();

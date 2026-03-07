@@ -27,12 +27,14 @@ namespace Sezam.Tests
 
         public void Text(string text) { }
 
-        public string InputStr(string label = "", InputFlags flags = 0) => reader?.ReadLine() ?? "";
+        public Task<string> InputStr(string label = "", InputFlags flags = 0) => 
+            Task.FromResult(reader?.ReadLine() ?? "");
 
-        public virtual string PromptEdit(string prompt = "", InputFlags flags = 0) =>
+        public virtual Task<string> PromptEdit(string prompt = "", InputFlags flags = 0) =>
             InputStr(prompt, flags);
 
-        public virtual int PromptSelection(string promptAnswers) => 0;
+        public Task<int> PromptSelection(string promptAnswers) =>
+            Task.FromResult(0);
 
         public void Close()
         {
@@ -58,20 +60,6 @@ namespace Sezam.Tests
 
         public string Id => id;
 
-        public Task<string> InputStrAsync(string label = "", InputFlags flags = 0, CancellationToken cancellationToken = default) =>
-            cancellationToken.IsCancellationRequested
-                ? Task.FromCanceled<string>(cancellationToken)
-                : Task.FromResult(InputStr(label, flags));
-
-        public virtual Task<string> PromptEditAsync(string prompt = "", InputFlags flags = 0, CancellationToken cancellationToken = default) =>
-            cancellationToken.IsCancellationRequested
-                ? Task.FromCanceled<string>(cancellationToken)
-                : Task.FromResult(PromptEdit(prompt, flags));
-
-        public virtual Task<int> PromptSelectionAsync(string promptAnswers, CancellationToken cancellationToken = default) =>
-            cancellationToken.IsCancellationRequested
-                ? Task.FromCanceled<int>(cancellationToken)
-                : Task.FromResult(PromptSelection(promptAnswers));
     }
 
     /// <summary>
@@ -80,10 +68,10 @@ namespace Sezam.Tests
     /// </summary>
     public class HangingMockTerminal : MockTerminal
     {
-        public override string PromptEdit(string prompt = "", InputFlags flags = 0)
+        public override Task<string> PromptEdit(string prompt = "", InputFlags flags = 0)
         {
             Thread.Sleep(Timeout.Infinite);
-            return "";
+            return Task.FromResult("");
         }
     }
 }

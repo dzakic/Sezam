@@ -8,6 +8,8 @@ using Microsoft.EntityFrameworkCore;
 using Sezam.Data;
 using Sezam.Data.EF;
 using Sezam.Commands;
+using System.Collections.Concurrent;
+using System.Threading.Tasks;
 
 namespace Sezam
 {
@@ -16,40 +18,43 @@ namespace Sezam
         public Session(ITerminal terminal)
         {
             this.terminal = terminal;
-            Id = Guid.NewGuid();
-            thread = new Thread(Run);
+            Id = Guid.NewGuid();            
             commandSets = [];
-            NodeNo = thread.ManagedThreadId;
+            NodeNo = Environment.CurrentManagedThreadId;
             Db = Store.GetNewContext();
             lazyRootCommandSet = new Lazy<CommandSet>(
                 () => GetCommandProcessor(CommandSet.RootType()),
                 LazyThreadSafetyMode.ExecutionAndPublication);
+
+            cts = new CancellationTokenSource();
         }
 
         // ROBUSTNESS: Fix #8 - Error loop prevention counter
         private int consecutiveExceptionCount;
         private const int MaxConsecutiveExceptions = 3;
 
-        // ROBUSTNESS: Issue #12 - User cache to avoid N+1 queries
-        private readonly object _lockUserCache = new();
-        private Dictionary<string, User> userCache;
+        private ConcurrentDictionary<string, User> userCache = new (StringComparer.OrdinalIgnoreCase);
 
-
-        public virtual void Start() => thread.Start();
+        public virtual Task Start()
+        {
+            if (runTask == null)
+                runTask = Task.Run(() => Run());
+            return runTask;
+        }
 
         // Background thread run
-        public void Run()
+        public async Task Run()
         {
             try
             {
                 try
                 {
-                    WelcomeAndLogin();
-                    while (terminal.Connected)
+                    await WelcomeAndLogin();
+                    while (terminal.Connected && !cts.IsCancellationRequested)
                     {
                         try
                         {
-                            InputAndExecCmd();
+                            await InputAndExecCmd();
                         }
                         catch (TerminalException e)
                         {
@@ -76,14 +81,14 @@ namespace Sezam
                             consecutiveExceptionCount++;
                             terminal.Line("Blimey! System Error: {0}", e.Message);
                             ErrorHandling.Handle(e);
-                            
+
                             if (consecutiveExceptionCount > MaxConsecutiveExceptions)
                             {
                                 terminal.Line("Too many errors. Disconnecting.");
                                 throw new TerminalException(TerminalException.CodeType.ClientDisconnected);
                             }
-                            
-                            Thread.Sleep(100);
+
+                            await Task.Delay(100);
                             continue;
                         }
                     }
@@ -107,11 +112,10 @@ namespace Sezam
                 catch (Exception ex) { Debug.WriteLine($"Db dispose error: {ex.Message}"); }
                 try { OnFinish?.Invoke(this, null); } 
                 catch (Exception ex) { ErrorHandling.Handle(ex); }
-                thread = null;
             }
         }
 
-        private void WelcomeAndLogin()
+        private async Task WelcomeAndLogin()
         {
             Debug.WriteLine($"Session thread running for {terminal.Id}");
             ConnectTime = DateTime.Now;
@@ -119,7 +123,7 @@ namespace Sezam
             PrintBanner();
             SysLog("Connected");
 
-            var user = Login();
+            var user = await Login();
             if (user is null)
             {
                 terminal.Line(Console.strings.Login_UnknownUser);
@@ -131,7 +135,7 @@ namespace Sezam
                 var previousSession = Data.Store.Sessions.Values.Where(s => s.Username == user.Username).FirstOrDefault();
                 if (previousSession != null)
                 {
-                    terminal.Line($"User {User.Username} is already online since {previousSession.ConnectTime}");
+                    terminal.Line($"User {user.Username} is already online since {previousSession.ConnectTime}");
                     terminal.Close();
                     SysLog("User already online. Disconnecting.");
                 }
@@ -192,35 +196,29 @@ namespace Sezam
         /// ROBUSTNESS: Issue #12 - Retrieve user with caching to avoid N+1 queries
         /// Populates cache on first access and reuses for subsequent lookups
         /// </summary>
-        public User GetUser(string username)
+        public async Task<User> GetUser(string username)
         {
             if (userCache?.TryGetValue(username, out var user) == true)
                 return user;
 
-            user = Db.Users.FirstOrDefault(u => u.Username == username);
+            user = await Db.Users.FirstOrDefaultAsync(u => u.Username == username);
             if (user is null)
                 return null;
 
-            lock (_lockUserCache)
-            {
-                userCache ??= new Dictionary<string, User>(StringComparer.OrdinalIgnoreCase);
-                userCache[username] = user;
-            }
-
+            userCache[username] = user;
             return user;
         }
 
-        private User Login()
+        private async Task<User> Login()
         {
             const int NUM_RETRIES = 3;
             int userTryCount = 0;
             while (userTryCount < NUM_RETRIES)
             {
-                string username = terminal.InputStr(Console.strings.Login_Username);
+                string username = await terminal.InputStr(Console.strings.Login_Username);
                 if (string.IsNullOrWhiteSpace(username))
                     continue;
-                var user = GetUser(username);
-
+                var user = await GetUser(username);
 
                 if (user != null)
                 {
@@ -237,7 +235,7 @@ namespace Sezam
                     while (passTryCount < NUM_RETRIES)
                     {
 
-                        string pass = terminal.InputStr(prompt, InputFlags.Password);
+                        string pass = await terminal.InputStr(prompt, InputFlags.Password);
                         if (pass == expectPass)
                         {
                             return user;
@@ -255,7 +253,7 @@ namespace Sezam
 
         protected readonly object _cmdSetLock = new object();
 
-        protected void InputAndExecCmd()
+        protected async Task InputAndExecCmd()
         {
             // use lazy initializer for the root command set; thread-safe and only
             // evaluates once.  this replaces the previous manual double-checked
@@ -273,10 +271,10 @@ namespace Sezam
             }
 
             string prompt = currentCommandSet?.GetPrompt() ?? ">";
-            string cmd = terminal.PromptEdit(prompt + ">");
+            string cmd = await terminal.PromptEdit(prompt + ">");
 
             if (terminal.Connected)
-                ExecCmd(cmd);
+                await ExecCmd(cmd);
         }
 
         public CommandSet GetCommandProcessor(Type cmdProcessorType)
@@ -304,7 +302,7 @@ namespace Sezam
             return cmdSet;
         }
 
-        public void ExecCmd(string cmdText)
+        public async Task ExecCmd(string cmdText)
         {
             cmdLine = new CommandLine(cmdText);
 
@@ -314,54 +312,24 @@ namespace Sezam
 
             SysLog($"Cmd {0} >> {1} > {2}", currentCommandSet.GetType().Name, cmd, string.Join(" ", cmdLine.GetRemainingTokens()));
 
-            if (!currentCommandSet.ExecuteCommand(cmd))
+            if (!(await currentCommandSet.ExecuteCommand(cmd)))
             {
                 var root = lazyRootCommandSet.Value;
-                if (!root.ExecuteCommand(cmd))
+                if (!await root.ExecuteCommand(cmd))
                     terminal.Line("Unknown command {0}", cmd);
             }
         }
 
-        // Main thread signal to shutdown
+        /// <summary>
+        /// Request that the session end; the cancellation token will signal the
+        /// loop and we also wait briefly for the background task.  Finally we
+        /// call <see cref="Session.Close"/> to perform the normal shutdown
+        /// behaviour (close terminal, interrupt any stray thread etc).
+        /// </summary>
         public virtual void Close()
         {
-            const int ThreadJoinTimeoutMs = 5000;
-
-            // Close thread with timeout and robust exception handling
-            try
-            {
-                if (thread != null && thread.IsAlive)
-                {
-                    try
-                    {
-                        thread.Interrupt();
-                    }
-                    catch (Exception ex)
-                    {
-                        ErrorHandling.Handle(ex);
-                    }
-
-                    bool joined = false;
-                    try
-                    {
-                        joined = thread.Join(ThreadJoinTimeoutMs);
-                    }
-                    catch (Exception ex)
-                    {
-                        ErrorHandling.Handle(ex);
-                    }
-
-                    if (!joined)
-                    {
-                        SysLog("Warning: Session thread did not terminate gracefully");
-                        Debug.WriteLine($"Session thread {Id} did not stop within {ThreadJoinTimeoutMs}ms");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                ErrorHandling.Handle(ex);
-            }
+            cts.Cancel();
+            try { runTask?.Wait(1000); } catch { }
 
             // Close terminal safely
             try
@@ -432,8 +400,6 @@ namespace Sezam
         public DateTime LastCommand { get; set; }
         public System.Globalization.CultureInfo SessionCulture { get; set; }
 
-        private Thread thread;
-        
         public Guid Id { get; private set; }
 
         private readonly Dictionary<Type, CommandSet> commandSets;
@@ -463,5 +429,8 @@ namespace Sezam
         public SezamDbContext Db { get; private set; }
 
         public EventHandler OnFinish;
+
+        protected Task runTask;
+        protected CancellationTokenSource cts;
     }
 }

@@ -17,9 +17,6 @@ namespace Sezam
 
     public class Server : IDisposable
     {
-        // Using synchronous Session (thread-per-session) for now
-        const bool ASYNC_SESSIONS = true;
-
         public Server(IConfigurationRoot configuration)
         {
             Data.Store.ConfigureFrom(configuration);
@@ -63,13 +60,13 @@ namespace Sezam
 
         public bool WaitForDrain(TimeSpan timeout)
         {
-            var deadline = DateTime.UtcNow + timeout;
 
             var sessions = Data.Store.Sessions;
+            var deadline = DateTime.UtcNow + timeout;
 
             while (DateTime.UtcNow < deadline)
             {
-                if (sessions.Count == 0)
+                if (sessions.IsEmpty)
                     return true;
 
                 var remaining = deadline - DateTime.UtcNow;
@@ -79,7 +76,7 @@ namespace Sezam
                 sessionFinished.WaitOne(remaining);
             }
 
-            return sessions.Count == 0;
+            return sessions.IsEmpty;
         }
 
         // Return false only if ESC pressed
@@ -96,10 +93,9 @@ namespace Sezam
                 if (key == ConsoleKey.Enter)
                 {
                     var console = new ConsoleTerminal();
-                    // console sessions are still synchronous for now
                     var consoleSession = new Session(console) { OnFinish = OnSessionFinish };
                     Data.Store.AddSession(consoleSession);
-                    consoleSession.Run();
+                    consoleSession.Start().GetAwaiter().GetResult();
                 }
 
             };
@@ -129,21 +125,23 @@ namespace Sezam
                     tcpClient.LingerState = new LingerOption(true, 2);
 
                     var terminal = new TelnetTerminal(tcpClient);
+                    // Initialize telnet options asynchronously
+                    terminal.InitializeAsync().GetAwaiter().GetResult();
 
                     ISession session;
-                    if (ASYNC_SESSIONS)
-                    {
-                        // SessionAsync implementation does not handle LocaleCulture correctly, so use Session for now until SessionAsync is updated
-                        session = new SessionAsync(terminal) { OnFinish = OnSessionFinish };
-                        Debug.WriteLine(String.Format("Starting async session {0}", session));
-                        session.Start(); // fire and forget
-                    } else
-                    {
-                        // SYNC: Thread per session
-                        session = new Session(terminal) { OnFinish = OnSessionFinish };
-                        Debug.WriteLine(String.Format("Starting session {0}", session));
-                        session.Start(); // Start on dedicated thread
-                    }
+
+                    // SessionAsync implementation does not handle LocaleCulture correctly, so use Session for now until SessionAsync is updated
+                    session = new SessionAsync(terminal) { OnFinish = OnSessionFinish };
+                    Debug.WriteLine(String.Format("Starting async session {0}", session));
+                    session.Start(); // fire and forget
+
+#if false
+                    // SYNC: Thread per session
+                    session = new Session(terminal) { OnFinish = OnSessionFinish };
+                    Debug.WriteLine(String.Format("Starting session {0}", session));
+                    session.Start(); // Start on dedicated thread
+#endif
+                    
                     Data.Store.AddSession(session);
                     PrintServerStatistics();
                 }

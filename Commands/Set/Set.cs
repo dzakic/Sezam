@@ -14,18 +14,19 @@ namespace Sezam.Commands
         {
         }
 
-        public void Password()
+        [Command(Description = "Change login password")]
+        public async void Password()
         {
             if (session.User.Password.HasValue())
             {
-                var verifyPass = session.terminal.InputStr(strings.Set_Prompt_CurrentPassword, InputFlags.Password);
+                var verifyPass = await session.terminal.InputStr(strings.Set_Prompt_CurrentPassword, InputFlags.Password);
                 if (verifyPass != session.User.Password)
                     return;
             }
-            var newPass = session.terminal.InputStr(L("Set_Prompt_NewPassword"), InputFlags.Password);
+            var newPass = await session.terminal.InputStr(L("Set_Prompt_NewPassword"), InputFlags.Password);
             if (!newPass.HasValue())
                 return;
-            var againPass = session.terminal.InputStr(L("Set_Prompt_VerifyPassword"), InputFlags.Password);
+            var againPass = await session.terminal.InputStr(L("Set_Prompt_VerifyPassword"), InputFlags.Password);
             if (newPass != againPass)
             {
                 session.terminal.Line("");

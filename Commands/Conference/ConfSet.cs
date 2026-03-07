@@ -87,9 +87,9 @@ namespace Sezam.Commands
             ResetConfStatus(Data.EF.ConfStatus.Private);
         }
 
-        public void Moderator()
+        public async void Moderator()
         {
-            var moderator = GetRequiredUser();
+            var moderator = await GetRequiredUser();
             var mConfData = moderator.GetUserConfInfo(CurrentConference);
 
             if (session.cmdLine.Switch("d"))

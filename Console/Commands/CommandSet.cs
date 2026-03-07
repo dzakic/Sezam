@@ -7,6 +7,7 @@
     using System.Linq;
     using System.Reflection;
     using System.Runtime.ExceptionServices;
+    using System.Threading.Tasks;
 
     /// <summary>
     /// CommandSet represents a context for executing commands. It can contain methods that are commands, 
@@ -52,7 +53,7 @@
         /// </summary>
         public string L(string Key) => _resourceManager?.GetString(Key, session.SessionCulture) ?? Key;
 
-        public bool ExecuteCommand(string cmd)
+        public async Task<bool> ExecuteCommand(string cmd)
         {
 
             // Command Set with this name?
@@ -64,7 +65,7 @@
                 if (cmd.HasValue())
                 {
                     // execute command in the context of cmdSet
-                    if (!cmdSet.ExecuteCommand(cmd))
+                    if (!await cmdSet.ExecuteCommand(cmd))
                         session.terminal.Line("Unknown {0} command {1}", cmdSet.DisplayName(), cmd);                }
                 else
                 {
@@ -75,14 +76,14 @@
             }
 
             session.LastCommand = DateTime.UtcNow;
-            return InvokeCommand(cmd);
+            return await InvokeCommand(cmd);
         }
 
         /// <summary>
         /// Returns true if command was found and executed
         /// </summary>
 
-        private bool InvokeCommand(string cmd)
+        private async Task<bool> InvokeCommand(string cmd)
         {
             var command = GetCommandMethod(cmd);
             if (command is null)
@@ -90,12 +91,18 @@
 
             try
             {
-                command.Invoke(this, null);
+                var result = command.Invoke(this, null);
+
+                // Handle async methods that return Task
+                if (result is Task task)
+                {
+                    await task;
+                }
             }
-            catch (TargetInvocationException e)
+            catch (TargetInvocationException e) when (e.InnerException is not null)
             {
-                if (e.InnerException is not null)
-                    throw e.InnerException!;
+                // Only for synchronous methods - unwrap and rethrow
+                ExceptionDispatchInfo.Capture(e.InnerException).Throw();
             }
             return true;
         }
@@ -378,7 +385,7 @@
         private IEnumerable<MethodInfo> GetMethods() =>
             GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance)
                 .Where(m => (m.IsPublic || m.IsDefined(typeof(CommandAttribute)))
-                    && m.ReturnType == typeof(void)
+                    && (m.ReturnType == typeof(void) || m.ReturnType == typeof(Task))
                     && m.GetParameters().Length == 0);
 
         private IEnumerable<MethodInfo> GetCommandSets() =>
@@ -400,13 +407,13 @@
         /// Get user from command line
         /// </summary>
         /// <returns></returns>
-        protected User GetRequiredUser()
+        protected async Task<User> GetRequiredUser()
         {
             var username = session.cmdLine.GetToken();
             if (!username.HasValue())
                 throw new ArgumentException("Username required");
 
-            var user = session.GetUser(username)
+            var user = await session.GetUser(username)
                 ?? throw new ArgumentException($"Unknown user: {username}");
             return user;
         }

@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Sezam
 {
@@ -129,26 +130,29 @@ namespace Sezam
             Out.NewLine = CRLF;
             tcpClient.NoDelay = true;
             tcpClient.SendBufferSize = 1024;
+        }
 
+        public async Task InitializeAsync()
+        {
             foreach (var telOpt in telnetOptions)
             {
-                SendCode(telOpt.MyDesiredCommand, telOpt.opt); // I Will-Wont
+                await SendCode(telOpt.MyDesiredCommand, telOpt.opt); // I Will-Wont
                 var clientCommand = telOpt.ClientDesiredCommand;
                 if (clientCommand != Command.NOP)
-                    SendCode(clientCommand, telOpt.opt);
+                    await SendCode(clientCommand, telOpt.opt);
             }
         }
 
-        private void SendCode(Command code, Option feature)
+        private async Task SendCode(Command code, Option feature)
         {
-            Span<byte> outStream = stackalloc byte[3];
+            byte[] outStream = new byte[3];
             outStream[0] = (byte)Command.IAC;
             outStream[1] = (byte)code;
             outStream[2] = (byte)feature;
-            
+
             try
             {
-                netStream.Write(outStream);
+                await netStream.WriteAsync(outStream);
             }
             catch (ObjectDisposedException)
             {
@@ -158,7 +162,7 @@ namespace Sezam
             {
                 throw new TerminalException(TerminalException.CodeType.ClientDisconnected);
             }
-            
+
             Debug.Write($"[SERVER: {code} {feature}] ");
         }
 
@@ -176,13 +180,13 @@ namespace Sezam
             catch { }
         }
 
-        private void FillInputBuffer()
+        private async Task FillInputBuffer()
         {
             if (inputPos >= inputLen)
             {
                 try
                 {
-                    inputLen = netStream.Read(inputBytes, 0, inputBytes.Length);
+                    inputLen = await netStream.ReadAsync(inputBytes);
                 }
                 catch (ObjectDisposedException)
                 {
@@ -212,27 +216,27 @@ namespace Sezam
                 _ => false
             };
 
-        private byte PeekByteFromNetworkStream()
+        private async Task<byte> PeekByteFromNetworkStream()
         {
-            FillInputBuffer();
-            return inputBytes[inputPos];
+            await FillInputBuffer();
+            return inputBytes.Span[inputPos];
         }
 
-        private byte GetByteFromNetworkStream()
+        private async Task<byte> GetByteFromNetworkStream()
         {
-            FillInputBuffer();
-            return inputBytes[inputPos++];
+            await FillInputBuffer();
+            return inputBytes.Span[inputPos++];
         }
 
-        private void ProcessTelnetCommands()
+        private async Task ProcessTelnetCommands()
         {
-            int next = PeekByteFromNetworkStream();
+            int next = await PeekByteFromNetworkStream();
             Debug.Assert(next == (byte)Command.IAC, "We should not be here if telnet command not pending");
             
             while (next == (byte)Command.IAC)
             {
-                var iac = (Command)GetByteFromNetworkStream();
-                var cmd = (Command)GetByteFromNetworkStream();
+                var iac = (Command) await GetByteFromNetworkStream();
+                var cmd = (Command) await GetByteFromNetworkStream();
                 var opt = Option.NONE;
                 
                 switch (cmd)
@@ -241,7 +245,7 @@ namespace Sezam
                     case Command.DONT:
                     case Command.WILL:
                     case Command.WONT:
-                        opt = (Option)GetByteFromNetworkStream();
+                        opt = (Option) await GetByteFromNetworkStream();
                         Debug.Write($"[CLIENT: {cmd} {opt}] ");
                         
                         var telOpt = telnetOptions.FirstOrDefault(topt => topt.opt == opt);
@@ -251,38 +255,38 @@ namespace Sezam
                             {
                                 telOpt.myState = cmd == Command.DO;
                                 if (telOpt.MyCommandConflictsDesired(cmd))
-                                    SendCode(telOpt.MyDesiredCommand, opt);
+                                    await SendCode(telOpt.MyDesiredCommand, opt);
                             }
                             if (cmd is Command.WILL or Command.WONT)
                             {
                                 telOpt.clientState = cmd == Command.WILL;
                                 if (telOpt.ClientCommandConflictsDesired(cmd))
-                                    SendCode(telOpt.ClientDesiredCommand, opt);
+                                    await SendCode(telOpt.ClientDesiredCommand, opt);
                             }
                         }
                         break;
 
                     case Command.SB:
-                        ProcessSubnegotiation();
+                        await ProcessSubnegotiation();
                         break;
                 }
                 
-                next = PeekByteFromNetworkStream();
+                next = await PeekByteFromNetworkStream();
             }
         }
 
-        private void ProcessSubnegotiation()
+        private async Task ProcessSubnegotiation()
         {
-            var opt = (Option)GetByteFromNetworkStream();
+            var opt = (Option) await GetByteFromNetworkStream();
             var negotiationStr = new List<byte>();
-            
+
             while (Connected)
             {
-                byte b = GetByteFromNetworkStream();
-                if (b == (byte)Command.IAC && PeekByteFromNetworkStream() == (byte)Command.SE)
+                byte b = await GetByteFromNetworkStream();
+                if (b == (byte)Command.IAC && await PeekByteFromNetworkStream() == (byte)Command.SE)
                 {
-                    GetByteFromNetworkStream(); // pop peeked SE
-                    
+                    await GetByteFromNetworkStream(); // pop peeked SE
+
                     switch (opt)
                     {
                         case Option.NegotiateAboutWindowSize when negotiationStr.Count >= 4:
@@ -301,23 +305,24 @@ namespace Sezam
             }
         }
 
-        protected override char ReadChar()
+        protected override async Task<char> ReadChar()
         {
             while (true)
             {
-                byte peekChr = PeekByteFromNetworkStream();
+                byte peekChr = await PeekByteFromNetworkStream();
                 if (peekChr == (byte)Command.IAC)
                 {
-                    ProcessTelnetCommands();
+                    await ProcessTelnetCommands();
                     continue;
                 }
+
+                Span<char> chars = stackalloc char[1];
                 // UTF decode the next character, which may be multiple bytes
-                char[] chars = Encoding.UTF8.GetChars(inputBytes, inputPos, inputLen - inputPos);
-                if (chars.Length == 0)
+                int len = Encoding.UTF8.GetChars(inputBytes.Span.Slice(inputPos, 1), chars);
+                if (len == 0)
                     return NulChar;
 
-                int len = Encoding.UTF8.GetByteCount([chars[0]]);
-                inputPos += len;
+                inputPos += 1;
                 return chars[0];
             }
         }
@@ -327,15 +332,15 @@ namespace Sezam
         /// and Home/End sequences (ESC [ H/F or ESC [ 1/4 ~)
         /// A=Up, B=Down, C=Right, D=Left, H=Home, F=End
         /// </summary>
-        protected override KeyInfo ReadKeyInfo()
+        protected override async Task<KeyInfo> ReadKeyInfo()
         {
-            var chr = ReadChar();
-            
+            var chr = await ReadChar();
+
             // Handle carriage return
             if (chr == CR)
             {
-               if (PeekByteFromNetworkStream() == LF)
-                    GetByteFromNetworkStream();
+               if (await PeekByteFromNetworkStream() == LF)
+                    await GetByteFromNetworkStream();
                 return new KeyInfo { Char = CR };
             }
 
@@ -347,13 +352,13 @@ namespace Sezam
 
             if (chr == Esc)
             {
-                chr = ReadChar();
+                chr = await ReadChar();
 
-                
+
                 if (chr == '[')
                 {
-                    chr = ReadChar();
-                    
+                    chr = await ReadChar();
+
                     // Handle standard arrow keys and Home/End
                     if (chr is >= 'A' and <= 'F')
                     {
@@ -368,11 +373,11 @@ namespace Sezam
                             _ => new KeyInfo { }
                         };
                     }
-                    
+
                     // Handle tilde sequences: ESC [ 1 ~ (Home), ESC [ 4 ~ (End), etc.
                     if (chr is >='1' and <= '4')
                     {                        
-                        if (ReadChar() == '~')
+                        if (await ReadChar() == '~')
                         {
                             return chr switch
                             {
@@ -391,7 +396,8 @@ namespace Sezam
             return new KeyInfo { Char = chr };
         }
 
-        private readonly byte[] inputBytes = new byte[256];
+        // private readonly byte[] inputBytes = new byte[256];
+        private readonly Memory<byte> inputBytes = new byte[256];
         private int inputLen;
         private int inputPos;
         private readonly TcpClient tcpClient;

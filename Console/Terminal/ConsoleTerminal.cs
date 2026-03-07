@@ -1,4 +1,6 @@
-﻿namespace Sezam
+﻿using System.Threading.Tasks;
+
+namespace Sezam
 {
     public class ConsoleTerminal : Terminal, ITerminal
     {
@@ -24,20 +26,20 @@
             connected = false;
         }
 
-        protected override char ReadChar() =>
-            System.Console.ReadKey(true).KeyChar;
+        protected override Task<char> ReadChar() =>
+            Task.FromResult(System.Console.ReadKey(true).KeyChar);
 
         /// <summary>
         /// Console implementation that captures full key information including arrow keys
         /// </summary>
-        protected override KeyInfo ReadKeyInfo()
+        protected override Task<KeyInfo> ReadKeyInfo()
         {
             var cki = System.Console.ReadKey(true);
-            return new KeyInfo
+            return Task.FromResult(new KeyInfo
             {
                 Char = cki.KeyChar,
                 Key = cki.Key
-            };
+            });
         }
 
         public override void ClearScreen() =>

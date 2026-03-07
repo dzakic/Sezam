@@ -33,12 +33,9 @@ namespace Sezam
         void Line(string Message = "", params object[] args);
         void Text(string Text);
         void Close();
-        string PromptEdit(string prompt = "", InputFlags flags = 0);
-        Task<string> PromptEditAsync(string prompt = "", InputFlags flags = 0, CancellationToken cancellationToken = default);
-        string InputStr(string label = "", InputFlags flags = 0);
-        Task<string> InputStrAsync(string label = "", InputFlags flags = 0, CancellationToken cancellationToken = default);
-        int PromptSelection(string promptAnswers);
-        Task<int> PromptSelectionAsync(string promptAnswers, CancellationToken cancellationToken = default);
+        Task<string> PromptEdit(string prompt = "", InputFlags flags = 0);
+        Task<string> InputStr(string label = "", InputFlags flags = 0);
+        Task<int> PromptSelection(string promptAnswers);
         int PageSize { get; set; }
         int LineWidth { get; }
         string Id { get; }
@@ -82,14 +79,14 @@ namespace Sezam
             LineFinished();
         }
 
-        protected void LineFinished()
+        protected async void LineFinished()
         {
             if (lineCount > 0)
                 lineCount++;
             
             if (lineCount >= PageSize)
             {
-                int more = PromptSelection("More?Yes/No/All");
+                int more = await PromptSelection("More?Yes/No/All");
                 switch (more)
                 {
                     case 0:
@@ -120,33 +117,17 @@ namespace Sezam
 
         private void ResetPageCount() => lineCount = 1;
 
-        protected virtual char ReadChar() => ' ';
+        protected virtual Task<char> ReadChar() => Task.FromResult(' ');
 
         /// <summary>
         /// Enhanced ReadKey that returns key information for arrow key handling.
         /// Default implementation returns character only; console can override for full key info.
         /// </summary>
-        protected virtual KeyInfo ReadKeyInfo()
+        protected virtual async Task<KeyInfo> ReadKeyInfo()
         {
-            return new KeyInfo { Char = ReadChar() };
+            return new KeyInfo { Char = await ReadChar() };
         }
-
-        public virtual Task<string> PromptEditAsync(string prompt = "", InputFlags flags = 0, CancellationToken cancellationToken = default) =>
-            cancellationToken.IsCancellationRequested
-                ? Task.FromCanceled<string>(cancellationToken)
-                : Task.Run(() => PromptEdit(prompt, flags), cancellationToken);
-
-        public virtual Task<string> InputStrAsync(string label = "", InputFlags flags = 0, CancellationToken cancellationToken = default) =>
-            cancellationToken.IsCancellationRequested
-                ? Task.FromCanceled<string>(cancellationToken)
-                : Task.Run(() => InputStr(label, flags), cancellationToken);
-
-        public virtual Task<int> PromptSelectionAsync(string promptAnswers, CancellationToken cancellationToken = default) =>
-            cancellationToken.IsCancellationRequested
-                ? Task.FromCanceled<int>(cancellationToken)
-                : Task.Run(() => PromptSelection(promptAnswers), cancellationToken);
-
-        public int PromptSelection(string promptOptions)
+        public async Task<int> PromptSelection(string promptOptions)
         {
             var prompts = promptOptions.Split('?');
             var prompt = prompts.Length > 0 ? prompts[0] : string.Empty;
@@ -163,10 +144,11 @@ namespace Sezam
             {
                 try
                 {
-                    char ch = char.ToLower(ReadChar());
+                    // Synchronous wrapper for async ReadChar
+                    char ch = char.ToLower(await ReadChar());
                     if (ch is CR or LF)
                         return 0;
-                    
+
                     for (int choice = 0; choice < options.Length; choice++)
                     {
                         if (options[choice].Length > 0 && ch == char.ToLower(options[choice][0]))
@@ -181,23 +163,24 @@ namespace Sezam
             }
         }
 
-        public string PromptEdit(string prompt = "", InputFlags flags = 0)
+        public async Task<string> PromptEdit(string prompt = "", InputFlags flags = 0)
         {
             ResetPageCount();
             if (!string.IsNullOrWhiteSpace(prompt))
                 Out.Write(prompt);
             Out.Flush();
-            
+
             var line = string.Empty;
             int cursorPos = 0; // Position within the line
             char c = ' ';
             bool isPassword = flags.HasFlag(InputFlags.Password);
-            
+
             while (c != '\r')
             {
-                var keyInfo = ReadKeyInfo();
+                // Synchronous wrapper for async ReadKeyInfo
+                var keyInfo = await ReadKeyInfo();
                 c = keyInfo.Char;
-                
+
                 switch(keyInfo.Key)
                 {
                     case ConsoleKey.LeftArrow:
@@ -262,7 +245,7 @@ namespace Sezam
                     case '\r':
                     case '\t':
                         break;
-                    
+
                     default:
                         // Insert character at cursor position
                         line = line.Insert(cursorPos, c.ToString());
@@ -273,7 +256,7 @@ namespace Sezam
                 }
                 Out.Flush();
             }
-            
+
             Out.WriteLine();
             Out.Flush();
             return line;
@@ -310,7 +293,7 @@ namespace Sezam
             }
         }
 
-        public string InputStr(string label = "", InputFlags flags = 0) =>
+        public Task<string> InputStr(string label = "", InputFlags flags = 0) =>
             PromptEdit($"{label}: ", flags);
 
         private int lineCount;

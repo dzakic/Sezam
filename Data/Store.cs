@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 
+
 namespace Sezam.Data
 {
     public class SezamDbContext(DbContextOptions options) : DbContext(options)

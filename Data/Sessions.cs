@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 
 namespace Sezam.Data
 {
@@ -44,7 +45,7 @@ namespace Sezam.Data
         /// or asynchronous, but callers can invoke it without awaiting.  If the session 
         /// fails to start, it should throw an exception to indicate that it cannot be used.
         /// </summary>
-        void Start();
+        Task Start();
 
     }
 }
