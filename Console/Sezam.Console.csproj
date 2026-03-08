@@ -12,6 +12,9 @@
     <ProjectReference Include="..\Data\Sezam.Data.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="StackExchange.Redis" Version="2.8.0" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Update="strings.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>

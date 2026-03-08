@@ -18,6 +18,7 @@ namespace Sezam
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             server = new Server(configuration);
+            await server.InitializeAsync();
             console = new ConsoleLoop(server);
 
             lifetime.ApplicationStopping.Register(OnApplicationStopping);

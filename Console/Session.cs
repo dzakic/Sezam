@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -28,6 +28,9 @@ namespace Sezam
 
             cts = new CancellationTokenSource();
         }
+
+        // Broadcaster for distributing session events
+        public MessageBroadcaster MessageBroadcaster => Data.Store.MessageBroadcaster;
 
         private ConcurrentDictionary<string, User> userCache = new (StringComparer.OrdinalIgnoreCase);
 
@@ -98,6 +101,19 @@ namespace Sezam
             }
             finally
             {
+                // Broadcast session leave to other nodes
+                if (Data.Store.MessageBroadcaster != null && User != null)
+                {
+                    try
+                    {
+                        await Data.Store.MessageBroadcaster.BroadcastSessionLeaveAsync(Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Failed to broadcast session leave: {ex.Message}");
+                    }
+                }
+
                 try { SysLog("Disconnected"); } 
                 catch { }
                 try { Db?.Dispose(); } 
@@ -141,6 +157,21 @@ namespace Sezam
                 // Set session culture based on user preference
                 // SetSessionCulture(User.Language);
                 SetSessionCulture("sr");
+
+                // Broadcast session join to other nodes
+                if (Data.Store.MessageBroadcaster != null)
+                {
+                    try
+                    {
+                        var sessionInfo = SessionInfo.FromSession(this as ISession, Data.Store.MessageBroadcaster.LocalNodeId, terminal.Id);
+                        await Data.Store.MessageBroadcaster.BroadcastSessionJoinAsync(sessionInfo);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Failed to broadcast session join: {ex.Message}");
+                        ErrorHandling.Handle(ex);
+                    }
+                }
 
                 try
                 {
@@ -434,3 +465,4 @@ namespace Sezam
         protected CancellationTokenSource cts;
     }
 }
+

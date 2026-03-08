@@ -6,6 +6,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Xml.Linq;
 
 
 namespace Sezam.Data
@@ -50,24 +51,57 @@ namespace Sezam.Data
     {
         public static void ConfigureFrom(IConfiguration configuration)
         {
-            DbName = ResolveConfigValue(configuration, "DbName") ?? "sezam";
-            ServerName = ResolveConfigValue(configuration, "ServerName");
-            Password = ResolveConfigValue(configuration, "Password");
+            // Database Configuration
+            string DbHost = ResolveConfigValue(configuration, "DB_HOST", "DbHost");
+            string DbName = ResolveConfigValue(configuration, "DB_NAME", "DbName") ?? "sezam";
+            string Password = ResolveConfigValue(configuration, "DB_PASSWORD", "DbPassword");
+
+            if (!string.IsNullOrEmpty(DbHost))
+            {
+                DbConnectionString = $"server={DbHost};database={DbName};user=sezam;password={Password}";
+            } else
+                DbConnectionString = ResolveConfigValue(configuration, "SezamDb") 
+                    ?? ResolveConfigValue(configuration, "Database") 
+                    ?? ResolveConfigValue(configuration, "Db");
+
+            Trace.TraceInformation($"Database Connection: '{DbConnectionString}'");
+
+            // Redis Configuration
+            string redisHost = ResolveConfigValue(configuration, "REDIS_HOST", "RedisHost");
+            if (!string.IsNullOrWhiteSpace(redisHost))
+            {
+                // Infer connection string from host (add default port if not present)
+                RedisConnectionString = redisHost.Contains(":") ? redisHost : $"{redisHost}:6379";
+            }
+            else
+            {
+                RedisConnectionString = ResolveConfigValue(configuration, "Redis");
+            }
+            Trace.TraceInformation($"Redis Connection: '{RedisConnectionString}'");
         }
 
-        public static string ResolveConfigValue(IConfiguration configuration, string name) =>
-            Environment.GetEnvironmentVariable(name)
-                ?? Environment.GetEnvironmentVariable($"ConnectionStrings__{name}")
-                ?? configuration?.GetConnectionString(name)
-                ?? configuration?[$"ConnectionStrings:{name}"]
-                ?? configuration?[name];
+        public static string ResolveConfigValue(IConfiguration configuration, params string[] names)
+        {
+            foreach (var name in names)
+            {
+                var value = configuration?[name]
+                    ?? configuration?.GetConnectionString(name)
+                    ?? configuration?[$"{name}:ConnectionString"]
+                    ?? configuration?[$"ConnectionStrings:{name}"];
+                if (value != null)
+                {
+                    Trace.TraceInformation($"Resolved config value for '{name}': {(string.IsNullOrEmpty(value) ? "null" : value)}");
+                    return value;
+                }
+                // Trace.WriteLine($"Tried resolving config for '{name}', no luck.");
+            }
+            return null;
+        }
 
         public static DbContextOptionsBuilder GetOptionsBuilder(DbContextOptionsBuilder builder)
         {
-            var connectionString = $"server={ServerName};database={DbName};user=sezam;password={Password}";
-            Debug.WriteLine($"ServerName: {ServerName}");
             return builder
-                .UseMySQL(connectionString)
+                .UseMySQL(DbConnectionString)
                 .EnableSensitiveDataLogging()
                 .UseLazyLoadingProxies();
         }
@@ -80,18 +114,25 @@ namespace Sezam.Data
 
         public static readonly ConcurrentDictionary<Guid, ISession> Sessions = new();
 
-
         public static void AddSession(ISession session)
         {
             Sessions.TryAdd(session.Id, session);
         }
+
         public static void RemoveSession(ISession session)
         {
             Sessions.TryRemove(session.Id, out _);
         }
 
-        public static string ServerName { get; private set; }
-        public static string Password { get; private set; }
-        public static string DbName { get; private set; }
+        // Database Configuration Properties
+        public static string DbConnectionString { get; private set; }
+
+        // Redis Configuration Properties
+        public static string RedisConnectionString { get; private set; }
+        // Redis is enabled if connection string is not empty            
+        public static bool RedisEnabled => RedisConnectionString.IsWhiteSpace();
+
+        // Message Broadcaster Singleton (dynamic type to avoid circular dependency)
+        public static dynamic MessageBroadcaster { get; set; }
     }
 }

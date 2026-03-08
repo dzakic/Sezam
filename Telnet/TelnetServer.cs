@@ -14,8 +14,8 @@ namespace Sezam
 
             var builder = Host.CreateApplicationBuilder(args);
             builder.Configuration
+                .AddJsonFile("appsettings.json", optional: true)
                 .AddJsonFile("appsettings-secrets.json", optional: true)
-                .AddJsonFile("/etc/sezam/appsettings.json", optional: true)
                 .AddEnvironmentVariables();
 
             builder.Services.AddHostedService<TelnetHostedService>();

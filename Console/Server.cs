@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 
 namespace Sezam
@@ -17,16 +18,29 @@ namespace Sezam
 
     public class Server : IDisposable
     {
+        private IConfigurationRoot configuration;
+
         public Server(IConfigurationRoot configuration)
         {
             Data.Store.ConfigureFrom(configuration);
             sessionFinished = new AutoResetEvent(false);
+            this.configuration = configuration;
+        }
+
+        public async Task InitializeAsync()
+        {
+            if (Data.Store.RedisEnabled)
+            {
+                Data.Store.MessageBroadcaster = new MessageBroadcaster();
+                await Data.Store.MessageBroadcaster.InitializeAsync(Data.Store.RedisConnectionString);
+            }
         }
 
         public void Dispose()
         {
             GC.SuppressFinalize(this);
             Stop();
+            Data.Store.MessageBroadcaster?.DisposeAsync().GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -133,7 +147,6 @@ namespace Sezam
                     var terminal = new TelnetTerminal(tcpClient);
                     // Initialize telnet options asynchronously
                     terminal.InitializeAsync().GetAwaiter().GetResult();
-
                     var session = new Session(terminal) { OnFinish = OnSessionFinish };
                     Data.Store.AddSession(session);
                     _ = session.Run(); // fire and forget, intentionally marked with discard

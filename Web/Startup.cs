@@ -30,6 +30,16 @@ namespace Sezam.Web
             services
                 .AddDbContext<SezamDbContext>(options => Data.Store.GetOptionsBuilder(options))
                 .AddRazorPages();
+
+            if (Data.Store.RedisEnabled)
+            {
+                services.AddSingleton<MessageBroadcaster>(sp => 
+                {
+                    Data.Store.MessageBroadcaster = new MessageBroadcaster();
+                    Data.Store.MessageBroadcaster.InitializeAsync(Data.Store.RedisConnectionString).GetAwaiter().GetResult();
+                    return Data.Store.MessageBroadcaster;
+                });
+            }
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

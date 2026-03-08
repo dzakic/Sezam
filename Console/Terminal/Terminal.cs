@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace Sezam
 {
@@ -122,11 +123,15 @@ namespace Sezam
 
 
         volatile protected TaskCompletionSource paged = new();
+        
 
         public void PageMessage(string message)
         {
             messageQueue.Enqueue(message);
             paged.TrySetResult();
+
+            // Broadcast to other nodes if Redis is available
+            _ = Data.Store.MessageBroadcaster?.BroadcastAsync(message);
         }
 
         private void DisplayBroadcastMessage(string message)

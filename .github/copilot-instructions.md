@@ -115,3 +115,94 @@ dotnet publish -c Release Sezam.Telnet/Sezam.Telnet.csproj
 - **Session lifecycle**: [Console/Session.cs](Console/Session.cs), [Console/Server.cs](Console/Server.cs)
 - **Database model**: [Data/Store.cs](Data/Store.cs), [Data/EF/](Data/EF/)
 - **Terminal interface**: [Console/Terminal/Terminal.cs](Console/Terminal/Terminal.cs), [Console/Terminal/TelnetTerminal.cs](Console/Terminal/TelnetTerminal.cs)
+
+## Documentation & File Organization Conventions
+
+### Root Folder
+- **ONLY** `README.md` in root directory
+- All other `.md` files go in `/Doc`
+- Root must stay clean and organized
+- Exception: Only standard project files (LICENSE, .gitignore, etc.)
+
+### Documentation Files (/Doc folder - CRITICAL RULE)
+- **ALL .md documentation files go in `/Doc`** - NO EXCEPTIONS
+- Includes: Architecture, research, reference, guides, implementations, status
+- Naming: Use descriptive SNAKE_CASE or TITLE_CASE (e.g., `REDIS_CONFIGURATION_RESEARCH.md`, `DATA_STORE_COMPLETE_REFERENCE.md`)
+- Structure: Organize by topic (prefix with feature/topic area)
+- Categories:
+  - `ARCHITECTURE_*.md` - System design and architecture
+  - `REDIS_*.md` - Redis/configuration related
+  - `DATA_*.md` - Database/data model docs
+  - `SESSION_*.md` - Session management
+  - `OPTIMIZATION_*.md` - Performance and optimization
+  - `ROBUSTNESS_*.md` - Error handling and resilience
+  - Status files: `STATUS.md`, `FINAL_SUMMARY.md`
+
+### Operational Documentation (During Sessions)
+- Session-specific documents created during work start in `/Doc`
+- Do NOT create ad-hoc summary files in root
+- Consolidate findings into architectural/reference docs
+- Delete temporary/operational docs after session review
+
+### Persistent Documentation (Evergreen)
+Keep in `/Doc` - These are referenced by future sessions:
+- Architecture diagrams and overviews
+- Complete API references
+- Configuration patterns and guides
+- Database schema documentation
+- Performance optimization strategies
+- Robustness and error handling patterns
+- Architectural decisions and rationale
+
+### Session Guidelines
+When working:
+1. Create all new `.md` files in `/Doc` - not in root
+2. Consolidate findings into existing architectural docs
+3. Don't create ad-hoc session summary files in root
+4. Update existing docs rather than creating new ones
+5. Keep root folder clean - only README.md
+
+## Configuration Management (Critical Pattern)
+
+### Smart Configuration in Data.Store
+```csharp
+// ALL global configuration and services go in Data.Store
+Store.ServerName              // Database host
+Store.DbName                  // Database name (default: "sezam")
+Store.Password                // Database password
+Store.RedisConnectionString   // Redis host:port
+Store.RedisEnabled            // Is Redis configured?
+Store.MessageBroadcaster      // Global broadcaster singleton
+Store.Sessions                // All active sessions (thread-safe)
+```
+
+### Configuration Rules
+- **Priority**: Environment variables → Config file → Defaults
+- **Host inference**: `DB_HOST` and `REDIS_HOST` auto-inferred to full connection strings
+- **Graceful disabling**: Features (Redis) auto-disable if not configured
+- **Singletons**: Global services stored in `Data.Store`; accessible from anywhere
+
+### Redis Configuration
+- Centralized in `Data.Store.RedisConnectionString`
+- Check availability via `Data.Store.RedisEnabled`
+- Use `RedisChannel.Literal()` for channel names (NOT implicit string conversion)
+- Channels: `"sezam:broadcast"` (messages), `"sezam:sessions"` (session events)
+
+## Build & Code Quality Standards
+
+- Always verify build is successful: `dotnet build`
+- Fix deprecation warnings (e.g., `RedisChannel.Literal()`)
+- No breaking changes without careful consideration
+- Maintain 100% backward compatibility
+- Document all changes to public APIs
+
+## Session Guidelines
+
+When starting work:
+1. Read this file for conventions
+2. Check `/Doc` for relevant documentation
+3. Understand architecture via existing docs
+4. Create research/planning docs in `/Doc` before implementation
+5. Update this file with new conventions as they emerge
+6. Keep `/Doc` organized; root directory clean
+7. Verify final build is successful and warning-free
