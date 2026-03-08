@@ -31,13 +31,6 @@ namespace Sezam
 
         private ConcurrentDictionary<string, User> userCache = new (StringComparer.OrdinalIgnoreCase);
 
-        public virtual Task Start()
-        {
-            if (runTask == null)
-                runTask = Task.Run(() => Run());
-            return runTask;
-        }
-
         // Background thread run
         public async Task Run()
         {
@@ -116,7 +109,7 @@ namespace Sezam
 
         private async Task WelcomeAndLogin()
         {
-            Debug.WriteLine($"Session thread running for {terminal.Id}");
+            Debug.WriteLine($"Session welcome on {terminal.Id}");
             ConnectTime = DateTime.Now;
 
             PrintBanner();
@@ -309,7 +302,10 @@ namespace Sezam
             if (!cmd.HasValue())
                 return;
 
-            SysLog($"Cmd {0} >> {1} > {2}", currentCommandSet.GetType().Name, cmd, string.Join(" ", cmdLine.GetRemainingTokens()));
+            SysLog(string.Format("Cmd {0} >> {1} > {2}", 
+                currentCommandSet.GetType().Name, 
+                cmd, 
+                string.Join(" ", cmdLine.GetRemainingTokens())));
 
             if (!(await currentCommandSet.ExecuteCommand(cmd)))
             {

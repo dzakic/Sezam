@@ -79,7 +79,7 @@ namespace Sezam.Tests
             // Arrange
             var hangingTerminal = new HangingMockTerminal();
             var session = new Session(hangingTerminal);
-            session.Start();
+            _ = session.Run();
             Thread.Sleep(100);  // Let it start blocking
 
             // Act

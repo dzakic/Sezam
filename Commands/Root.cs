@@ -81,14 +81,15 @@ namespace Sezam.Commands
         [Command(Description = "Show the software version (internal)")]
         public void Version()
         {
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies().Where(a => a.FullName.StartsWith("Sezam")))
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies()
+                .Where(a => a.FullName.StartsWith("Sezam")))
             {
                 FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
                 var fi = new System.IO.FileInfo(fvi.OriginalFilename);
-                session.terminal.Line("{0,-16} {1,-16} {2:dd-MMM-yyyy HH:mm}",
-                    fvi.ProductName,
-                    fvi.ProductVersion,
-                    fi.CreationTime
+                session.terminal.Line("{0,-28} {1,-36} {2:dd-MMM-yyyy HH:mm}",
+                    assembly.ManifestModule.Name,
+                    assembly.ManifestModule.ModuleVersionId,
+                    fi.LastWriteTime
                     );
             }
         }
