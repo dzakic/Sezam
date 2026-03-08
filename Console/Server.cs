@@ -46,7 +46,7 @@ namespace Sezam
 
             isDraining = true;
             Trace.TraceInformation("Server entering drain mode. No new sessions will be accepted.");
-            // LocalBroadcast("SERVER: Server is entering drain mode. No new sessions will be accepted.");
+            LocalBroadcast("SYSTEM", "*", "Shutting down for maintenance in 30min.");
 
             try
             {
@@ -56,6 +56,12 @@ namespace Sezam
             {
                 ErrorHandling.Handle(ex);
             }
+        }
+
+        private void LocalBroadcast(string fromUser, string toUser, string message)
+        {
+            foreach (Session s in Data.Store.Sessions.Values.Where(s => toUser == "*" || s.Username.Equals(toUser)))
+                s.Broadcast(fromUser, message);
         }
 
         public bool WaitForDrain(TimeSpan timeout)

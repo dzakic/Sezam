@@ -32,13 +32,25 @@ namespace Sezam
         /// <summary>
         /// Console implementation that captures full key information including arrow keys
         /// </summary>
-        protected override async Task<KeyInfo> ReadKeyInfo()
+        protected override async Task<KeyInfo> ReadKeyInfoWithPage()
         {
-            var cki = System.Console.ReadKey(true);
+            var readKeyTask = Task.Run(() => System.Console.ReadKey(true));
+            while (true)
+            {
+                var signalTask = paged.Task;
+                var winner = await Task.WhenAny(readKeyTask, signalTask);
+                if (winner == signalTask)
+                {
+                    checkPage();
+                    continue;
+                }
+                break;
+            }
+            var keyInfo = await readKeyTask;
             return new KeyInfo
             {
-                Char = cki.KeyChar,
-                Key = cki.Key
+                Char = keyInfo.KeyChar,
+                Key = keyInfo.Key
             };
         }
 

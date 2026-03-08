@@ -33,15 +33,21 @@ namespace Sezam.Commands
         {
             var user = await GetRequiredUser();
 
-            while (true)
-            {
-                var message = await session.terminal.PromptEdit($"Enter message to page {user.Username}: ");
-                if (message.IsWhiteSpace())
-                    break;
-                // TODO: check if user is online, fail if not
-                await session.terminal.Line($"Will page user '{user.Username}' with message '{message}'. ToDo.");
-                // TODO: Implement actual paging logic, e.g. by sending a message to the user's session or storing it for later retrieval
-            }
+            var pagedSession = Data.Store.Sessions.Where(s => s.Value.Username == user.Username).Select(s => s.Value).FirstOrDefault();
+            if (pagedSession is null)
+                throw new ArgumentException($"User '{user.Username}' is not currently online.");
+
+            var message = session.cmdLine.GetRemainingText();
+            if (!message.IsWhiteSpace())
+                pagedSession.Broadcast(session.User.Username, message);
+             else 
+                while (true)
+                {
+                    message = await session.terminal.PromptEdit($"-> {user.Username}: ");
+                    if (message.IsWhiteSpace())
+                        break;
+                        pagedSession.Broadcast(session.User.Username, message);                    
+                }
         }
 
         [Command(Description = "Show a list of system users")]

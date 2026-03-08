@@ -46,6 +46,7 @@ namespace Sezam.Data
         /// fails to start, it should throw an exception to indicate that it cannot be used.
         /// </summary>
         Task Start();
+        void Broadcast(string from, string message);
 
     }
 }

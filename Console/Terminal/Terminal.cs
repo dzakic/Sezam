@@ -1,5 +1,5 @@
 ﻿using System;
-
+using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -36,6 +36,7 @@ namespace Sezam
         Task<string> PromptEdit(string prompt = "", InputFlags flags = 0);
         Task<string> InputStr(string label = "", InputFlags flags = 0);
         Task<int> PromptSelection(string promptAnswers);
+        void PageMessage(string message);
         int PageSize { get; set; }
         int LineWidth { get; }
         string Id { get; }
@@ -119,14 +120,58 @@ namespace Sezam
 
         protected abstract Task<char> ReadChar();
 
+
+        volatile protected TaskCompletionSource paged = new();
+
+        public void PageMessage(string message)
+        {
+            messageQueue.Enqueue(message);
+            paged.TrySetResult();
+        }
+
+        private void DisplayBroadcastMessage(string message)
+        {
+            // store cursor, goto pos 0, inser line
+            Out.Write(ANSIC('S', 1) + ANSIC('A')); //  scroll up 1, move cursor up
+            Out.Write(ANSIC('s') + CR + ANSIC('L'));
+            Out.Write(ANSIC('m', 33));
+            Out.WriteLine(message);
+            Out.Write(ANSIC('m', 0));
+            // restore cursor, move down one line because of the inserted line
+            Out.Write(ANSIC('u') + ANSIC('B'));
+            Out.Flush();
+        }
+
+        protected void checkPage()
+        {
+            paged = new();
+            while (messageQueue.TryDequeue(out var nextMessage))
+                DisplayBroadcastMessage(nextMessage);
+        }
+
+        protected async Task<char> ReadCharWithPage()
+        {
+            var readCharTask = ReadChar();
+            while (true)
+            {
+                var signalTask = paged.Task;
+                var winner = await Task.WhenAny(readCharTask, signalTask);
+                if (winner == signalTask)
+                {
+                    checkPage();
+                    continue;
+                } 
+                break;
+            }
+            return await readCharTask;
+        }
+
         /// <summary>
         /// Enhanced ReadKey that returns key information for arrow key handling.
-        /// Default implementation returns character only; console can override for full key info.
+        /// No Default implementation. Console reads directly from console keys, telnet has to interpret ANSI escape codes.
+        /// Respects broadcast messages by checking message queue before blocking on read.
         /// </summary>
-        protected virtual async Task<KeyInfo> ReadKeyInfo()
-        {
-            return new KeyInfo { Char = await ReadChar() };
-        }
+        protected abstract Task<KeyInfo> ReadKeyInfoWithPage();
         public async Task<int> PromptSelection(string promptOptions)
         {
             var prompts = promptOptions.Split('?');
@@ -134,6 +179,8 @@ namespace Sezam
             var options = prompts.Length > 1 ? prompts[1].Split('/') : [""];
 
             ResetPageCount();
+
+            // Display prompt and options
             if (!string.IsNullOrWhiteSpace(prompt))
                 Out.Write($"{prompt}? ");
 
@@ -144,13 +191,14 @@ namespace Sezam
             {
                 try
                 {
-                    // Synchronous wrapper for async ReadChar
-                    char ch = char.ToLower(await ReadChar());
+                    char ch = char.ToLower(await ReadCharWithPage());
                     if (ch == CR)
                     {
+                        // Accept Default (first) option on Enter
                         return 0;
                     }
 
+                    // Match input character to first character of options (case-insensitive)
                     for (int choice = 0; choice < options.Length; choice++)
                     {
                         if (options[choice].Length > 0 && ch == char.ToLower(options[choice][0]))
@@ -179,8 +227,8 @@ namespace Sezam
 
             while (c != '\r')
             {
-                // Synchronous wrapper for async ReadKeyInfo
-                var keyInfo = await ReadKeyInfo();
+                checkPage();
+                var keyInfo = await ReadKeyInfoWithPage();
                 c = keyInfo.Char;
 
                 switch(keyInfo.Key)
@@ -313,9 +361,12 @@ namespace Sezam
 
         private int pageSize;
 
+        protected string ANSIC(char code, params object[] parameters) =>
+            $"{Esc}[{string.Join(";", parameters)}{code}";
+
         protected void SendANSI(char code, params object[] parameters)
         {
-            Out.Write($"{Esc}[{string.Join(";", parameters)}{code}");
+            Out.Write(ANSIC(code, parameters));
         }
 
         public virtual void CursorRight(int right = 1)
@@ -344,5 +395,7 @@ namespace Sezam
         public virtual void ClearToEOL() => SendANSI('K');
 
         protected TextWriter Out;
+        private ConcurrentQueue<string> messageQueue = new();
+
     }
 }

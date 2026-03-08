@@ -313,7 +313,7 @@ namespace Sezam
                 if (peekChr == (byte)Command.IAC)
                 {
                     await ProcessTelnetCommands();
-                    continue;
+                        continue;
                 }
 
                 Span<char> chars = stackalloc char[1];
@@ -331,16 +331,17 @@ namespace Sezam
         /// Telnet implementation that detects arrow key sequences (ESC [ A/B/C/D)
         /// and Home/End sequences (ESC [ H/F or ESC [ 1/4 ~)
         /// A=Up, B=Down, C=Right, D=Left, H=Home, F=End
+        /// Message-aware: respects broadcast messages arriving during input
         /// </summary>
-        protected override async Task<KeyInfo> ReadKeyInfo()
+        protected override async Task<KeyInfo> ReadKeyInfoWithPage()
         {
-            var chr = await ReadChar();
+            var chr = await ReadCharWithPage();
 
             // Handle carriage return
             if (chr == CR)
             {
                if (await PeekByteFromNetworkStream() == LF)
-                    await GetByteFromNetworkStream();
+                    _ = await GetByteFromNetworkStream();
                 return new KeyInfo { Char = CR };
             }
 
@@ -352,12 +353,12 @@ namespace Sezam
 
             if (chr == Esc)
             {
-                chr = await ReadChar();
+                chr = await ReadCharWithPage();
 
 
                 if (chr == '[')
                 {
-                    chr = await ReadChar();
+                    chr = await ReadCharWithPage();
 
                     // Handle standard arrow keys and Home/End
                     if (chr is >= 'A' and <= 'F')
@@ -377,7 +378,7 @@ namespace Sezam
                     // Handle tilde sequences: ESC [ 1 ~ (Home), ESC [ 4 ~ (End), etc.
                     if (chr is >='1' and <= '4')
                     {                        
-                        if (await ReadChar() == '~')
+                        if (await ReadCharWithPage() == '~')
                         {
                             return chr switch
                             {

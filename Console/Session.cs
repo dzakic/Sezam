@@ -29,10 +29,6 @@ namespace Sezam
             cts = new CancellationTokenSource();
         }
 
-        // ROBUSTNESS: Fix #8 - Error loop prevention counter
-        private int consecutiveExceptionCount;
-        private const int MaxConsecutiveExceptions = 3;
-
         private ConcurrentDictionary<string, User> userCache = new (StringComparer.OrdinalIgnoreCase);
 
         public virtual Task Start()
@@ -45,6 +41,8 @@ namespace Sezam
         // Background thread run
         public async Task Run()
         {
+            int consecutiveExceptionCount = 0;
+            const int MaxConsecutiveExceptions = 3;
             try
             {
                 try
@@ -85,7 +83,8 @@ namespace Sezam
                             if (consecutiveExceptionCount > MaxConsecutiveExceptions)
                             {
                                 await terminal.Line("Too many errors. Disconnecting.");
-                                throw new TerminalException(TerminalException.CodeType.ClientDisconnected);
+                                terminal.Close();
+                                break;
                             }
 
                             await Task.Delay(100);
@@ -152,7 +151,7 @@ namespace Sezam
 
                 try
                 {
-                    Db.SaveChanges();
+                    await Db.SaveChangesAsync();
                 }
                 catch (DbUpdateException ex)
                 {
@@ -387,6 +386,11 @@ namespace Sezam
                 Debug.WriteLine($"Format error for resource '{resourceKey}': {ex.Message}");
                 return format;
             }
+        }
+
+        public void Broadcast(string fromUser, string message)
+        {
+            terminal.PageMessage($"{fromUser}: {message}");
         }
 
         public CommandLine cmdLine = null;

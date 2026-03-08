@@ -66,6 +66,12 @@ namespace Sezam.Commands
             return token;
         }
 
+        // Get remaining text after current token index, useful for commands that take free-form text as parameter
+        public string GetRemainingText()
+        {
+            return string.Join(" ", tokens.Skip(currentTokenIndex));
+        }
+
         public IEnumerable<string> GetRemainingTokens()
         {
             return tokens.Skip(currentTokenIndex);

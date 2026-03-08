@@ -36,6 +36,8 @@ namespace Sezam.Tests
         public Task<int> PromptSelection(string promptAnswers) =>
             Task.FromResult(0);
 
+        public void PageMessage(string message) { }
+
         public void Close()
         {
             Connected = false;
