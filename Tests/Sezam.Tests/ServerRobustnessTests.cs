@@ -5,6 +5,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Sezam;
 using Sezam.Data;
 
@@ -17,6 +19,7 @@ namespace Sezam.Tests
     [TestFixture]
     public class ServerRobustnessTests
     {
+        private ILogger<Session> logger = new NullLogger<Session>();
         /// <summary>
         /// Test that multiple sessions can be created, used, and closed concurrently
         /// without deadlocks or resource leaks.
@@ -38,7 +41,7 @@ namespace Sezam.Tests
                 var thread = new Thread(() =>
                 {
                     var term = new MockTerminal();
-                    var sess = new Session(term);
+                    var sess = new Session(term, logger);
                     
                     lock (sessions) { sessions.Add(sess); }
                     
@@ -78,7 +81,7 @@ namespace Sezam.Tests
         {
             // Arrange
             var hangingTerminal = new HangingMockTerminal();
-            var session = new Session(hangingTerminal);
+            var session = new Session(hangingTerminal, logger);
             _ = session.Run();
             Thread.Sleep(100);  // Let it start blocking
 
@@ -108,7 +111,7 @@ namespace Sezam.Tests
             var sessions = new List<Session>();
             for (int i = 0; i < 10; i++)
             {
-                sessions.Add(new Session(new MockTerminal()));
+                sessions.Add(new Session(new MockTerminal(), logger));
             }
 
             // Act: Simulate concurrent Store.Sessions read/write
@@ -164,7 +167,7 @@ namespace Sezam.Tests
                 threads.Add(new Thread(() =>
                 {
                     var term = new MockTerminal();
-                    var sess = new Session(term);
+                    var sess = new Session(term, logger);
                     var ctx = sess.Db;
                     
                     lock (syncLock)
@@ -210,7 +213,7 @@ namespace Sezam.Tests
                     try
                     {
                         var term = new MockTerminal();
-                        var sess = new Session(term);
+                        var sess = new Session(term, logger);
                         // Minimal activity
                         Thread.Sleep(1);
                         sess.Close();
@@ -234,3 +237,4 @@ namespace Sezam.Tests
         }
     }
 }
+

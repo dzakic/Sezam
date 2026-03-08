@@ -3,6 +3,8 @@ using System;
 using System.Threading;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Sezam;
 using Sezam.Data;
 using Sezam.Commands;
@@ -18,12 +20,13 @@ namespace Sezam.Tests
     {
         private MockTerminal? mockTerminal;
         private Session? session;
+        private ILogger<Session> logger = new NullLogger<Session>();
 
         [SetUp]
         public void Setup()
         {
             mockTerminal = new MockTerminal();
-            session = new Session(mockTerminal);
+            session = new Session(mockTerminal, logger);
         }
 
         [TearDown]
@@ -42,7 +45,7 @@ namespace Sezam.Tests
         {
             // Arrange
             var term = new MockTerminal();
-            var sess = new Session(term);
+            var sess = new Session(term, logger);
 
             // Act & Assert: Should close without throwing
             Assert.DoesNotThrow(() =>
@@ -62,7 +65,7 @@ namespace Sezam.Tests
             // Arrange
             // Use a mock that never returns from PromptEdit
             var hangingTerminal = new HangingMockTerminal();
-            var hangingSession = new Session(hangingTerminal);
+            var hangingSession = new Session(hangingTerminal, logger);
             _ = hangingSession.Run();
             Thread.Sleep(100);
 
@@ -159,3 +162,4 @@ namespace Sezam.Tests
         }
     }
 }
+

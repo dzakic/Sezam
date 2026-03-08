@@ -196,6 +196,17 @@ Store.Sessions                // All active sessions (thread-safe)
 - Maintain 100% backward compatibility
 - Document all changes to public APIs
 
+## Logging Standards
+
+- Use `Microsoft.Extensions.Logging` with `ILogger<T>` injection
+- Never use old `System.Diagnostics.Trace` or `Debug.WriteLine`
+- Configure log levels in appsettings.json (not in code)
+- Log levels: Trace → Debug → Information → Warning → Error → Critical
+- Structured logging: use named parameters for context
+- Example: `logger.LogInformation("User {Username} logged in", username)`
+- Scopes for context: `using (logger.BeginScope("UserId: {UserId}", userId))`
+- Configuration: See `Doc/LOGGING_SETUP_GUIDE.md` for complete patterns
+
 ## Session Guidelines
 
 When starting work:

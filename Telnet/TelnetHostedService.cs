@@ -4,25 +4,33 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Sezam
 {
     internal class TelnetHostedService : BackgroundService
     {
-        public TelnetHostedService(IConfiguration configuration, IHostApplicationLifetime lifetime)
+        private readonly ILoggerFactory loggerFactory;
+        private readonly ILogger<TelnetHostedService> logger;
+
+        public TelnetHostedService(IConfiguration configuration, IHostApplicationLifetime lifetime, ILoggerFactory loggerFactory, ILogger<TelnetHostedService> logger)
         {
             this.configuration = configuration as IConfigurationRoot ?? throw new ArgumentException("Configuration must implement IConfigurationRoot", nameof(configuration));
             this.lifetime = lifetime;
+            this.loggerFactory = loggerFactory;
+            this.logger = logger;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            server = new Server(configuration);
+            var serverLogger = loggerFactory.CreateLogger<Server>();
+            server = new Server(configuration, serverLogger, loggerFactory);
             await server.InitializeAsync();
             console = new ConsoleLoop(server);
 
             lifetime.ApplicationStopping.Register(OnApplicationStopping);
 
+            logger.LogInformation("Telnet server starting");
             console.Start();
             server.Start();
 
@@ -30,7 +38,7 @@ namespace Sezam
             {
                 if (console.EscPressed.WaitOne(1000))
                 {
-                    Trace.TraceInformation("ESC pressed. Requesting graceful shutdown.");
+                    logger.LogInformation("ESC pressed, requesting graceful shutdown");
                     lifetime.StopApplication();
                     break;
                 }

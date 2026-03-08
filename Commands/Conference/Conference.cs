@@ -308,7 +308,7 @@ namespace Sezam.Commands
         [CommandParameter("from", "Only select messages from this author, specify the username.")]
         [CommandSwitch('f', "Select only messages with files")]
         [CommandSwitch('a', "Select all messages, including old")]
-        public async void Read()
+        public async Task Read()
         {
             var selection = (await GetConfMsgSelection()).AsReadDTO();
             foreach (var msg in selection)

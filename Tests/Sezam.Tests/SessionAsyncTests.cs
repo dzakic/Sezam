@@ -4,6 +4,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Sezam;
 
 namespace Sezam.Tests
@@ -17,12 +19,13 @@ namespace Sezam.Tests
     {
         private MockTerminal? mockTerminal;
         private Session? session;
+        private ILogger<Session> logger = new NullLogger<Session>();
 
         [SetUp]
         public void Setup()
         {
             mockTerminal = new MockTerminal();
-            session = new Session(mockTerminal);
+            session = new Session(mockTerminal, logger);
         }
 
         [TearDown]
@@ -73,7 +76,7 @@ namespace Sezam.Tests
             for (int i = 0; i < 10; i++)
             {
                 var term = new MockTerminal();
-                var sess = new Session(term);
+                var sess = new Session(term, logger);
                 sessions.Add(sess);
                 
                 var task = sess.Run().ContinueWith(_ => 

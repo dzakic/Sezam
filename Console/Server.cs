@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using MySqlX.XDevAPI;
 using Sezam.Data;
 using System;
@@ -18,10 +19,14 @@ namespace Sezam
 
     public class Server : IDisposable
     {
+        private readonly ILogger<Server> logger;
+        private readonly ILoggerFactory loggerFactory;
         private IConfigurationRoot configuration;
 
-        public Server(IConfigurationRoot configuration)
+        public Server(IConfigurationRoot configuration, ILogger<Server> logger, ILoggerFactory loggerFactory)
         {
+            this.logger = logger;
+            this.loggerFactory = loggerFactory;
             Data.Store.ConfigureFrom(configuration);
             sessionFinished = new AutoResetEvent(false);
             this.configuration = configuration;
@@ -33,6 +38,11 @@ namespace Sezam
             {
                 Data.Store.MessageBroadcaster = new MessageBroadcaster();
                 await Data.Store.MessageBroadcaster.InitializeAsync(Data.Store.RedisConnectionString);
+                logger.LogInformation("Redis message broadcaster initialized on {RedisConnectionString}", Data.Store.RedisConnectionString);
+            }
+            else
+            {
+                logger.LogInformation("Redis not configured, running in local-only mode");
             }
         }
 
@@ -113,7 +123,8 @@ namespace Sezam
                 if (key == ConsoleKey.Enter)
                 {
                     var console = new ConsoleTerminal();
-                    var consoleSession = new Session(console) { OnFinish = OnSessionFinish };
+                    var sessionLogger = loggerFactory.CreateLogger<Session>();
+                    var consoleSession = new Session(console, sessionLogger) { OnFinish = OnSessionFinish };
                     Data.Store.AddSession(consoleSession);
                     consoleSession.Run().GetAwaiter().GetResult();
                 }
@@ -147,7 +158,9 @@ namespace Sezam
                     var terminal = new TelnetTerminal(tcpClient);
                     // Initialize telnet options asynchronously
                     terminal.InitializeAsync().GetAwaiter().GetResult();
-                    var session = new Session(terminal) { OnFinish = OnSessionFinish };
+
+                    var sessionLogger = loggerFactory.CreateLogger<Session>();
+                    var session = new Session(terminal, sessionLogger) { OnFinish = OnSessionFinish };
                     Data.Store.AddSession(session);
                     _ = session.Run(); // fire and forget, intentionally marked with discard
                     PrintServerStatistics();
@@ -244,9 +257,9 @@ namespace Sezam
 
         public void PrintServerStatistics()
         {
-            Trace.TraceInformation($"SERVER: Running, {Data.Store.Sessions.Count} active connections:");
+            logger.LogInformation($"SERVER: Running, {Data.Store.Sessions.Count} active connections:");
             foreach (var sess in Data.Store.Sessions)
-                Trace.TraceInformation(sess.ToString());
+                logger.LogInformation(sess.ToString());
         }
 
         private TcpListener listener;

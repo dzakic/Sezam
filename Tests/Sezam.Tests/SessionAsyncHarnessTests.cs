@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Sezam;
 
 namespace Sezam.Tests
@@ -15,6 +17,7 @@ namespace Sezam.Tests
     [TestFixture]
     public class SessionAsyncHarnessTests
     {
+        private ILogger<Session> logger = new NullLogger<Session>();
         /// <summary>
         /// Launch and manage multiple concurrent SessionAsync instances.
         /// This simulates the original SessionHarness tool functionality.
@@ -34,7 +37,7 @@ namespace Sezam.Tests
             for (int i = 0; i < sessionCount; i++)
             {
                 var terminal = new MockTerminal();
-                var sess = new Session(terminal);
+                var sess = new Session(terminal, logger);
                 sessions[i] = sess;
                 
                 sess.OnFinish += (s, e) =>
@@ -90,7 +93,7 @@ namespace Sezam.Tests
                 // Create batch
                 for (int i = 0; i < sessionsPerIteration; i++)
                 {
-                    var sess = new Session(new MockTerminal());
+                    var sess = new Session(new MockTerminal(), logger);
                     sess.OnFinish += (s, e) =>
                     {
                         Interlocked.Increment(ref totalFinished);
@@ -140,7 +143,7 @@ namespace Sezam.Tests
             var sessions = new List<Session>();
             for (int i = 0; i < sessionCount; i++)
             {
-                var sess = new Session(new MockTerminal());
+                var sess = new Session(new MockTerminal(), logger);
                 sessions.Add(sess);
                 
                 // Fire and forget
@@ -181,3 +184,4 @@ namespace Sezam.Tests
                 "Entire harness should complete in under 25 seconds");        }
     }
 }
+

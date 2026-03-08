@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Sezam.Data;
 using Sezam.Data.EF;
 using Sezam.Commands;
@@ -15,9 +16,12 @@ namespace Sezam
 {
     public class Session : ISession
     {
-        public Session(ITerminal terminal)
+        private readonly ILogger<Session> logger;
+
+        public Session(ITerminal terminal, ILogger<Session> logger)
         {
             this.terminal = terminal;
+            this.logger = logger;
             Id = Guid.NewGuid();            
             commandSets = [];
             NodeNo = Environment.CurrentManagedThreadId;
@@ -73,11 +77,13 @@ namespace Sezam
                         catch (Exception e)
                         {
                             consecutiveExceptionCount++;
+                            logger.LogError(e, "Session error: {Message}", e.Message);
                             await terminal.Line("Blimey! System Error: {0}", e.Message);
                             ErrorHandling.Handle(e);
 
                             if (consecutiveExceptionCount > MaxConsecutiveExceptions)
                             {
+                                logger.LogCritical("Too many consecutive errors ({Count}), disconnecting", consecutiveExceptionCount);
                                 await terminal.Line("Too many errors. Disconnecting.");
                                 terminal.Close();
                                 break;
@@ -95,6 +101,7 @@ namespace Sezam
                 catch (Exception e)
                 {
                     consecutiveExceptionCount = 0;
+                    logger.LogError(e, "Unrecoverable session error: {Message}", e.Message);
                     await terminal.Line(Console.strings.ErrorUnrecoverable, e.Message);
                     ErrorHandling.Handle(e);
                 }
@@ -107,17 +114,18 @@ namespace Sezam
                     try
                     {
                         await Data.Store.MessageBroadcaster.BroadcastSessionLeaveAsync(Id);
+                        logger.LogDebug("Broadcasted session leave for user {Username}", User.Username);
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Failed to broadcast session leave: {ex.Message}");
+                        logger.LogWarning(ex, "Failed to broadcast session leave: {Message}", ex.Message);
                     }
                 }
 
-                try { SysLog("Disconnected"); } 
+                try { logger.LogInformation("Session disconnected for user {Username}", Username); } 
                 catch { }
                 try { Db?.Dispose(); } 
-                catch (Exception ex) { Debug.WriteLine($"Db dispose error: {ex.Message}"); }
+                catch (Exception ex) { logger.LogWarning(ex, "Error disposing DbContext: {Message}", ex.Message); }
                 try { OnFinish?.Invoke(this, null); } 
                 catch (Exception ex) { ErrorHandling.Handle(ex); }
             }
@@ -125,18 +133,18 @@ namespace Sezam
 
         private async Task WelcomeAndLogin()
         {
-            Debug.WriteLine($"Session welcome on {terminal.Id}");
+            logger.LogDebug("Session welcome on {TerminalId}", terminal.Id);
             ConnectTime = DateTime.Now;
 
             PrintBanner();
-            SysLog("Connected");
+            logger.LogInformation("Session connected from {TerminalId}", terminal.Id);
 
             var user = await Login();
             if (user is null)
             {
                 await terminal.Line(Console.strings.Login_UnknownUser);
                 terminal.Close();
-                SysLog("Unknown user. Disconnecting.");
+                logger.LogWarning("Unknown user attempted login from {TerminalId}", terminal.Id);
             }
             else
             {
@@ -145,11 +153,11 @@ namespace Sezam
                 {
                     await terminal.Line($"User {user.Username} is already online since {previousSession.ConnectTime}");
                     terminal.Close();
-                    SysLog("User already online. Disconnecting.");
+                    logger.LogWarning("User {Username} already online since {ConnectTime}", user.Username, previousSession.ConnectTime);
                 }
 
                 User = user;
-                SysLog("Loggedin");
+                logger.LogInformation("User {Username} authenticated from {TerminalId}", user.Username, terminal.Id);
                 LoginTime = DateTime.UtcNow;
                 Db.UserId = User.Id;
                 User.LastCall = LoginTime;
@@ -165,10 +173,11 @@ namespace Sezam
                     {
                         var sessionInfo = SessionInfo.FromSession(this as ISession, Data.Store.MessageBroadcaster.LocalNodeId, terminal.Id);
                         await Data.Store.MessageBroadcaster.BroadcastSessionJoinAsync(sessionInfo);
+                        logger.LogDebug("Broadcasted session join for user {Username}", user.Username);
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Failed to broadcast session join: {ex.Message}");
+                        logger.LogError(ex, "Failed to broadcast session join: {Message}", ex.Message);
                         ErrorHandling.Handle(ex);
                     }
                 }
@@ -179,7 +188,7 @@ namespace Sezam
                 }
                 catch (DbUpdateException ex)
                 {
-                    Debug.WriteLine($"Login save failed: {ex.Message}");
+                    logger.LogError(ex, "Failed to save login data: {Message}", ex.Message);
                     ErrorHandling.Handle(ex);
                 }
             }
@@ -333,16 +342,19 @@ namespace Sezam
             if (!cmd.HasValue())
                 return;
 
-            SysLog(string.Format("Cmd {0} >> {1} > {2}", 
+            logger.LogDebug("Executing command {CommandSet}.{Command} with args {Args}", 
                 currentCommandSet.GetType().Name, 
                 cmd, 
-                string.Join(" ", cmdLine.GetRemainingTokens())));
+                string.Join(" ", cmdLine.GetRemainingTokens()));
 
             if (!(await currentCommandSet.ExecuteCommand(cmd)))
             {
                 var root = lazyRootCommandSet.Value;
                 if (!await root.ExecuteCommand(cmd))
+                {
+                    logger.LogDebug("Unknown command: {Command}", cmd);
                     await terminal.Line("Unknown command {0}", cmd);
+                }
             }
         }
 
@@ -383,7 +395,7 @@ namespace Sezam
 
         public void SysLog(string Message, params string[] args)
         {
-            Trace.TraceInformation("{0:yyMMdd HHmmss} {1,-3} {2,-16} {3}", DateTime.Now, NodeNo, Username, string.Format(Message, args));
+            logger.LogInformation("{Message}", string.Format(Message, args));
         }
 
         /// <summary>
