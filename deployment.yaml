@@ -1,13 +1,84 @@
-# kubectl create -f kubernetes/deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
- name: sezam.web
- labels:
-   app: sezam.web
-spec:
- replicas: 2
- selector:
-   matchLabels:
-     app: sezam.web
- template:
+version: '3.8'
+
+services:
+  # The Message Broker for your Chat logic
+  redis:
+    image: redis:alpine
+    networks:
+      - net
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  # Your .NET Telnet Service
+  tel:
+    image: dev.zakic.net/sezam.net:latest
+    entrypoint: /app/Sezam.Telnet
+    command: []
+    stop_grace_period: 1h
+    ports:
+      - target: 2023
+        published: 2023
+        protocol: tcp
+        mode: ingress  # Swarm load balances traffic to all replicas
+    environment:
+      - REDIS_HOST=redis
+      - DB_HOST=tux
+    networks:
+      - net
+    deploy:
+      mode: replicated
+      replicas: 2  # Total number of processes across the whole swarm
+      update_config:
+        parallelism: 1           # Update one node at a time
+        delay: 30s               # Wait 30s between nodes
+        order: start-first       # Spin up the new version BEFORE killing the old one
+      placement:
+        max_replicas_per_node: 2 # Spreads them out for high availability
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      # Use 'netstat' or 'timeout' to see if the port is accepting connections
+      test: ["CMD-SHELL", "timeout 1s bash -c ':> /dev/tcp/127.0.0.1/2023' || exit 1"]
+      interval: 30s    # Check every 30 seconds
+      timeout: 5s      # Give up if no response in 5 seconds
+      retries: 3       # Mark as "Unhealthy" after 3 failures
+      start_period: 1m # Give the .NET app 1 minute to boot up before checking
+  web:
+    image: dev.zakic.net/sezam.net:latest
+    entrypoint: /app/Sezam.Web
+    command: []
+    stop_grace_period: 10m
+    ports:
+      - target: 8080
+        published: 2080
+        protocol: tcp
+        mode: ingress  # Swarm load balances traffic to all replicas
+    environment:
+      - REDIS_HOST=redis
+      - DB_HOST=tux
+    networks:
+      - net
+    deploy:
+      mode: replicated
+      replicas: 2  # Total number of processes across the whole swarm
+      update_config:
+        parallelism: 1           # Update one node at a time
+        delay: 30s               # Wait 30s between nodes
+        order: start-first       # Spin up the new version BEFORE killing the old one
+      placement:
+        max_replicas_per_node: 3 # Spreads them out for high availability
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+
+networks:
+  net:
+    driver: overlay
