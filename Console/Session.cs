@@ -31,13 +31,6 @@ namespace Sezam
 
         private ConcurrentDictionary<string, User> userCache = new (StringComparer.OrdinalIgnoreCase);
 
-        public virtual Task Start()
-        {
-            if (runTask == null)
-                runTask = Task.Run(() => Run());
-            return runTask;
-        }
-
         // Background thread run
         public async Task Run()
         {

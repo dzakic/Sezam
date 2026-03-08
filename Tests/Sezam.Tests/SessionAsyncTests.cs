@@ -16,13 +16,13 @@ namespace Sezam.Tests
     public class SessionAsyncTests
     {
         private MockTerminal? mockTerminal;
-        private SessionAsync? session;
+        private Session? session;
 
         [SetUp]
         public void Setup()
         {
             mockTerminal = new MockTerminal();
-            session = new SessionAsync(mockTerminal);
+            session = new Session(mockTerminal);
         }
 
         [TearDown]
@@ -43,7 +43,7 @@ namespace Sezam.Tests
             var startTime = Stopwatch.StartNew();
 
             // Act
-            var runTask = session!.RunAsync();
+            var runTask = session!.Run();
             
             // Give it a moment to start processing
             await Task.Delay(100);
@@ -66,17 +66,17 @@ namespace Sezam.Tests
         {
             // Arrange
             int completedCount = 0;
-            var sessions = new List<SessionAsync>();
+            var sessions = new List<Session>();
             var tasks = new List<Task>();
 
             // Act: Launch 10 concurrent sessions
             for (int i = 0; i < 10; i++)
             {
                 var term = new MockTerminal();
-                var sess = new SessionAsync(term);
+                var sess = new Session(term);
                 sessions.Add(sess);
                 
-                var task = sess.RunAsync().ContinueWith(_ => 
+                var task = sess.Run().ContinueWith(_ => 
                 {
                     Interlocked.Increment(ref completedCount);
                 });
@@ -105,7 +105,7 @@ namespace Sezam.Tests
         public async Task SessionAsync_Close_CancelsCancellationToken()
         {
             // Arrange
-            var runTask = session!.RunAsync();
+            var runTask = session!.Run();
             await Task.Delay(50);
 
             // Act
@@ -127,7 +127,7 @@ namespace Sezam.Tests
         public async Task SessionAsync_Cleanup_FreesResources()
         {
             // Arrange
-            var runTask = session!.RunAsync();
+            var runTask = session!.Run();
             await Task.Delay(50);
 
             // Act & Assert: Should clean up without throwing

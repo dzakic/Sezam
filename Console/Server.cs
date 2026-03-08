@@ -101,7 +101,7 @@ namespace Sezam
                     var console = new ConsoleTerminal();
                     var consoleSession = new Session(console) { OnFinish = OnSessionFinish };
                     Data.Store.AddSession(consoleSession);
-                    consoleSession.Start().GetAwaiter().GetResult();
+                    _ = consoleSession.Run();
                 }
 
             };
@@ -134,21 +134,11 @@ namespace Sezam
                     // Initialize telnet options asynchronously
                     terminal.InitializeAsync().GetAwaiter().GetResult();
 
-                    ISession session;
-
-                    // SessionAsync implementation does not handle LocaleCulture correctly, so use Session for now until SessionAsync is updated
-                    session = new SessionAsync(terminal) { OnFinish = OnSessionFinish };
+                    var session = new Session(terminal) { OnFinish = OnSessionFinish };
                     Debug.WriteLine(String.Format("Starting async session {0}", session));
-                    session.Start(); // fire and forget
 
-#if false
-                    // SYNC: Thread per session
-                    session = new Session(terminal) { OnFinish = OnSessionFinish };
-                    Debug.WriteLine(String.Format("Starting session {0}", session));
-                    session.Start(); // Start on dedicated thread
-#endif
-                    
                     Data.Store.AddSession(session);
+                    _ = session.Run(); // fire and forget, intentionally marked with discard
                     PrintServerStatistics();
                 }
                 catch (TerminalException te) when (te.Code == TerminalException.CodeType.ClientDisconnected)

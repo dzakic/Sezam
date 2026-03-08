@@ -63,7 +63,7 @@ namespace Sezam.Tests
             // Use a mock that never returns from PromptEdit
             var hangingTerminal = new HangingMockTerminal();
             var hangingSession = new Session(hangingTerminal);
-            hangingSession.Start();
+            _ = hangingSession.Run();
             Thread.Sleep(100);
 
             // Act

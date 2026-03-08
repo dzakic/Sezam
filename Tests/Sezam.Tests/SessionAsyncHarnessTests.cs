@@ -25,7 +25,7 @@ namespace Sezam.Tests
         {
             // Arrange
             const int sessionCount = 50;
-            var sessions = new SessionAsync[sessionCount];
+            var sessions = new Session[sessionCount];
             var finishedCount = 0;
             var stopwatch = Stopwatch.StartNew();
 
@@ -34,7 +34,7 @@ namespace Sezam.Tests
             for (int i = 0; i < sessionCount; i++)
             {
                 var terminal = new MockTerminal();
-                var sess = new SessionAsync(terminal);
+                var sess = new Session(terminal);
                 sessions[i] = sess;
                 
                 sess.OnFinish += (s, e) =>
@@ -43,7 +43,7 @@ namespace Sezam.Tests
                 };
                 
                 // Fire and forget (like the harness)
-                _ = sess.RunAsync();
+                _ = sess.Run();
             }
 
             // Wait a moment for sessions to process
@@ -85,12 +85,12 @@ namespace Sezam.Tests
             // Act: Multiple cycles of create/run/close
             for (int cycle = 0; cycle < iterations; cycle++)
             {
-                var sessions = new List<SessionAsync>();
+                var sessions = new List<Session>();
                 
                 // Create batch
                 for (int i = 0; i < sessionsPerIteration; i++)
                 {
-                    var sess = new SessionAsync(new MockTerminal());
+                    var sess = new Session(new MockTerminal());
                     sess.OnFinish += (s, e) =>
                     {
                         Interlocked.Increment(ref totalFinished);
@@ -99,7 +99,7 @@ namespace Sezam.Tests
                     totalCreated++;
                     
                     // Start async (fire and forget)
-                    _ = sess.RunAsync();
+                    _ = sess.Run();
                 }
 
                 // Brief processing time
@@ -137,15 +137,15 @@ namespace Sezam.Tests
             var stopwatch = Stopwatch.StartNew();
 
             // Act: Launch sessions and measure completion time
-            var sessions = new List<SessionAsync>();
+            var sessions = new List<Session>();
             for (int i = 0; i < sessionCount; i++)
             {
-                var sess = new SessionAsync(new MockTerminal());
+                var sess = new Session(new MockTerminal());
                 sessions.Add(sess);
                 
                 // Fire and forget
                 var sw = Stopwatch.StartNew();
-                var task = sess.RunAsync();
+                var task = sess.Run();
                 _ = task.ContinueWith(_ =>
                 {
                     sw.Stop();
