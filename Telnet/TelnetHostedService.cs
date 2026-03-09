@@ -76,13 +76,13 @@ namespace Sezam
             if (int.TryParse(configuredDrainSeconds, out var configuredSeconds) && configuredSeconds > 0)
                 drainSeconds = configuredSeconds;
 
-            Trace.TraceInformation($"Node entering maintenance mode. Waiting {drainSeconds}s for users to disconnect...");
+            logger.LogInformation($"Node entering maintenance mode. Waiting {drainSeconds}s for users to disconnect...");
             server.BeginDrain();
 
             var drained = server.WaitForDrain(TimeSpan.FromSeconds(drainSeconds));
             if (!drained)
             {
-                Trace.TraceWarning("Drain timeout reached. Continuing shutdown with active sessions: {0}", Data.Store.Sessions.Count);
+                logger.LogWarning("Drain timeout reached. Continuing shutdown with active sessions: {0}", Data.Store.Sessions.Count);
             }
         }
 

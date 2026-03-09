@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Extensions.Logging;
+using System;
 using System.Diagnostics;
 using System.Net.Sockets;
 
@@ -20,9 +21,9 @@ namespace Sezam
 
         public static void PrintException(Exception e)
         {
-            Trace.TraceError("{0}.{1}: {2}", e.Source, e.GetType().Name, e.Message);
-            Debug.WriteLine($"Unhandled Exception: {e.Message}");
-            Debug.WriteLine(e.StackTrace);
+            Data.Store.logger.LogCritical("{0}.{1}: {2}", e.Source, e.GetType().Name, e.Message);
+            // Debug.WriteLine($"Unhandled Exception: {e.Message}");
+            // Debug.WriteLine(e.StackTrace);
             if (e.InnerException is not null)
                 PrintException(e.InnerException);
         }

@@ -19,14 +19,12 @@ namespace Sezam
 
     public class Server : IDisposable
     {
-        private readonly ILogger<Server> logger;
-        private readonly ILoggerFactory loggerFactory;
         private IConfigurationRoot configuration;
 
         public Server(IConfigurationRoot configuration, ILogger<Server> logger, ILoggerFactory loggerFactory)
         {
-            this.logger = logger;
-            this.loggerFactory = loggerFactory;
+            Data.Store.logger = logger;
+            Data.Store.loggerFactory = loggerFactory;
             Data.Store.ConfigureFrom(configuration);
             sessionFinished = new AutoResetEvent(false);
             this.configuration = configuration;
@@ -37,12 +35,27 @@ namespace Sezam
             if (Data.Store.RedisEnabled)
             {
                 Data.Store.MessageBroadcaster = new MessageBroadcaster();
-                await Data.Store.MessageBroadcaster.InitializeAsync(Data.Store.RedisConnectionString);
-                logger.LogInformation("Redis message broadcaster initialized on {RedisConnectionString}", Data.Store.RedisConnectionString);
+                Data.Store.logger.LogInformation("Starting Redis message broadcaster initialization on {RedisConnectionString}", Data.Store.RedisConnectionString);
+
+                // Fire and log: don't wait for Redis initialization
+                _ = InitializeRedisInBackgroundAsync();
             }
             else
             {
-                logger.LogInformation("Redis not configured, running in local-only mode");
+                Data.Store.logger.LogInformation("Redis not configured, running in local-only mode");
+            }
+        }
+
+        private async Task InitializeRedisInBackgroundAsync()
+        {
+            try
+            {
+                await Data.Store.MessageBroadcaster.InitializeAsync(Data.Store.RedisConnectionString);
+                Data.Store.logger.LogInformation("Redis message broadcaster initialized successfully on {RedisConnectionString}", Data.Store.RedisConnectionString);
+            }
+            catch (Exception ex)
+            {
+                Data.Store.logger.LogError(ex, "Failed to initialize Redis message broadcaster on {RedisConnectionString}", Data.Store.RedisConnectionString);
             }
         }
 
@@ -69,7 +82,7 @@ namespace Sezam
                 return;
 
             isDraining = true;
-            Trace.TraceInformation("Server entering drain mode. No new sessions will be accepted.");
+            Data.Store.logger.LogInformation("Server entering drain mode. No new sessions will be accepted.");
             LocalBroadcast("SYSTEM", "*", "Shutting down for maintenance in 30min.");
 
             try
@@ -123,7 +136,7 @@ namespace Sezam
                 if (key == ConsoleKey.Enter)
                 {
                     var console = new ConsoleTerminal();
-                    var sessionLogger = loggerFactory.CreateLogger<Session>();
+                    var sessionLogger = Data.Store.loggerFactory.CreateLogger<Session>();
                     var consoleSession = new Session(console, sessionLogger) { OnFinish = OnSessionFinish };
                     Data.Store.AddSession(consoleSession);
                     consoleSession.Run().GetAwaiter().GetResult();
@@ -159,7 +172,7 @@ namespace Sezam
                     // Initialize telnet options asynchronously
                     terminal.InitializeAsync().GetAwaiter().GetResult();
 
-                    var sessionLogger = loggerFactory.CreateLogger<Session>();
+                    var sessionLogger = Data.Store.loggerFactory.CreateLogger<Session>();
                     var session = new Session(terminal, sessionLogger) { OnFinish = OnSessionFinish };
                     Data.Store.AddSession(session);
                     _ = session.Run(); // fire and forget, intentionally marked with discard
@@ -257,9 +270,9 @@ namespace Sezam
 
         public void PrintServerStatistics()
         {
-            logger.LogInformation($"SERVER: Running, {Data.Store.Sessions.Count} active connections:");
+            Data.Store.logger.LogInformation($"SERVER: Running, {Data.Store.Sessions.Count} active connections:");
             foreach (var sess in Data.Store.Sessions)
-                logger.LogInformation(sess.ToString());
+                Data.Store.logger.LogInformation(sess.ToString());
         }
 
         private TcpListener listener;

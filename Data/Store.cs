@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Sezam.Data.EF;
 using System;
 using System.Collections.Concurrent;
@@ -77,7 +78,7 @@ namespace Sezam.Data
             {
                 RedisConnectionString = ResolveConfigValue(configuration, "Redis");
             }
-            Trace.TraceInformation($"Redis Connection: '{RedisConnectionString}'");
+            logger.LogInformation($"Redis Connection: '{RedisConnectionString}'");
         }
 
         public static string ResolveConfigValue(IConfiguration configuration, params string[] names)
@@ -90,7 +91,7 @@ namespace Sezam.Data
                     ?? configuration?[$"ConnectionStrings:{name}"];
                 if (value != null)
                 {
-                    Trace.TraceInformation($"Resolved config value for '{name}': {(string.IsNullOrEmpty(value) ? "null" : value)}");
+                    logger.LogInformation($"Resolved config value for '{name}': {(string.IsNullOrEmpty(value) ? "null" : value)}");
                     return value;
                 }
                 // Trace.WriteLine($"Tried resolving config for '{name}', no luck.");
@@ -130,9 +131,14 @@ namespace Sezam.Data
         // Redis Configuration Properties
         public static string RedisConnectionString { get; private set; }
         // Redis is enabled if connection string is not empty            
-        public static bool RedisEnabled => RedisConnectionString.IsWhiteSpace();
+        public static bool RedisEnabled => !RedisConnectionString.IsWhiteSpace();
 
         // Message Broadcaster Singleton (dynamic type to avoid circular dependency)
         public static dynamic MessageBroadcaster { get; set; }
+
+        public static ILogger logger;
+        public static ILoggerFactory loggerFactory;
+
+
     }
 }
