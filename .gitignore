@@ -15,3 +15,4 @@ MySql.config
 *.rar
 *.7z
 appsettings-secrets.json
+/Legacy/Import/Properties/launchSettings.json

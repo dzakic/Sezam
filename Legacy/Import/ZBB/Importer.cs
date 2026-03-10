@@ -85,35 +85,16 @@ namespace ZBB
 
         public void ImportConferences()
         {
-
             var confDirInfo = new DirectoryInfo(ConfPath);
-
-#if false // Clear all data before import, for testing purposes
-            // Always start fresh
-            using (var dbx = Sezam.Data.Store.GetNewContext())
-            {
-                dbx.Database.ExecuteSqlRaw("SET FOREIGN_KEY_CHECKS=0");
-                dbx.Database.ExecuteSqlRaw("TRUNCATE TABLE UserConf");
-                dbx.Database.ExecuteSqlRaw("TRUNCATE TABLE UserTopic");
-                dbx.Database.ExecuteSqlRaw("TRUNCATE TABLE ConfMessages");
-                dbx.Database.ExecuteSqlRaw("TRUNCATE TABLE MessageText");
-                dbx.Database.ExecuteSqlRaw("TRUNCATE TABLE ConfTopics");
-                dbx.Database.ExecuteSqlRaw("TRUNCATE TABLE Conferences");
-                dbx.Database.ExecuteSqlRaw("SET FOREIGN_KEY_CHECKS=1");
-                dbx.SaveChanges();
-            }
-#endif
-
-
-#if true // Debug with single conference
-            ImportConference("CET");
-            return;
-#else
-
             var confNames = confDirInfo.EnumerateDirectories().Select(dir => dir.Name);
             var options = new ParallelOptions() { MaxDegreeOfParallelism = 4 };
             Parallel.ForEach(confNames, options, conf => ImportConference(conf));
-#endif          
+        }
+
+        public void ImportConferences(List<string> conferenceNames)
+        {
+            var options = new ParallelOptions() { MaxDegreeOfParallelism = 4 };
+            Parallel.ForEach(conferenceNames, options, conf => ImportConference(conf));
         }
 
         public void ImportUsers()

@@ -5,8 +5,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Sezam;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 
 namespace ZBB
 {
@@ -19,7 +21,6 @@ namespace ZBB
             Trace.Listeners.Add(new DebugListener());
 
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
-
 
             var configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json", optional: true)
@@ -37,7 +38,7 @@ namespace ZBB
                         options.IncludeScopes = true;
                         options.TimestampFormat = "HH:mm:ss ";
                     })
-                    .SetMinimumLevel(LogLevel.Debug);  // Capture Debug and above; set to Information for production
+                    .SetMinimumLevel(LogLevel.Debug);
             });
 
             var serviceProvider = services.BuildServiceProvider();
@@ -51,37 +52,116 @@ namespace ZBB
 
             var importer = new Importer(dataFolder);
 
-            logger.LogInformation("Applying database migrations...");
-            using (var dbx = Sezam.Data.Store.GetNewContext())
+            // Parse command-line arguments
+            var options = ParseArguments(args);
+
+            if (options.ShowHelp)
             {
-                // Migrate() creates the database if it doesn't exist and applies all pending migrations
-                dbx.Database.Migrate();
+                ShowHelp();
+                return;
             }
-            logger.LogInformation("Database is up to date.");
 
             try
             {
-                // Users
+                // Database reset and migration
+                using (var dbx = Sezam.Data.Store.GetNewContext())
+                {
+                    if (options.Reset)
+                    {
+                        logger.LogWarning("Deleting database (--reset)...");
+                        dbx.Database.EnsureDeleted();
+                    }
+
+                    logger.LogInformation("Applying database migrations...");
+                    dbx.Database.Migrate();
+                    logger.LogInformation("Database is up to date.");
+                }
+
+                // Import Users
                 logger.LogInformation("Importing Users...");
                 importer.ImportUsers();
 
-                // Conferences
-                logger.LogInformation("Importing Conferences...");
+                // Import Conferences
+                if (options.ImportAllConferences)
+                {
+                    logger.LogInformation("Importing all conferences...");
+                    importer.ImportConferences();
+                }
+                else if (options.ConferenceNames.Any())
+                {
+                    logger.LogInformation("Importing {0} conference(s)...", options.ConferenceNames.Count);
+                    importer.ImportConferences(options.ConferenceNames);
+                }
 
-                importer.ImportConferences();
+                logger.LogInformation("Import completed successfully.");
             }
-            //catch (DbEntityValidationException valEx)
-            //{
-            //    foreach (var err in valEx.EntityValidationErrors)
-            //    {
-            //        Console.WriteLine(err);
-            //    }
-            //}
             catch (Exception e)
             {
                 ErrorHandling.PrintException(e);
                 return;
             }
         }
+
+        private static ImportOptions ParseArguments(string[] args)
+        {
+            var options = new ImportOptions();
+
+            foreach (var arg in args)
+            {
+                var argLower = arg.ToLowerInvariant();
+
+                if (argLower == "/reset" || argLower == "--reset")
+                {
+                    options.Reset = true;
+                }
+                else if (argLower.StartsWith("/conf:") || argLower.StartsWith("--conf:"))
+                {
+                    var confValue = arg.Substring(arg.IndexOf(':') + 1);
+                    if (confValue == "*")
+                    {
+                        options.ImportAllConferences = true;
+                    }
+                    else
+                    {
+                        options.ConferenceNames.Add(confValue);
+                    }
+                }
+                else if (argLower == "/help" || argLower == "--help" || argLower == "-h" || argLower == "/?")
+                {
+                    options.ShowHelp = true;
+                }
+            }
+
+            return options;
+        }
+
+        private static void ShowHelp()
+        {
+            Console.WriteLine();
+            Console.WriteLine("ZBB Import Tool - Imports legacy ZBB data into Sezam database");
+            Console.WriteLine();
+            Console.WriteLine("Usage: ZBB.Import [options]");
+            Console.WriteLine();
+            Console.WriteLine("Options:");
+            Console.WriteLine("  /reset, --reset         Delete and recreate the database before import");
+            Console.WriteLine("  /conf:*, --conf:*       Import all conferences");
+            Console.WriteLine("  /conf:<name>            Import specific conference by name");
+            Console.WriteLine("  /help, --help, -h, /?   Show this help message");
+            Console.WriteLine();
+            Console.WriteLine("Examples:");
+            Console.WriteLine("  ZBB.Import /reset /users /conf:*          Reset DB and import everything");
+            Console.WriteLine("  ZBB.Import /users                         Import users only");
+            Console.WriteLine("  ZBB.Import /conf:CET /conf:Sezam          Import specific conferences");
+            Console.WriteLine("  ZBB.Import /conf:*                        Import all conferences");
+            Console.WriteLine();
+        }
+    }
+
+    internal class ImportOptions
+    {
+        public bool Reset { get; set; }
+        public bool ImportAllConferences { get; set; }
+        public List<string> ConferenceNames { get; set; } = new List<string>();
+        public bool ShowHelp { get; set; }
     }
 }
