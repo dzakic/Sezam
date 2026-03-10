@@ -55,6 +55,30 @@ namespace Sezam.Data
         public DbSet<UserConf> UserConfs { get; set; }
     }
 
+    /// <summary>
+    /// Design-time factory for Entity Framework migrations
+    /// </summary>
+    public class SezamDbContextFactory : Microsoft.EntityFrameworkCore.Design.IDesignTimeDbContextFactory<SezamDbContext>
+    {
+        public SezamDbContext CreateDbContext(string[] args)
+        {
+            // Read configuration from environment or use defaults
+            var configuration = new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json", optional: true)
+                .AddEnvironmentVariables()
+                .Build();
+
+            // Configure Store with connection string
+            Store.ConfigureFrom(configuration);
+
+            // Create options builder with configured connection string
+            var optionsBuilder = new DbContextOptionsBuilder<SezamDbContext>();
+            Store.GetOptionsBuilder(optionsBuilder);
+
+            return new SezamDbContext(optionsBuilder.Options);
+        }
+    }
+
     public static class Store
     {
         public static void ConfigureFrom(IConfiguration configuration)
@@ -65,14 +89,9 @@ namespace Sezam.Data
             string Password = ResolveConfigValue(configuration, "DB_PASSWORD", "DbPassword");
 
             if (!string.IsNullOrEmpty(DbHost))
-            {
                 DbConnectionString = $"server={DbHost};database={DbName};user=sezam;password={Password}";
-            } else
-                DbConnectionString = ResolveConfigValue(configuration, "SezamDb") 
-                    ?? ResolveConfigValue(configuration, "Database") 
-                    ?? ResolveConfigValue(configuration, "Db");
-
-            Trace.TraceInformation($"Database Connection: '{DbConnectionString}'");
+            else
+                DbConnectionString = ResolveConfigValue(configuration, "SezamDb", "Database", "Db");
 
             // Redis Configuration
             string redisHost = ResolveConfigValue(configuration, "REDIS_HOST", "RedisHost");
@@ -85,7 +104,6 @@ namespace Sezam.Data
             {
                 RedisConnectionString = ResolveConfigValue(configuration, "Redis");
             }
-            logger.LogInformation($"Redis Connection: '{RedisConnectionString}'");
         }
 
         public static string ResolveConfigValue(IConfiguration configuration, params string[] names)
@@ -98,7 +116,7 @@ namespace Sezam.Data
                     ?? configuration?[$"ConnectionStrings:{name}"];
                 if (value != null)
                 {
-                    logger.LogInformation($"Resolved config value for '{name}': {(string.IsNullOrEmpty(value) ? "null" : value)}");
+                    logger?.LogInformation($"Resolved config value for '{name}': {(string.IsNullOrEmpty(value) ? "null" : value)}");
                     return value;
                 }
                 // Trace.WriteLine($"Tried resolving config for '{name}', no luck.");

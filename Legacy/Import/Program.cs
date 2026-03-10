@@ -51,13 +51,13 @@ namespace ZBB
 
             var importer = new Importer(dataFolder);
 
-            logger.LogInformation("EntityFramework checking integrity...");
+            logger.LogInformation("Applying database migrations...");
             using (var dbx = Sezam.Data.Store.GetNewContext())
             {
-                _ = dbx.Database.EnsureCreated();
-                logger.LogInformation("EntityFramework Migrate...");
+                // Migrate() creates the database if it doesn't exist and applies all pending migrations
                 dbx.Database.Migrate();
             }
+            logger.LogInformation("Database is up to date.");
 
             try
             {

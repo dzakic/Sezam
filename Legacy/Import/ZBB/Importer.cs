@@ -1,8 +1,9 @@
-﻿using System;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace ZBB
@@ -70,7 +71,7 @@ namespace ZBB
                         Console.WriteLine("Unknown ConfMsg Author: {0}", zbbMsg.author);
                 }
 
-                Console.Write("Saving...");
+                Console.Write("Saving. ");
                 Dbx.SaveChanges();
                 Console.WriteLine("Finished importing {0}", confName);
             }
@@ -84,16 +85,35 @@ namespace ZBB
 
         public void ImportConferences()
         {
+
             var confDirInfo = new DirectoryInfo(ConfPath);
-            var confNames = confDirInfo.EnumerateDirectories().Select(dir => dir.Name);
 
-            var options = new ParallelOptions()
+#if false // Clear all data before import, for testing purposes
+            // Always start fresh
+            using (var dbx = Sezam.Data.Store.GetNewContext())
             {
-                MaxDegreeOfParallelism = 4
-            };
+                dbx.Database.ExecuteSqlRaw("SET FOREIGN_KEY_CHECKS=0");
+                dbx.Database.ExecuteSqlRaw("TRUNCATE TABLE UserConf");
+                dbx.Database.ExecuteSqlRaw("TRUNCATE TABLE UserTopic");
+                dbx.Database.ExecuteSqlRaw("TRUNCATE TABLE ConfMessages");
+                dbx.Database.ExecuteSqlRaw("TRUNCATE TABLE MessageText");
+                dbx.Database.ExecuteSqlRaw("TRUNCATE TABLE ConfTopics");
+                dbx.Database.ExecuteSqlRaw("TRUNCATE TABLE Conferences");
+                dbx.Database.ExecuteSqlRaw("SET FOREIGN_KEY_CHECKS=1");
+                dbx.SaveChanges();
+            }
+#endif
 
+
+#if true // Debug with single conference
+            ImportConference("CET");
+            return;
+#else
+
+            var confNames = confDirInfo.EnumerateDirectories().Select(dir => dir.Name);
+            var options = new ParallelOptions() { MaxDegreeOfParallelism = 4 };
             Parallel.ForEach(confNames, options, conf => ImportConference(conf));
-               
+#endif          
         }
 
         public void ImportUsers()
@@ -140,7 +160,7 @@ namespace ZBB
                     yield return user;
                 }
             }
-            Debug.WriteLine("Read {0} users, {1} inactive.", count, inactiveCount);
+            Sezam.Data.Store.logger.LogInformation("Read {0} users, {1} inactive.", count, inactiveCount);
         }
 
         private readonly DirectoryInfo rootPath;
