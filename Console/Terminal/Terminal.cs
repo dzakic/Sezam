@@ -177,6 +177,18 @@ namespace Sezam
         /// Respects broadcast messages by checking message queue before blocking on read.
         /// </summary>
         protected abstract Task<KeyInfo> ReadKeyInfoWithPage();
+
+
+        /// <summary>
+        /// Prompts the user with a question and a set of selectable options, returning the index of the chosen option.
+        /// </summary>
+        /// <remarks>The method continues to prompt until a valid selection is made. Option matching is
+        /// case-insensitive and based on the first character of each option. Pressing Enter selects the default (first)
+        /// option.</remarks>
+        /// <param name="promptOptions">A string containing the prompt message followed by a list of options separated by a question mark and
+        /// slashes. For example, "Continue? Yes/No" will prompt the user with "Continue?" and allow selection between
+        /// "Yes" and "No".</param>
+        /// <returns>The zero-based index of the selected option. Returns 0 if the default option is accepted by pressing Enter.</returns>
         public async Task<int> PromptSelection(string promptOptions)
         {
             var prompts = promptOptions.Split('?');

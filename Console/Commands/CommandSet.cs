@@ -82,7 +82,6 @@
         /// <summary>
         /// Returns true if command was found and executed
         /// </summary>
-
         private async Task<bool> InvokeCommand(string cmd)
         {
             var command = GetCommandMethod(cmd);
