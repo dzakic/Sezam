@@ -34,6 +34,13 @@ namespace Sezam.Data
 
             modelBuilder.Entity<UserTopic>()
                 .HasQueryFilter(ut => ut.UserId == UserId);
+
+            // Configure self-referencing relationship for ConfMessage
+            modelBuilder.Entity<ConfMessage>()
+                .HasOne(m => m.ParentMessage)
+                .WithMany()
+                .HasForeignKey(m => m.ParentMessageId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
 
         public override int SaveChanges()

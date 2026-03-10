@@ -183,7 +183,6 @@ namespace Sezam.Commands
             // Replies to my messages only
             bool myRepliesOnly = session.cmdLine.Switch("r");
 
-
             // Filter TO (topic)
             string topicMsgs = session.cmdLine.GetToken();
             var topicMsgRange = currentConference.GetTopicMsgRange(topicMsgs, true);
@@ -191,7 +190,8 @@ namespace Sezam.Commands
             IQueryable<ConfMessage> messages = session.Db.ConfMessages;
 
             messages = messages
-                .Include(m => m.Topic);
+                .Include(m => m.Topic)
+                .Include(m => m.ParentMessage);
 
             // Topic Selection
             if (topicMsgRange?.topic != null)
@@ -204,8 +204,8 @@ namespace Sezam.Commands
                 messages = messages
                     .Where(m => m.Topic.ConferenceId == currentConference.Id
                         && !string.IsNullOrEmpty(m.Topic.Name)
-                        //&& !m.Topic.Status.HasFlag(ConfTopic.TopicStatus.Deleted)
-                        //&& !m.Topic.Status.HasFlag(ConfTopic.TopicStatus.Private)
+                        && !m.Topic.Status.HasFlag(ConfTopic.TopicStatus.Deleted)
+                        && !m.Topic.Status.HasFlag(ConfTopic.TopicStatus.Private)
                      );
             }
 
@@ -246,10 +246,7 @@ namespace Sezam.Commands
                 }
             }
             if (fromUser != null)
-                messages = messages.Where(m => m.AuthorId == fromUser.Id); // && !m.Status.HasFlag(ConfMessage.MessageStatus.Anonymous));
-
-            //if (fromUser != null)
-            //    messages = messages.Where(m => !m.Status.HasFlag(ConfMessage.MessageStatus.Anonymous));
+                messages = messages.Where(m => m.AuthorId == fromUser.Id && !m.Status.HasFlag(ConfMessage.MessageStatus.Anonymous));
 
             if (filesOnly)
                 messages = messages.Where(m => !string.IsNullOrEmpty(m.Filename));
@@ -313,7 +310,7 @@ namespace Sezam.Commands
             var selection = (await GetConfMsgSelection()).AsReadDTO();
             foreach (var msg in selection)
             {
-                ConfFormatter.ConfMsgRead(session.terminal, msg);
+                await ConfFormatter.ConfMsgRead(session.terminal, msg);
             }
         }
 
@@ -399,27 +396,27 @@ namespace Sezam.Commands
 
         #endregion MessageSample
 
-        public static void ConfMsgRead(ITerminal terminal, ConfReadDTO msg)
+        public static async Task ConfMsgRead(ITerminal terminal, ConfReadDTO msg)
         {
             const string Header = "================================";
             const string Delimiter = "----------------------------------------------------------------";
             const string Footer = "---------------------------------------------------- {0,-7} ---";
 
-            terminal.Line(Header);
+            await terminal.Line(Header);
             var msgIdentifier = string.Format("{0}.{1}", msg.topicNo, msg.msgNo);
-            terminal.Line(string.Format("{0}.{1}, {2}.{3}, {4}", msg.confName, msg.confVolumeNo, msg.topic, msg.msgNo, msg.author));
-            terminal.Line(string.Format("({0}) {1:dd/MM/yyyy HH:mm}, {2} chr", msgIdentifier, msg.time, msg.text.Length));
+            await terminal.Line(string.Format("{0}.{1}, {2}.{3}, {4}", msg.confName, msg.confVolumeNo, msg.topic, msg.msgNo, msg.author));
+            await terminal.Line(string.Format("({0}) {1:dd/MM/yyyy HH:mm}, {2} chr", msgIdentifier, msg.time, msg.text.Length));
             if (msg.HasParent())
-                terminal.Line(string.Format("Odgovor na {0}.{1}, {2}, {3}", msg.replyToTopicNo, msg.replyToMsgNo, msg.replyToAuthor, msg.origTime));
+                await terminal.Line(string.Format("Odgovor na {0}.{1}, {2}, {3}", msg.replyToTopicNo, msg.replyToMsgNo, msg.replyToAuthor, msg.origTime));
 
-            terminal.Line(Delimiter);
-            terminal.Text(msg.text);
-            terminal.Line(string.Format(Footer, msgIdentifier));
+            await terminal.Line(Delimiter);
+            await terminal.Text(msg.text);
+            await terminal.Line(string.Format(Footer, msgIdentifier));
 
             if (msg.HasFile())
-                terminal.Line(string.Format("** Datoteka {0}", msg.filename));
+                await terminal.Line(string.Format("** Datoteka {0}", msg.filename));
 
-            terminal.Line();
+            await terminal.Line();
         }
 
         public static IEnumerable<ConfListDTO> AsListDTO(this IQueryable<ConfMessage> msgs)
@@ -434,8 +431,8 @@ namespace Sezam.Commands
                     msgNo = m.MsgNo,
                     author = m.Author.Username,
                     time = m.Time,
-                    //replyToTopicNo = m.ParentMessage != null ? m.ParentMessage.Topic.TopicNo : (int?)null,
-                    //replyToMsgNo = m.ParentMessage != null ? m.ParentMessage.MsgNo : (int?)null,
+                    replyToTopicNo = m.ParentMessage != null ? m.ParentMessage.Topic.TopicNo : (int?)null,
+                    replyToMsgNo = m.ParentMessage != null ? m.ParentMessage.MsgNo : (int?)null,
                     filename = m.Filename
                 })
             ;
@@ -453,10 +450,10 @@ namespace Sezam.Commands
                     msgNo = m.MsgNo,
                     author = m.Author.Username,
                     time = m.Time,
-                    //origTime = m.ParentMessage.Time,
-                    //replyToAuthor = m.ParentMessage.Author.Username,
-                    //replyToTopicNo = m.ParentMessage.Topic.TopicNo,
-                    //replyToMsgNo = m.ParentMessage.MsgNo,
+                    origTime = m.ParentMessage.Time,
+                    replyToTopicNo = m.ParentMessage != null ? m.ParentMessage.Topic.TopicNo : (int?)null,
+                    replyToMsgNo = m.ParentMessage != null ? m.ParentMessage.MsgNo : (int?)null,
+                    replyToAuthor = m.ParentMessage != null ? m.ParentMessage.Author.Username : "",
                     filename = m.Filename,
                     text = m.MessageText.Text
                 })
