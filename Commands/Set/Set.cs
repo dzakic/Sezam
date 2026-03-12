@@ -10,6 +10,12 @@ namespace Sezam.Commands
 
     public class Set : CommandSet
     {
+        private static readonly string[] CommonZones = new[]
+        {
+            "Europe/Belgrade", "Europe/London", "Europe/Paris", "Europe/Berlin",
+            "Europe/Moscow", "America/New_York", "America/Chicago", "America/Denver",
+            "America/Los_Angeles", "Asia/Tokyo", "Asia/Shanghai", "Australia/Sydney", "UTC"
+        };
 
         public Set(Session session)
            : base(session)
@@ -50,49 +56,76 @@ namespace Sezam.Commands
                 // Show current timezone
                 await session.terminal.Line("Current timezone: {0}", session.User.TimeZoneId ?? "Europe/Belgrade");
                 await session.terminal.Line("Current time: {0:dd MMM yyyy HH:mm}", session.User.ToLocalTime(DateTime.UtcNow));
+                await session.terminal.Line("UTC time: {0:dd MMM yyyy HH:mm}", DateTime.UtcNow);
                 return;
             }
 
-            if (tzId.Equals("list", StringComparison.OrdinalIgnoreCase))
+            if (tzId == "?")
             {
                 // List common timezones
-                var commonZones = new[]
-                {
-                    "Europe/Belgrade", "Europe/London", "Europe/Paris", "Europe/Berlin",
-                    "Europe/Moscow", "America/New_York", "America/Chicago", "America/Denver",
-                    "America/Los_Angeles", "Asia/Tokyo", "Asia/Shanghai", "Australia/Sydney", "UTC"
-                };
-
                 await session.terminal.Line("Common timezones:");
-                foreach (var zone in commonZones)
+                foreach (var zone in CommonZones)
                 {
                     try
                     {
-                        var tz = TimeZoneInfo.FindSystemTimeZoneById(zone);
-                        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+                        var zonetz = TimeZoneInfo.FindSystemTimeZoneById(zone);
+                        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zonetz);
                         await session.terminal.Line("  {0,-24} ({1:HH:mm})", zone, now);
                     }
                     catch { }
                 }
-                await session.terminal.Line();
-                await session.terminal.Line("Use 'set timezone <id>' to set your timezone.");
                 return;
             }
 
             // Try to find and set the timezone
+            TimeZoneInfo tz = null;
+
+            // First, try exact match
             try
             {
-                var tz = TimeZoneInfo.FindSystemTimeZoneById(tzId);
+                tz = TimeZoneInfo.FindSystemTimeZoneById(tzId);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                // Try partial match in common zones
+                var partialMatches = CommonZones
+                    .Where(z => z.Contains(tzId, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (partialMatches.Count == 1)
+                {
+                    try
+                    {
+                        tz = TimeZoneInfo.FindSystemTimeZoneById(partialMatches[0]);
+                    }
+                    catch { }
+                }
+                else if (partialMatches.Count > 1)
+                {
+                    await session.terminal.Line("Multiple matches found for '{0}':", tzId);
+                    foreach (var match in partialMatches)
+                    {
+                        var matchTz = TimeZoneInfo.FindSystemTimeZoneById(match);
+                        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, matchTz);
+                        await session.terminal.Line("  {0,-24} ({1:HH:mm})", match, now);
+                    }
+                    await session.terminal.Line("Use 'set timezone <id>' to set a specific timezone.");
+                    return;
+                }
+            }
+
+            if (tz != null)
+            {
                 session.User.TimeZoneId = tz.Id;
                 await session.Db.SaveChangesAsync();
                 var localNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
                 await session.terminal.Line("Timezone set to: {0}", tz.Id);
                 await session.terminal.Line("Current time: {0:dd MMM yyyy HH:mm}", localNow);
             }
-            catch (TimeZoneNotFoundException)
+            else
             {
                 await session.terminal.Line("Unknown timezone: {0}", tzId);
-                await session.terminal.Line("Use 'set timezone list' to see available timezones.");
+                await session.terminal.Line("Use 'set timezone ?' to see available timezones.");
             }
         }
 
