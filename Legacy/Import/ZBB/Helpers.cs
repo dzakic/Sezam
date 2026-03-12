@@ -13,18 +13,40 @@ namespace ZBB
         // Serbian timezone (Europe/Belgrade) - used for converting imported DOS times to UTC
         private static readonly TimeZoneInfo SerbianTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Belgrade");
 
+        public static string ReadFixedString(this BinaryReader r, int Len)
+        {
+            byte[] str = r.ReadBytes(Len);
+            return DecodeText(str);
+        }
+
+        // Read pascal short string from binary reader. First byte is length, followed by string bytes.
+        // If maxLen is specified and first byte is greater than maxLen, then read first byte as part of string and adjust string length to maxLen.
+        // Self-healing for data that was supposed to be fixed-length string but was written as short string by mistake.
         public static string ReadShortString(this BinaryReader r, int maxLen = 0)
         {
-            int strLen = r.ReadByte();
-            if (maxLen > 0 && strLen > maxLen)
+            int readLen = r.ReadByte();
+            int strLen = readLen;
+            char firstChar = '\0';
+            if (maxLen > 0 && readLen > maxLen)
             {
-                Debug.WriteLine(string.Format("Invalid str len {0}, expected max {1}", strLen, maxLen));
+                // This is not a short string with length in first byte, but char[] with fixed length.
+                // Read the first byte as part of string, and adjust strLen to maxLen.
+                firstChar = (char)readLen;
                 strLen = maxLen;
             }
+
             byte[] str = r.ReadBytes(strLen);
             if (maxLen > 0 && maxLen > strLen)
                 _ = r.ReadBytes(maxLen - strLen);
-            return DecodeText(str);
+            
+           
+            string decodedStr = DecodeText(str);
+            if (firstChar != '\0')
+            {
+                decodedStr = firstChar + decodedStr;
+                // Debug.WriteLine($"Self-heal: first char {firstChar} appended: {decodedStr}");
+            }
+            return decodedStr;
         }
 
         public static DateTime? ReadShortDate(this BinaryReader r)
@@ -102,7 +124,7 @@ namespace ZBB
 
         public static string DecodeText(byte[] binTxt)
         {
-            return new string(CP852.GetChars(binTxt));
+            return new string(CP852.GetChars(binTxt)).TrimEnd('\0');
         }
 
         private static int GetBits(long value, int start, int len)

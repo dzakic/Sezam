@@ -7,8 +7,8 @@ namespace ZBB
     {
         public static Sezam.Data.EF.ConfMessage ToEFConfMessage(this ConfMessage zbbConfMsg)
         {
-            // Generate shared GUID for both ConfMessage and MessageText
-            var sharedId = Guid.NewGuid();
+            // Use the MessageId generated during ImportFiles()
+            var sharedId = zbbConfMsg.MessageId;
 
             var msg = new Sezam.Data.EF.ConfMessage
             {
@@ -72,6 +72,7 @@ namespace ZBB
 
             // Att
             Filename = hdr.ReadShortString(12);
+            // Filename = hdr.ReadFixedString(13);
             _ = hdr.ReadInt32(); // filelen, filesize[bytes]
 
             status = (MsgStatus)hdr.ReadByte();
@@ -143,6 +144,7 @@ namespace ZBB
         public string Filename;
         public byte[] Attachment;
         public int FileLen;
+        public Guid MessageId;  // GUID assigned during import, used as archive entry name
 
         public MsgStatus status;
         public DateTime Time;

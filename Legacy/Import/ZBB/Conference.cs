@@ -182,15 +182,79 @@ namespace ZBB
         {
             string FilesFolder = Path.Combine(confDir, "FILES");
             var messages = Messages.Where(m => !string.IsNullOrEmpty(m.Filename));
+
+            // Ensure Data folder exists
+            string dataFolder = Path.GetFullPath(Path.Combine(confDir, "..", ".."));
+            Directory.CreateDirectory(dataFolder);
+
+            // Create archive path: one per conference (not per volume)
+            // e.g., TECH.zip contains all volumes (TECH.1, TECH.2, etc.)
+            string archiveFileName = $"{NameOnly}.zip";
+            string archivePath = Path.Combine(dataFolder, archiveFileName);
+
+            // Collect new files to add
+            var filesToAdd = new List<(string sourceFile, string archiveEntry)>();
+
             foreach (var m in messages)
             {
                 var attFileName = Path.Combine(FilesFolder, string.Format("f{0:0000000}.c", m.ID));
                 if (File.Exists(attFileName))
                 {
-                    m.Attachment = File.ReadAllBytes(attFileName);
-                    m.FileLen = m.Attachment.Length;
+                    // Generate unique GUID for archive entry
+                    m.MessageId = Guid.NewGuid();
+                    filesToAdd.Add((attFileName, m.MessageId.ToString()));
+
+                    m.Attachment = null;  // Don't store in memory
+                    m.FileLen = (int)new FileInfo(attFileName).Length;
                 }
             }
+
+            // Append new files to archive
+            if (filesToAdd.Count > 0)
+            {
+                AppendToArchive(archivePath, filesToAdd);
+                ArchivePath = archivePath;
+                Debug.WriteLine($"Updated archive: {archivePath} (+{filesToAdd.Count} new files)");
+            }
+        }
+
+        private void AppendToArchive(string archivePath, List<(string sourceFile, string archiveEntry)> filesToAdd)
+        {
+            string tempArchivePath = archivePath + ".tmp";
+
+            using (var newArchive = SharpCompress.Archives.ArchiveFactory.Create(SharpCompress.Common.ArchiveType.Zip))
+            {
+                // Add existing entries if archive already exists
+                if (File.Exists(archivePath))
+                {
+                    using (var existingArchive = SharpCompress.Archives.ArchiveFactory.Open(archivePath))
+                    {
+                        foreach (var entry in existingArchive.Entries)
+                        {
+                            var entryStream = entry.OpenEntryStream();
+                            newArchive.AddEntry(entry.Key, entryStream, true);
+                        }
+                    }
+                }
+
+                // Add new entries
+                foreach (var (sourceFile, archiveEntry) in filesToAdd)
+                {
+                    var fileStream = File.OpenRead(sourceFile);
+                    newArchive.AddEntry(archiveEntry, fileStream, true);
+                }
+
+                // Save new archive
+                using (var newStream = File.Create(tempArchivePath))
+                {
+                    newArchive.SaveTo(newStream, new SharpCompress.Writers.WriterOptions(SharpCompress.Common.CompressionType.Deflate));
+                }
+            }
+
+            // Replace old archive with new one (or create if new)
+            if (File.Exists(archivePath))
+                File.Delete(archivePath);
+            File.Move(tempArchivePath, archivePath);
         }
 
         private void ImportNdx()
@@ -357,6 +421,8 @@ namespace ZBB
         private string confDir;
 
         public int VolumeNumber { get; private set; }
+
+        public string ArchivePath { get; private set; }
 
         public bool IsAnonymousAllowed
         { get { return (Status.HasFlag(ConfStatus.AnonymousAllowed)); } }
