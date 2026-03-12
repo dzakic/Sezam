@@ -7,15 +7,23 @@ namespace ZBB
     {
         public static Sezam.Data.EF.ConfMessage ToEFConfMessage(this ConfMessage zbbConfMsg)
         {
+            // Generate shared GUID for both ConfMessage and MessageText
+            var sharedId = Guid.NewGuid();
+
             var msg = new Sezam.Data.EF.ConfMessage
             {
+                Id = sharedId,
                 Topic = zbbConfMsg.Topic?.EFTopic,
                 MsgNo = zbbConfMsg.MsgNo,
                 Time = zbbConfMsg.Time,
-                MessageText = new Sezam.Data.EF.MessageText() { Text = zbbConfMsg.Text },
                 ParentMessage = zbbConfMsg.ParentMsg?.EFConfMessage,
                 Status = (Sezam.Data.EF.ConfMessage.MessageStatus)zbbConfMsg.status,
-                Filename = zbbConfMsg.Filename
+                Filename = zbbConfMsg.Filename,
+                MessageText = new Sezam.Data.EF.MessageText
+                {
+                    Id = sharedId,
+                    Text = zbbConfMsg.Text
+                }
             };
             zbbConfMsg.EFConfMessage = msg;
             return msg;

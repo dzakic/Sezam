@@ -1,12 +1,13 @@
-﻿using System;
+﻿using Microsoft.EntityFrameworkCore;
+using Sezam.Data.EF;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using Microsoft.EntityFrameworkCore;
-using Sezam.Data.EF;
 using System.Threading.Tasks;
+using static System.Collections.Specialized.BitVector32;
 
 namespace Sezam.Commands
 {
@@ -170,9 +171,11 @@ namespace Sezam.Commands
         }
 
         /// <summary>
-        ///
+        /// Builds the message selection query based on command line parameters.
+        /// Reads switches /a, /f, /r from command line.
+        /// Returns IQueryable for streaming - caller should add .Include() as needed.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>IQueryable for deferred execution</returns>
         private async Task<IQueryable<ConfMessage>> GetConfMsgSelection()
         {
             MustHaveConf();
@@ -183,6 +186,9 @@ namespace Sezam.Commands
             // Replies to my messages only
             bool myRepliesOnly = session.cmdLine.Switch("r");
 
+            // Select all messages (including already seen)
+            bool selectAll = session.cmdLine.Switch("a");
+
             // Filter TO (topic)
             string topicMsgs = session.cmdLine.GetToken();
             var topicMsgRange = currentConference.GetTopicMsgRange(topicMsgs, true);
@@ -191,7 +197,9 @@ namespace Sezam.Commands
 
             messages = messages
                 .Include(m => m.Topic)
-                .Include(m => m.ParentMessage);
+                    .ThenInclude(t => t.UserTopic)
+                .Include(m => m.ParentMessage)
+                .Include(m => m.Author);
 
             // Topic Selection
             if (topicMsgRange?.topic != null)
@@ -207,6 +215,13 @@ namespace Sezam.Commands
                         && !m.Topic.Status.HasFlag(ConfTopic.TopicStatus.Deleted)
                         && !m.Topic.Status.HasFlag(ConfTopic.TopicStatus.Private)
                      );
+            }
+
+            // Filter by SeenTime - only new messages (unless /a switch)
+            if (!selectAll)
+            {
+                messages = messages
+                    .Where(m => m.Topic.UserTopic == null || m.Time > m.Topic.UserTopic.SeenTime);
             }
 
             // Message number range
@@ -255,18 +270,20 @@ namespace Sezam.Commands
                 messages = messages.Where(m => m.ParentMessage.AuthorId == session.User.Id);
 
             return messages
-                .Include(m => m.Author)
                 .Where(m => !m.Status.HasFlag(ConfMessage.MessageStatus.Deleted))
                 .OrderBy(m => m.TopicId)
-                .ThenBy(m => m.MsgNo)
-            ;
-
+                .ThenBy(m => m.MsgNo);
         }
 
         private void ConfDir(Data.EF.Conference conf)
         {
-            var selTopics = conf.ConfTopics;
-            foreach (var topic in selTopics.OrderBy(t => t.TopicNo))
+            var selTopics = session.Db.ConfTopics
+                .Include(t => t.UserTopic)
+                .Where(t => t.ConferenceId == conf.Id)
+                .Where(t => t.UserTopic == null || !t.UserTopic.Status.HasFlag(UserTopic.UserTopicStat.Resigned))
+                .OrderBy(t => t.TopicNo);
+
+            foreach (var topic in selTopics)
                 session.terminal.Line(ConfFormatter.FormatTopic(topic));
         }
 
@@ -278,8 +295,8 @@ namespace Sezam.Commands
             else
             {
                 var activeConferences = GetConferences()
-                    .Include(c => c.ConfTopics)
-                    .DisplayOrder();
+                    .DisplayOrder()
+                    .ToList();  // Materialize to avoid open DataReader conflict with ConfDir()
                 foreach (var conf in activeConferences)
                 {
                     await session.terminal.Line("Conference {0}", conf.VolumeName);
@@ -289,15 +306,37 @@ namespace Sezam.Commands
             }
         }
 
+        /// <summary>
+        /// Iterates over messages, applies action to each, shows "no messages" if empty.
+        /// </summary>
+        private async Task ProcessMessages(IQueryable<ConfMessage> query, Func<ConfMessage, Task> processMessage)
+        {
+            bool selectAll = session.cmdLine.Switch("a");
+            bool hasMessages = false;
+
+            foreach (var msg in query)
+            {
+                hasMessages = true;
+                await processMessage(msg);
+            }
+
+            if (!hasMessages)
+                await session.terminal.Line(selectAll ? L("Conf_NoMessages") : L("Conf_NoNewMessages"));
+        }
+
         [Command(Description = "Show a list of new messages in the conference or a topic")]
         [CommandParameter("topic[.msgLow[-msgHigh]]", "Topic and optional message number or range to list, e.g. 'General', 'General.5' or 'General.5-10'. Use '*' for all topics, e.g. '*.5' or '*.5-10'.")]
         [CommandParameter("from", "Only select messages from this author, specify the username.")]
         [CommandSwitch('f', "Select only messages with files")]
+        [CommandSwitch('a', "Select all messages, including already seen")]
         public async Task List()
         {
-            var selection = (await GetConfMsgSelection()).AsListDTO();
-            foreach (var confListItem in selection)
-                await session.terminal.Line(ConfFormatter.FormatConfMsgList(confListItem));
+            var query = (await GetConfMsgSelection())
+                .AsListDTO();
+            foreach (var confListItem in query)
+                await session.terminal.Line(ConfFormatter.FormatConfMsgList(confListItem, session.User.ToLocalTime));
+//            await ProcessMessages(query, async msg => 
+                //await session.terminal.Line(ConfFormatter.FormatConfMsgList(msg, session.User.ToLocalTime)));
         }
 
         [Command(Description = "Read new messages in the conference or a topic")]
@@ -307,11 +346,11 @@ namespace Sezam.Commands
         [CommandSwitch('a', "Select all messages, including old")]
         public async Task Read()
         {
-            var selection = (await GetConfMsgSelection()).AsReadDTO();
-            foreach (var msg in selection)
-            {
-                await ConfFormatter.ConfMsgRead(session.terminal, msg);
-            }
+            var query = (await GetConfMsgSelection())
+                .Include(m => m.MessageText)
+                .AsReadDTO();
+            foreach (var msg in query)
+                await ConfFormatter.ConfMsgRead(session.terminal, msg, session.User.ToLocalTime);
         }
 
         [Command(Description = "Topic management. Not implemented.")]
@@ -350,9 +389,56 @@ namespace Sezam.Commands
         }
 
         [Command(Description = "Make all messages 'seen'")]
-        public void SEEn()
+        [CommandSwitch('a', "All conferences, otherwise only the current one")]
+        [CommandParameter("datetime", "Optional datetime to set as seen time (UTC). Defaults to now. Format: yyyy-MM-dd or dd/MM/yyyy with optional HH:mm")]
+        public async Task SEEn()
         {
-            throw new NotImplementedException();
+            bool allConferences = session.cmdLine.Switch("a");
+
+            if (!allConferences)
+                MustHaveConf();
+
+            // Get datetime from command line, default to UTC now
+            var seenTime = session.cmdLine.GetDateTime() ?? DateTime.UtcNow;
+
+            // Get topics to update (excluding resigned topics)
+            IEnumerable<ConfTopic> topics;
+            if (allConferences)
+            {
+                // All topics from all conferences the user has access to
+                var conferenceIds = GetConferences()
+                    .Select(c => c.Id)
+                    .ToList();
+
+                topics = session.Db.ConfTopics
+                    .Include(t => t.UserTopic)
+                    .Where(t => conferenceIds.Contains(t.ConferenceId))
+                    .Where(t => t.UserTopic == null || !t.UserTopic.Status.HasFlag(UserTopic.UserTopicStat.Resigned))
+                    .ToList();
+            }
+            else
+            {
+                // Only topics from the current conference
+                topics = session.Db.ConfTopics
+                    .Include(t => t.UserTopic)
+                    .Where(t => t.ConferenceId == currentConference.Id)
+                    .Where(t => t.UserTopic == null || !t.UserTopic.Status.HasFlag(UserTopic.UserTopicStat.Resigned))
+                    .ToList();
+            }
+
+            // Update SeenTime for each topic via the User's UserTopic collection
+            foreach (var topic in topics)
+            {
+                var utData = session.User.GetUserTopicfInfo(topic);
+                utData.SeenTime = seenTime;
+            }
+
+            await session.Db.SaveChangesAsync();
+
+            if (allConferences)
+                await session.terminal.Line(L("Conf_SeenAll"));
+            else
+                await session.terminal.Line(L("Conf_Seen"), currentConference.VolumeName);
         }
 
         public Sezam.Data.EF.Conference currentConference;
@@ -396,7 +482,7 @@ namespace Sezam.Commands
 
         #endregion MessageSample
 
-        public static async Task ConfMsgRead(ITerminal terminal, ConfReadDTO msg)
+        public static async Task ConfMsgRead(ITerminal terminal, ConfReadDTO msg, Func<DateTime, DateTime> toLocalTime)
         {
             const string Header = "================================";
             const string Delimiter = "----------------------------------------------------------------";
@@ -404,10 +490,14 @@ namespace Sezam.Commands
 
             await terminal.Line(Header);
             var msgIdentifier = string.Format("{0}.{1}", msg.topicNo, msg.msgNo);
+            var localTime = toLocalTime(msg.time);
             await terminal.Line(string.Format("{0}.{1}, {2}.{3}, {4}", msg.confName, msg.confVolumeNo, msg.topic, msg.msgNo, msg.author));
-            await terminal.Line(string.Format("({0}) {1:dd/MM/yyyy HH:mm}, {2} chr", msgIdentifier, msg.time, msg.text.Length));
+            await terminal.Line(string.Format("({0}) {1:dd/MM/yyyy HH:mm}, {2} chr", msgIdentifier, localTime, msg.text.Length));
             if (msg.HasParent())
-                await terminal.Line(string.Format("Odgovor na {0}.{1}, {2}, {3}", msg.replyToTopicNo, msg.replyToMsgNo, msg.replyToAuthor, msg.origTime));
+            {
+                var localOrigTime = msg.origTime.HasValue ? toLocalTime(msg.origTime.Value) : (DateTime?)null;
+                await terminal.Line(string.Format("Odgovor na {0}.{1}, {2}, {3:dd/MM/yyyy HH:mm}", msg.replyToTopicNo, msg.replyToMsgNo, msg.replyToAuthor, localOrigTime));
+            }
 
             await terminal.Line(Delimiter);
             await terminal.Text(msg.text);
@@ -460,13 +550,14 @@ namespace Sezam.Commands
             ;
         }
 
-        public static string FormatConfMsgList(ConfListDTO msg)
+        public static string FormatConfMsgList(ConfListDTO msg, Func<DateTime, DateTime> toLocalTime)
         {
             var sb = new StringBuilder();
+            var localTime = toLocalTime(msg.time);
 
             string msgId = msg.topic + "." + msg.msgNo;
             sb.Append(string.Format("{0,-20} {1,-16} {2:dd/MM/yyyy HH:mm}",
-                msgId, msg.author, msg.time));
+                msgId, msg.author, localTime));
 
             if (msg.replyToTopicNo != null)
                 sb.Append(string.Format(" -> {0}.{1}", msg.replyToTopicNo, msg.replyToMsgNo));

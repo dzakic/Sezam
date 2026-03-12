@@ -26,6 +26,8 @@ namespace Sezam
             Data.Store.logger = logger;
             Data.Store.loggerFactory = loggerFactory;
             Data.Store.ConfigureFrom(configuration);
+            Data.Store.ApplyMigrations();  // Only applies pending migrations, logs details
+
             sessionFinished = new AutoResetEvent(false);
             this.configuration = configuration;
         }

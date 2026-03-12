@@ -11,15 +11,15 @@ using Sezam.Data;
 namespace Sezam.Data.Migrations
 {
     [DbContext(typeof(SezamDbContext))]
-    [Migration("20260310101508_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260312111423_UserTimeZone")]
+    partial class UserTimeZone
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.3")
+                .HasAnnotation("ProductVersion", "10.0.4")
                 .HasAnnotation("Proxies:ChangeTracking", false)
                 .HasAnnotation("Proxies:CheckEquality", false)
                 .HasAnnotation("Proxies:LazyLoading", true)
@@ -27,9 +27,8 @@ namespace Sezam.Data.Migrations
 
             modelBuilder.Entity("Sezam.Data.EF.ConfMessage", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                    b.Property<byte[]>("Id")
+                        .HasColumnType("binary(16)");
 
                     b.Property<int>("AuthorId")
                         .HasColumnType("int");
@@ -38,14 +37,11 @@ namespace Sezam.Data.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)");
 
-                    b.Property<int?>("MessageTextId")
-                        .HasColumnType("int");
-
                     b.Property<int>("MsgNo")
                         .HasColumnType("int");
 
-                    b.Property<int?>("ParentMessageId")
-                        .HasColumnType("int");
+                    b.Property<byte[]>("ParentMessageId")
+                        .HasColumnType("binary(16)");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -59,8 +55,6 @@ namespace Sezam.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Filename");
-
-                    b.HasIndex("MessageTextId");
 
                     b.HasIndex("ParentMessageId");
 
@@ -78,7 +72,6 @@ namespace Sezam.Data.Migrations
             modelBuilder.Entity("Sezam.Data.EF.ConfTopic", b =>
                 {
                     b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
                     b.Property<int>("ConferenceId")
@@ -146,16 +139,15 @@ namespace Sezam.Data.Migrations
 
             modelBuilder.Entity("Sezam.Data.EF.MessageText", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                    b.Property<byte[]>("Id")
+                        .HasColumnType("binary(16)");
 
                     b.Property<string>("Text")
                         .HasColumnType("longtext");
 
                     b.HasKey("Id");
 
-                    b.ToTable("MessageText");
+                    b.ToTable("MessageTexts");
                 });
 
             modelBuilder.Entity("Sezam.Data.EF.User", b =>
@@ -207,6 +199,10 @@ namespace Sezam.Data.Migrations
                         .HasMaxLength(36)
                         .HasColumnType("varchar(36)");
 
+                    b.Property<string>("TimeZoneId")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
                     b.Property<string>("Username")
                         .HasMaxLength(15)
                         .HasColumnType("varchar(15)");
@@ -250,8 +246,8 @@ namespace Sezam.Data.Migrations
                         .HasColumnType("int")
                         .HasColumnOrder(2);
 
-                    b.Property<int>("SeenMsgNo")
-                        .HasColumnType("int");
+                    b.Property<DateTime>("SeenTime")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -270,8 +266,10 @@ namespace Sezam.Data.Migrations
                         .IsRequired();
 
                     b.HasOne("Sezam.Data.EF.MessageText", "MessageText")
-                        .WithMany()
-                        .HasForeignKey("MessageTextId");
+                        .WithOne()
+                        .HasForeignKey("Sezam.Data.EF.ConfMessage", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("Sezam.Data.EF.ConfMessage", "ParentMessage")
                         .WithMany()
@@ -301,6 +299,11 @@ namespace Sezam.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Sezam.Data.EF.UserTopic", "UserTopic")
+                        .WithMany()
+                        .HasForeignKey("Id")
+                        .HasPrincipalKey("TopicId");
+
                     b.HasOne("Sezam.Data.EF.ConfTopic", "RedirectTo")
                         .WithMany()
                         .HasForeignKey("RedirectToId");
@@ -308,6 +311,8 @@ namespace Sezam.Data.Migrations
                     b.Navigation("Conference");
 
                     b.Navigation("RedirectTo");
+
+                    b.Navigation("UserTopic");
                 });
 
             modelBuilder.Entity("Sezam.Data.EF.UserConf", b =>

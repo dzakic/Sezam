@@ -7,6 +7,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Xml.Linq;
 
 
@@ -27,6 +28,14 @@ namespace Sezam.Data
             modelBuilder.Entity<UserTopic>()
                    .HasKey(c => new { c.UserId, c.TopicId });
 
+            // Configure ConfTopic -> UserTopic relationship (filtered by current user)
+            modelBuilder.Entity<ConfTopic>()
+                .HasOne(t => t.UserTopic)
+                .WithMany()
+                .HasForeignKey(t => t.Id)
+                .HasPrincipalKey(ut => ut.TopicId)
+                .IsRequired(false);
+
             var userConfconverter = new EnumToNumberConverter<UserConf.UserConfStat, int>();
             modelBuilder.Entity<UserConf>()
                         .Property(e => e.Status)
@@ -34,6 +43,28 @@ namespace Sezam.Data
 
             modelBuilder.Entity<UserTopic>()
                 .HasQueryFilter(ut => ut.UserId == UserId);
+
+            // Configure Guid to BINARY(16) for MySQL
+            modelBuilder.Entity<ConfMessage>()
+                .Property(e => e.Id)
+                .HasColumnType("binary(16)");
+
+            modelBuilder.Entity<ConfMessage>()
+                .Property(e => e.ParentMessageId)
+                .HasColumnType("binary(16)");
+
+            modelBuilder.Entity<MessageText>()
+                .Property(e => e.Id)
+                .HasColumnType("binary(16)");
+
+            // Configure one-to-one relationship: ConfMessage.Id -> MessageText.Id
+            // This enforces that every ConfMessage must have a corresponding MessageText
+            modelBuilder.Entity<ConfMessage>()
+                .HasOne(m => m.MessageText)
+                .WithOne()
+                .HasForeignKey<ConfMessage>(m => m.Id)
+                .HasPrincipalKey<MessageText>(mt => mt.Id)
+                .OnDelete(DeleteBehavior.Cascade);
 
             // Configure self-referencing relationship for ConfMessage
             modelBuilder.Entity<ConfMessage>()
@@ -52,6 +83,7 @@ namespace Sezam.Data
         public DbSet<Conference> Conferences { get; set; }
         public DbSet<ConfTopic> ConfTopics { get; set; }
         public DbSet<ConfMessage> ConfMessages { get; set; }
+        public DbSet<MessageText> MessageTexts { get; set; }
         public DbSet<UserConf> UserConfs { get; set; }
     }
 
@@ -136,6 +168,50 @@ namespace Sezam.Data
         {
             var optionsBuilder = GetOptionsBuilder(new DbContextOptionsBuilder());
             return new SezamDbContext(optionsBuilder.Options);
+        }
+
+        /// <summary>
+        /// Applies any pending database migrations.
+        /// Call this at application startup to ensure the database schema is up to date.
+        /// </summary>
+        public static void ApplyMigrations()
+        {
+            using var context = GetNewContext();
+            var pendingMigrations = context.Database.GetPendingMigrations().ToList();
+
+            if (pendingMigrations.Count > 0)
+            {
+                logger?.LogInformation("Applying {Count} pending migration(s): {Migrations}", 
+                    pendingMigrations.Count, string.Join(", ", pendingMigrations));
+
+                try
+                {
+                    context.Database.Migrate();
+                }
+                catch (Exception ex)
+                {
+                    logger?.LogError(ex, "Error applying migrations.");
+                }
+                logger?.LogInformation("Database migrations applied successfully.");
+            }
+            else
+            {
+                logger?.LogDebug("No pending migrations.");
+            }
+        }
+
+        /// <summary>
+        /// Ensures database exists and applies any pending migrations.
+        /// Call this at application startup.
+        /// </summary>
+        public static void EnsureDatabase()
+        {
+            using var context = GetNewContext();
+
+            // This will create the database if it doesn't exist and apply all migrations
+            context.Database.Migrate();
+
+            logger?.LogInformation("Database ready.");
         }
 
         public static readonly ConcurrentDictionary<Guid, ISession> Sessions = new();

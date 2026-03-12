@@ -77,6 +77,49 @@ namespace Sezam.Commands
             return tokens.Skip(currentTokenIndex);
         }
 
+        /// <summary>
+        /// Get a DateTime from the next token. Returns null if no token or invalid format.
+        /// Supports common formats: yyyy-MM-dd, dd/MM/yyyy, dd.MM.yyyy with optional time HH:mm or HH:mm:ss
+        /// Always returns UTC time.
+        /// </summary>
+        public DateTime? GetDateTime()
+        {
+            string token = GetToken();
+            if (string.IsNullOrEmpty(token))
+                return null;
+
+            // Try parsing with various formats
+            string[] formats = [
+                "yyyy-MM-dd",
+                "yyyy-MM-dd HH:mm",
+                "yyyy-MM-dd HH:mm:ss",
+                "dd/MM/yyyy",
+                "dd/MM/yyyy HH:mm",
+                "dd/MM/yyyy HH:mm:ss",
+                "dd.MM.yyyy",
+                "dd.MM.yyyy HH:mm",
+                "dd.MM.yyyy HH:mm:ss"
+            ];
+
+            if (DateTime.TryParseExact(token, formats, 
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
+                out DateTime result))
+            {
+                return result;
+            }
+
+            // Fallback to general parse
+            if (DateTime.TryParse(token, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
+                out result))
+            {
+                return result;
+            }
+
+            return null;
+        }
+
 
         /// <summary>
         /// Reset token position for reprocessing same command line

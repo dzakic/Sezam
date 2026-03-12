@@ -34,16 +34,15 @@ namespace Sezam.Data.Migrations
                 .Annotation("MySQL:Charset", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "MessageText",
+                name: "MessageTexts",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
+                    Id = table.Column<byte[]>(type: "binary(16)", nullable: false),
                     Text = table.Column<string>(type: "longtext", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MessageText", x => x.Id);
+                    table.PrimaryKey("PK_MessageTexts", x => x.Id);
                 })
                 .Annotation("MySQL:Charset", "utf8mb4");
 
@@ -154,16 +153,14 @@ namespace Sezam.Data.Migrations
                 name: "ConfMessages",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
+                    Id = table.Column<byte[]>(type: "binary(16)", nullable: false),
                     AuthorId = table.Column<int>(type: "int", nullable: false),
                     Status = table.Column<int>(type: "int", nullable: false),
                     TopicId = table.Column<int>(type: "int", nullable: false),
                     MsgNo = table.Column<int>(type: "int", nullable: false),
-                    ParentMessageId = table.Column<int>(type: "int", nullable: true),
+                    ParentMessageId = table.Column<byte[]>(type: "binary(16)", nullable: true),
                     Time = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    Filename = table.Column<string>(type: "varchar(32)", maxLength: 32, nullable: true),
-                    MessageTextId = table.Column<int>(type: "int", nullable: true)
+                    Filename = table.Column<string>(type: "varchar(32)", maxLength: 32, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -181,10 +178,11 @@ namespace Sezam.Data.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_ConfMessages_MessageText_MessageTextId",
-                        column: x => x.MessageTextId,
-                        principalTable: "MessageText",
-                        principalColumn: "Id");
+                        name: "FK_ConfMessages_MessageTexts_Id",
+                        column: x => x.Id,
+                        principalTable: "MessageTexts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_ConfMessages_Users_AuthorId",
                         column: x => x.AuthorId,
@@ -209,11 +207,6 @@ namespace Sezam.Data.Migrations
                 name: "IX_ConfMessages_Filename",
                 table: "ConfMessages",
                 column: "Filename");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ConfMessages_MessageTextId",
-                table: "ConfMessages",
-                column: "MessageTextId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ConfMessages_ParentMessageId",
@@ -286,7 +279,7 @@ namespace Sezam.Data.Migrations
                 name: "ConfTopics");
 
             migrationBuilder.DropTable(
-                name: "MessageText");
+                name: "MessageTexts");
 
             migrationBuilder.DropTable(
                 name: "Users");

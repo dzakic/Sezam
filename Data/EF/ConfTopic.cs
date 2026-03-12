@@ -61,6 +61,8 @@ namespace Sezam.Data.EF
             return NextSequence;
         }
 
+        public virtual UserTopic UserTopic { get; set; }
+
         public virtual ICollection<ConfMessage> Messages { get; set; } = new List<ConfMessage>();
     }
 }

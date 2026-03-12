@@ -65,6 +65,41 @@ namespace Sezam.Data.EF
 
         public string Password { get; set; }
 
+        /// <summary>
+        /// User's timezone ID (IANA format, e.g., "Europe/Belgrade", "America/New_York").
+        /// Defaults to "Europe/Belgrade" for Serbian users.
+        /// Max 32 chars covers all practical timezone IDs.
+        /// </summary>
+        [StringLength(32)]
+        public string TimeZoneId { get; set; } = "Europe/Belgrade";
+
+        /// <summary>
+        /// Gets the user's TimeZoneInfo. Falls back to UTC if invalid.
+        /// </summary>
+        [NotMapped]
+        public TimeZoneInfo TimeZone
+        {
+            get
+            {
+                try
+                {
+                    return TimeZoneInfo.FindSystemTimeZoneById(TimeZoneId ?? "Europe/Belgrade");
+                }
+                catch
+                {
+                    return TimeZoneInfo.Utc;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Converts a UTC DateTime to the user's local time.
+        /// </summary>
+        public DateTime ToLocalTime(DateTime utcTime)
+        {
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utcTime, DateTimeKind.Utc), TimeZone);
+        }
+
         //[StringLength(5)]
         //[DisplayName("Language")]
         //public string Language { get; set; } = "en"; // "en" for English, "sr" for Serbian

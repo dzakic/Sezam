@@ -27,8 +27,8 @@ namespace Sezam.Data.EF
         }
 
         [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int Id { get; private set; }
+        [DatabaseGenerated(DatabaseGeneratedOption.None)]
+        public Guid Id { get; set; }
 
         public virtual User Author { get; set; }
 
@@ -45,7 +45,7 @@ namespace Sezam.Data.EF
 
         public int MsgNo { get; set; }
 
-        public int? ParentMessageId { get; set; }
+        public Guid? ParentMessageId { get; set; }
 
         [ForeignKey("ParentMessageId")]
         public virtual ConfMessage ParentMessage { get; set; }

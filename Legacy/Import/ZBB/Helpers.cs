@@ -10,6 +10,9 @@ namespace ZBB
     {
         private static readonly Encoding CP852 = Encoding.GetEncoding(852);
 
+        // Serbian timezone (Europe/Belgrade) - used for converting imported DOS times to UTC
+        private static readonly TimeZoneInfo SerbianTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Belgrade");
+
         public static string ReadShortString(this BinaryReader r, int maxLen = 0)
         {
             int strLen = r.ReadByte();
@@ -59,6 +62,10 @@ namespace ZBB
             return DosTimeToDateTime(dosTime);
         }
 
+        /// <summary>
+        /// Converts DOS time to DateTime in UTC.
+        /// The original DOS times are assumed to be in Serbian timezone (Europe/Belgrade).
+        /// </summary>
         public static DateTime? DosTimeToDateTime(Int32 dosTime)
         {
             if (dosTime == 0 || dosTime == -1)
@@ -82,7 +89,9 @@ namespace ZBB
 
             try
             {
-                return new DateTime(year, month, day, hour, min, sec);
+                // Create DateTime as Serbian local time, then convert to UTC
+                var localTime = new DateTime(year, month, day, hour, min, sec, DateTimeKind.Unspecified);
+                return TimeZoneInfo.ConvertTimeToUtc(localTime, SerbianTimeZone);
             }
             catch (Exception)
             {

@@ -170,4 +170,16 @@
   <data name="Set_LangUpdated" xml:space="preserve">
     <value>Language preference updated to: {0} ({1})</value>
   </data>
+  <data name="Conf_NoNewMessages" xml:space="preserve">
+    <value>No new messages.</value>
+  </data>
+  <data name="Conf_NoMessages" xml:space="preserve">
+    <value>No messages found.</value>
+  </data>
+  <data name="Conf_Seen" xml:space="preserve">
+    <value>All messages in {0} marked as seen.</value>
+  </data>
+  <data name="Conf_SeenAll" xml:space="preserve">
+    <value>All messages in all conferences marked as seen.</value>
+  </data>
 </root>

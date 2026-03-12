@@ -94,11 +94,11 @@ namespace Sezam.Commands
             }
         }
 
-        [Command(Aliases = ["Date"], Description = "Show current time")]
+        [Command(Aliases = ["Date"], Description = "Show current time in your timezone")]
         public void Time()
         {
-            // session.terminal.Line(Strings.Root_Time, DateTime.Now);
-            session.terminal.Line(L("Root_Time"), DateTime.Now);
+            var localTime = session.User.ToLocalTime(DateTime.UtcNow);
+            session.terminal.Line(L("Root_Time"), localTime);
         }
 
         [Command(Aliases = ["Clear"], Description = "Clear screan")]

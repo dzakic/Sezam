@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Sezam.Data;
 
@@ -10,9 +11,11 @@ using Sezam.Data;
 namespace Sezam.Data.Migrations
 {
     [DbContext(typeof(SezamDbContext))]
-    partial class SezamDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260312101257_InitialCreate")]
+    partial class InitialCreate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -69,6 +72,7 @@ namespace Sezam.Data.Migrations
             modelBuilder.Entity("Sezam.Data.EF.ConfTopic", b =>
                 {
                     b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
                     b.Property<int>("ConferenceId")
@@ -196,10 +200,6 @@ namespace Sezam.Data.Migrations
                         .HasMaxLength(36)
                         .HasColumnType("varchar(36)");
 
-                    b.Property<string>("TimeZoneId")
-                        .HasMaxLength(32)
-                        .HasColumnType("varchar(32)");
-
                     b.Property<string>("Username")
                         .HasMaxLength(15)
                         .HasColumnType("varchar(15)");
@@ -243,8 +243,8 @@ namespace Sezam.Data.Migrations
                         .HasColumnType("int")
                         .HasColumnOrder(2);
 
-                    b.Property<DateTime>("SeenTime")
-                        .HasColumnType("datetime(6)");
+                    b.Property<int>("SeenMsgNo")
+                        .HasColumnType("int");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -296,11 +296,6 @@ namespace Sezam.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Sezam.Data.EF.UserTopic", "UserTopic")
-                        .WithMany()
-                        .HasForeignKey("Id")
-                        .HasPrincipalKey("TopicId");
-
                     b.HasOne("Sezam.Data.EF.ConfTopic", "RedirectTo")
                         .WithMany()
                         .HasForeignKey("RedirectToId");
@@ -308,8 +303,6 @@ namespace Sezam.Data.Migrations
                     b.Navigation("Conference");
 
                     b.Navigation("RedirectTo");
-
-                    b.Navigation("UserTopic");
                 });
 
             modelBuilder.Entity("Sezam.Data.EF.UserConf", b =>

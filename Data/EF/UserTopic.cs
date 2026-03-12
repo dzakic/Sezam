@@ -21,7 +21,7 @@ namespace Sezam.Data.EF
         public int TopicId { get; set; }
 
         [Required]
-        public int SeenMsgNo { get; set; }
+        public DateTime SeenTime { get; set; }
 
         [Required]
         public UserTopicStat Status { get; set; }
