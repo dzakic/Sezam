@@ -333,7 +333,7 @@ namespace Sezam.Commands
         {
             var query = (await GetConfMsgSelection())
                 .AsListDTO();
-            foreach (var confListItem in query)
+            await foreach (var confListItem in query)
                 await session.terminal.Line(ConfFormatter.FormatConfMsgList(confListItem, session.User.ToLocalTime));
 //            await ProcessMessages(query, async msg => 
                 //await session.terminal.Line(ConfFormatter.FormatConfMsgList(msg, session.User.ToLocalTime)));
@@ -349,7 +349,7 @@ namespace Sezam.Commands
             var query = (await GetConfMsgSelection())
                 .Include(m => m.MessageText)
                 .AsReadDTO();
-            foreach (var msg in query)
+            await foreach (var msg in query)
                 await ConfFormatter.ConfMsgRead(session.terminal, msg, session.User.ToLocalTime);
         }
 
@@ -509,7 +509,7 @@ namespace Sezam.Commands
             await terminal.Line();
         }
 
-        public static IEnumerable<ConfListDTO> AsListDTO(this IQueryable<ConfMessage> msgs)
+        public static IAsyncEnumerable<ConfListDTO> AsListDTO(this IQueryable<ConfMessage> msgs)
         {
             return msgs
                 .Select(m => new ConfListDTO()
@@ -525,10 +525,10 @@ namespace Sezam.Commands
                     replyToMsgNo = m.ParentMessage != null ? m.ParentMessage.MsgNo : (int?)null,
                     filename = m.Filename
                 })
-            ;
+                .AsAsyncEnumerable();
         }
 
-        public static IEnumerable<ConfReadDTO> AsReadDTO(this IQueryable<ConfMessage> msgs)
+        public static IAsyncEnumerable<ConfReadDTO> AsReadDTO(this IQueryable<ConfMessage> msgs)
         {
             return msgs
                 .Select(m => new ConfReadDTO()
@@ -547,7 +547,7 @@ namespace Sezam.Commands
                     filename = m.Filename,
                     text = m.MessageText.Text
                 })
-            ;
+                .AsAsyncEnumerable();
         }
 
         public static string FormatConfMsgList(ConfListDTO msg, Func<DateTime, DateTime> toLocalTime)
