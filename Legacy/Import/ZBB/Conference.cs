@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Microsoft.Extensions.Logging;
+using Sezam;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -9,10 +11,10 @@ namespace ZBB
 {
     public static partial class Converters
     {
-        public static Sezam.Data.EF.Conference ToEFConf(this ZBB.ConferenceVolume zbbconf, Sezam.Data.EF.Conference conf = null)
+        public static Sezam.Data.EF.Conference ToEFConf(this ZBB.ConferenceVolume zbbconf)
         {
-            if (conf == null)
-                conf = new Sezam.Data.EF.Conference();
+            var logger = Sezam.Data.Store.LoggerFactory.CreateLogger("ToEFConf");
+            var conf = new Sezam.Data.EF.Conference();
 
             conf.Name = zbbconf.NameOnly;
             conf.VolumeNo = zbbconf.VolumeNumber;
@@ -26,6 +28,7 @@ namespace ZBB
             }
 
             // Fix reference
+            // Store mapping: TopicNo -> RedirectToTopicNo for later resolution
             foreach (var zbbtopic in zbbconf.Topics.Where(t => t.Exists()))
             {
                 var topic = zbbtopic.EFTopic;
@@ -37,37 +40,36 @@ namespace ZBB
                 if (zbbtopic.RedirectTo > 0)
                 {
                     if (zbbtopic.RedirectTo <= ZBB.ConferenceVolume.MaxTopics)
+                    {
                         topic.RedirectTo = zbbtopic.conf.Topics[zbbtopic.RedirectTo - 1].EFTopic;
+                    }
                     else
-                        Debug.WriteLine("Invalid RedirectTo {0}", zbbtopic.RedirectTo);
+                        logger.LogWarning("Invalid RedirectTo {0}", zbbtopic.RedirectTo);
                 }
             }
 
-            Debug.WriteLine("Reading messages...");
-            Sezam.Data.EF.ConfTopic unknownTopic = null;
+            logger.LogInformation($"Reading {zbbconf.Messages.Count} messages...");
+            Sezam.Data.EF.ConfTopic unknownTopic = new Sezam.Data.EF.ConfTopic
+            {
+                Name = "unknown",
+                TopicNo = ZBB.ConferenceVolume.MaxTopics + 1,
+                Status =
+                    Sezam.Data.EF.ConfTopic.TopicStatus.Deleted |
+                    Sezam.Data.EF.ConfTopic.TopicStatus.Private,
+                NextSequence = 0
+            }; 
             foreach (var zbbConfMsg in zbbconf.Messages)
             {
                 var msg = zbbConfMsg.ToEFConfMessage();
                 if (msg.Topic == null || msg.MsgNo == 0)
-                {
-                    if (unknownTopic == null)
-                    {
-                        unknownTopic = new Sezam.Data.EF.ConfTopic
-                        {
-                            Name = "unknown",
-                            TopicNo = ZBB.ConferenceVolume.MaxTopics + 1,
-                            Status = 
-                                Sezam.Data.EF.ConfTopic.TopicStatus.Deleted |
-                                Sezam.Data.EF.ConfTopic.TopicStatus.Private
-                        };
-                        conf.ConfTopics.Add(unknownTopic);
-                    }
                     msg.Topic = unknownTopic;
-                }
                 msg.Topic.NextSequence++;
                 msg.MsgNo = msg.Topic.NextSequence;
                 msg.Topic.Messages.Add(msg);
             }
+
+            if (unknownTopic.Messages.Count > 0)
+                conf.ConfTopics.Add(unknownTopic);
 
             conf.FromDate = zbbconf.GetOldestMessage()?.Time;
             conf.ToDate = zbbconf.GetNewestMessage()?.Time;
@@ -89,7 +91,7 @@ namespace ZBB
 
             foreach (var t in conf.ConfTopics)
             {
-                Console.WriteLine("Topic [{0,2}] {1}:{2} - {3}", t.TopicNo, conf.Name, t.Name, t.Messages.Count);
+                logger.LogInformation($"Topic [{t.TopicNo,2}] {conf.Name,-16}:{t.Name,-16} - {t.Messages.Count,6}");
             }
 
             zbbconf.EFConference = conf;
@@ -149,11 +151,11 @@ namespace ZBB
 
         public ConferenceVolume(string name)
         {
-            var regex = new Regex(@"([A-Z]+)\.?(\d*)");
+            var regex = new Regex(@"([\w]+)\.?(\d*)");
             var match = regex.Match(name);
             if (match.Success && match.Groups.Count > 2)
             {
-                NameOnly = match.Groups[1].Value;
+                NameOnly = match.Groups[1].Value.ToUpper();
                 if (int.TryParse(match.Groups[2].Value, out int volNo))
                     VolumeNumber = volNo;
                 else
@@ -180,6 +182,7 @@ namespace ZBB
 
         private void ImportFiles()
         {
+            var logger = Sezam.Data.Store.LoggerFactory.CreateLogger("ImportConfFiles");
             string FilesFolder = Path.Combine(confDir, "FILES");
             var messages = Messages.Where(m => !string.IsNullOrEmpty(m.Filename));
 
@@ -187,9 +190,7 @@ namespace ZBB
             string dataFolder = Path.GetFullPath(Path.Combine(confDir, "..", ".."));
             Directory.CreateDirectory(dataFolder);
 
-            // Create archive path: one per conference (not per volume)
-            // e.g., TECH.zip contains all volumes (TECH.1, TECH.2, etc.)
-            string archiveFileName = $"{NameOnly}.zip";
+            string archiveFileName = $"{Name}.zip";
             string archivePath = Path.Combine(dataFolder, archiveFileName);
 
             // Collect new files to add
@@ -210,51 +211,38 @@ namespace ZBB
             }
 
             // Append new files to archive
-            if (filesToAdd.Count > 0)
-            {
-                AppendToArchive(archivePath, filesToAdd);
-                ArchivePath = archivePath;
-                Debug.WriteLine($"Updated archive: {archivePath} (+{filesToAdd.Count} new files)");
-            }
-        }
+            if (filesToAdd.Count == 0) return;
 
-        private void AppendToArchive(string archivePath, List<(string sourceFile, string archiveEntry)> filesToAdd)
-        {
-            string tempArchivePath = archivePath + ".tmp";
-
-            using (var newArchive = SharpCompress.Archives.ArchiveFactory.Create(SharpCompress.Common.ArchiveType.Zip))
+            try
             {
-                // Add existing entries if archive already exists
+                // Create new Archive
                 if (File.Exists(archivePath))
+                    File.Delete(archivePath);
+                using (var newArchive = SharpCompress.Archives.ArchiveFactory.Create(SharpCompress.Common.ArchiveType.Zip))
                 {
-                    using (var existingArchive = SharpCompress.Archives.ArchiveFactory.Open(archivePath))
+                    foreach (var (sourceFile, archiveEntry) in filesToAdd)
                     {
-                        foreach (var entry in existingArchive.Entries)
+                        if (File.Exists(sourceFile))
                         {
-                            var entryStream = entry.OpenEntryStream();
-                            newArchive.AddEntry(entry.Key, entryStream, true);
+                            var fileStream = File.OpenRead(sourceFile);
+                            newArchive.AddEntry(archiveEntry, fileStream, true);
                         }
+                        else
+                            Debug.WriteLine($"Conf FileAttachment not found: {sourceFile}");
+                    }
+
+                    // Save new archive
+                    using (var newStream = File.Create(archivePath))
+                    {
+                        newArchive.SaveTo(newStream, new SharpCompress.Writers.WriterOptions(SharpCompress.Common.CompressionType.Deflate));
                     }
                 }
-
-                // Add new entries
-                foreach (var (sourceFile, archiveEntry) in filesToAdd)
-                {
-                    var fileStream = File.OpenRead(sourceFile);
-                    newArchive.AddEntry(archiveEntry, fileStream, true);
-                }
-
-                // Save new archive
-                using (var newStream = File.Create(tempArchivePath))
-                {
-                    newArchive.SaveTo(newStream, new SharpCompress.Writers.WriterOptions(SharpCompress.Common.CompressionType.Deflate));
-                }
+                logger.LogInformation($"Updated archive: {archivePath} (+{filesToAdd.Count} new files)");
             }
-
-            // Replace old archive with new one (or create if new)
-            if (File.Exists(archivePath))
-                File.Delete(archivePath);
-            File.Move(tempArchivePath, archivePath);
+            catch (Exception e)
+            {
+                ErrorHandling.PrintException(e);
+            }
         }
 
         private void ImportNdx()
@@ -335,6 +323,7 @@ namespace ZBB
 
         private void ImportHdr()
         {
+            var logger = Sezam.Data.Store.LoggerFactory.CreateLogger("ImportHdr");
             string hdrFileName = Path.Combine(confDir, "conf.hdr");
             using BinaryReader hdr = new BinaryReader(File.Open(hdrFileName, FileMode.Open));
             int id = 0;
@@ -358,7 +347,7 @@ namespace ZBB
 
                     if (msg.ReplyTo != 0 && Ndxs[id].ReplyTo != -1)
                         if (msg.ReplyTo != Ndxs[id].ReplyTo)
-                            Debug.WriteLine("Mismatch in replyto ({0} vs {1} for " + msg, msg.ReplyTo, Ndxs[id].ReplyTo);
+                            logger.LogWarning($"Mismatch in replyto ({msg.ReplyTo} vs {Ndxs[id].ReplyTo} for {msg}");
 
                     msg.ReplyTo = Ndxs[id].ReplyTo;
                     if (msg.ReplyTo >= 0 && id > 0)
@@ -368,13 +357,13 @@ namespace ZBB
                               Messages[msg.ReplyTo] : null;
                         if (msg.ParentMsg == null)
                         {
-                            Debug.WriteLine(msg.ToString() + " parent msg for reply to " + msg.ReplyTo + " not found");
+                            logger.LogWarning($"{msg}: parent msg for reply to {msg.ReplyTo} not found");
                         }
                     }
 
                     if (Ndxs[id].Topic != 0 && msg.TopicNo != Ndxs[id].Topic)
                     {
-                        // Debug.WriteLine("Fixing topic {0,2} to {1,2} for " + msg, msg.TopicNo, Ndxs[id].Topic);
+                        logger.LogWarning($"Fixing topic {msg.TopicNo,2} to {Ndxs[id].Topic,2} for {msg}");
                         msg.TopicNo = Ndxs[id].Topic;
                     }
                     id++;
@@ -383,28 +372,26 @@ namespace ZBB
                 {
                     Sezam.ErrorHandling.PrintException(e);
                 }
-            Debug.WriteLine(String.Format("{0,-22}: {1,2} topics, {2,5} messages, {3,5} deleted",
-               Name, Topics.Count(t => !t.IsDeleted), id, DeletedCount));
+            logger.LogInformation($"{Name,-22}: {Topics.Count(t => !t.IsDeleted),2} topics, {id,5} messages, {DeletedCount,5} deleted");
         }
 
+#if (false)
         public void Dump()
         {
             foreach (var topic in Topics)
                 if (!string.IsNullOrWhiteSpace(topic.Name))
                     Console.Out.WriteLine(topic);
-#if (false)
-         {
+
             foreach (var msg in Messages)
                Console.WriteLine(msg);
-         }
-#endif
         }
+#endif
 
         public void Dispose()
         {
-            GC.SuppressFinalize(this);
             if (messageReader != null)
                 messageReader.Dispose();
+            messageReader = null;
         }
 
         private ConfStatus Status;
@@ -421,8 +408,6 @@ namespace ZBB
         private string confDir;
 
         public int VolumeNumber { get; private set; }
-
-        public string ArchivePath { get; private set; }
 
         public bool IsAnonymousAllowed
         { get { return (Status.HasFlag(ConfStatus.AnonymousAllowed)); } }

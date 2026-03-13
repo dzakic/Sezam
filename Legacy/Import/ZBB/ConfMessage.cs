@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SharpCompress;
+using System;
 using System.IO;
 
 namespace ZBB
@@ -7,8 +8,9 @@ namespace ZBB
     {
         public static Sezam.Data.EF.ConfMessage ToEFConfMessage(this ConfMessage zbbConfMsg)
         {
-            // Use the MessageId generated during ImportFiles()
-            var sharedId = zbbConfMsg.MessageId;
+
+            // Assign a new Message GUID unless already assigned during file attachment import
+            var sharedId = (zbbConfMsg.MessageId == Guid.Empty) ? Guid.NewGuid() : zbbConfMsg.MessageId;
 
             var msg = new Sezam.Data.EF.ConfMessage
             {
@@ -68,7 +70,8 @@ namespace ZBB
 
             // Ref
             _ = hdr.ReadInt16(); // Ignore replyTo in Hdr, trust the one in Idx
-            Time = hdr.ReadDosTime().Value;
+            var dosTime = hdr.ReadDosTime();
+            Time = dosTime ?? DateTime.MinValue;
 
             // Att
             Filename = hdr.ReadShortString(12);

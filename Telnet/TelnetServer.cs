@@ -26,6 +26,7 @@ namespace Sezam
                     // Enable colored output and scopes
                     options.IncludeScopes = true;
                     options.TimestampFormat = "HH:mm:ss ";
+                    options.SingleLine = true;
                 })
                 .SetMinimumLevel(LogLevel.Debug);  // Capture Debug and above; set to Information for production
 

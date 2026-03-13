@@ -37,8 +37,7 @@ namespace ZBB
 
             byte[] str = r.ReadBytes(strLen);
             if (maxLen > 0 && maxLen > strLen)
-                _ = r.ReadBytes(maxLen - strLen);
-            
+                _ = r.ReadBytes(maxLen - strLen);            
            
             string decodedStr = DecodeText(str);
             if (firstChar != '\0')
@@ -92,6 +91,7 @@ namespace ZBB
         {
             if (dosTime == 0 || dosTime == -1)
                 return null;
+
             var sec = GetBits(dosTime, 0, 5) * 2;
             var min = GetBits(dosTime, 5, 6);
             var hour = GetBits(dosTime, 11, 5);
@@ -113,6 +113,15 @@ namespace ZBB
             {
                 // Create DateTime as Serbian local time, then convert to UTC
                 var localTime = new DateTime(year, month, day, hour, min, sec, DateTimeKind.Unspecified);
+
+                // Handle daylight saving time transitions
+                // If the time is invalid (doesn't exist due to spring-forward), shift forward by 1 hour
+                // This occurs when the DOS machine recorded a time during the DST gap (e.g., 2:54 AM on 1993/3/28)
+                if (SerbianTimeZone.IsInvalidTime(localTime))
+                {
+                    localTime = localTime.AddHours(1);
+                }
+
                 return TimeZoneInfo.ConvertTimeToUtc(localTime, SerbianTimeZone);
             }
             catch (Exception)

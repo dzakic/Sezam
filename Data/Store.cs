@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Sezam.Data.EF;
 using System;
 using System.Collections.Concurrent;
@@ -29,12 +30,20 @@ namespace Sezam.Data
                    .HasKey(c => new { c.UserId, c.TopicId });
 
             // Configure ConfTopic -> UserTopic relationship (filtered by current user)
+            // Note: This is a reverse navigation - UserTopic references ConfTopic via TopicId
+            modelBuilder.Entity<UserTopic>()
+                .HasOne<ConfTopic>()
+                .WithOne(t => t.UserTopic)
+                .HasForeignKey<UserTopic>(ut => ut.TopicId)
+                .HasPrincipalKey<ConfTopic>(t => t.Id)
+                .IsRequired();
+
+            // Configure self-referencing relationship for ConfTopic.RedirectTo
             modelBuilder.Entity<ConfTopic>()
-                .HasOne(t => t.UserTopic)
+                .HasOne(t => t.RedirectTo)
                 .WithMany()
-                .HasForeignKey(t => t.Id)
-                .HasPrincipalKey(ut => ut.TopicId)
-                .IsRequired(false);
+                .HasForeignKey(t => t.RedirectToId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             var userConfconverter = new EnumToNumberConverter<UserConf.UserConfStat, int>();
             modelBuilder.Entity<UserConf>()
@@ -115,6 +124,7 @@ namespace Sezam.Data
     {
         public static void ConfigureFrom(IConfiguration configuration)
         {
+            logger = LoggerFactory?.CreateLogger("Store") ?? NullLogger.Instance;
             // Database Configuration
             string DbHost = ResolveConfigValue(configuration, "DB_HOST", "DbHost");
             string DbName = ResolveConfigValue(configuration, "DB_NAME", "DbName") ?? "sezam";
@@ -238,7 +248,7 @@ namespace Sezam.Data
         public static dynamic MessageBroadcaster { get; set; }
 
         public static ILogger logger;
-        public static ILoggerFactory loggerFactory;
+        public static ILoggerFactory LoggerFactory;
 
 
     }

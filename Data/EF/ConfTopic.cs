@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -10,16 +10,23 @@ namespace Sezam.Data.EF
     [Index("ConferenceId", "TopicNo", IsUnique = true)]
     public class ConfTopic
     {
+
         [Flags]
         public enum TopicStatus
         {
+            // topic is deleted
             Deleted = 1,
-            Private = 2, // user cannot join unless explicitly allowed
-            ReadOnly = 4, // cannot write new messages
-            Closed = 8 // user resigned by default
+            // user cannot join unless explicitly allowed; hidden by default
+            Private = 2,
+            // cannot write new messages
+            ReadOnly = 4,
+            // user resigned by default; can join
+            Closed = 8 
         }
 
-        public int Id { get; private set; }
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public int Id { get; set; }
 
         [Required]
         [ForeignKey("ConferenceId")]
@@ -34,8 +41,11 @@ namespace Sezam.Data.EF
         [Required]
         public int TopicNo { get; set; }
 
+        public int? RedirectToId { get; set; }
+
+        [ForeignKey("RedirectToId")]
+
         public virtual ConfTopic RedirectTo { get; set; }
-        // public int RedirectToId { get; set; }
 
         public TopicStatus Status { get; set; }
 

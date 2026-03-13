@@ -21,7 +21,7 @@ namespace Sezam.Data.EF
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int Id { get; private set; }
+        public int Id { get; set; }
 
         [StringLength(15)]
         public string Name { get; set; }

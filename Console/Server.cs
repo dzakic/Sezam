@@ -24,7 +24,7 @@ namespace Sezam
         public Server(IConfigurationRoot configuration, ILogger<Server> logger, ILoggerFactory loggerFactory)
         {
             Data.Store.logger = logger;
-            Data.Store.loggerFactory = loggerFactory;
+            Data.Store.LoggerFactory = loggerFactory;
             Data.Store.ConfigureFrom(configuration);
             Data.Store.ApplyMigrations();  // Only applies pending migrations, logs details
 
@@ -138,7 +138,7 @@ namespace Sezam
                 if (key == ConsoleKey.Enter)
                 {
                     var console = new ConsoleTerminal();
-                    var sessionLogger = Data.Store.loggerFactory.CreateLogger<Session>();
+                    var sessionLogger = Data.Store.LoggerFactory.CreateLogger<Session>();
                     var consoleSession = new Session(console, sessionLogger) { OnFinish = OnSessionFinish };
                     Data.Store.AddSession(consoleSession);
                     consoleSession.Run().GetAwaiter().GetResult();
@@ -174,7 +174,7 @@ namespace Sezam
                     // Initialize telnet options asynchronously
                     terminal.InitializeAsync().GetAwaiter().GetResult();
 
-                    var sessionLogger = Data.Store.loggerFactory.CreateLogger<Session>();
+                    var sessionLogger = Data.Store.LoggerFactory.CreateLogger<Session>();
                     var session = new Session(terminal, sessionLogger) { OnFinish = OnSessionFinish };
                     Data.Store.AddSession(session);
                     _ = session.Run(); // fire and forget, intentionally marked with discard

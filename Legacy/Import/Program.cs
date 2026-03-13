@@ -1,8 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 using Sezam;
 using System;
 using System.Collections.Generic;
@@ -32,19 +33,19 @@ namespace ZBB
             var services = new ServiceCollection();
             services.AddLogging(logging =>
             {
-                logging.ClearProviders()
+                logging
+                    .ClearProviders()
                     .AddSimpleConsole(options =>
                     {
                         options.IncludeScopes = true;
                         options.TimestampFormat = "HH:mm:ss ";
+                        options.SingleLine = true;
                     })
                     .SetMinimumLevel(LogLevel.Debug);
             });
 
             var serviceProvider = services.BuildServiceProvider();
-            var logger = serviceProvider.GetRequiredService<ILogger<MainClass>>();
-
-            Sezam.Data.Store.logger = logger;
+            Sezam.Data.Store.LoggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
             Sezam.Data.Store.ConfigureFrom(configuration);
 
             string dataFolder = configuration["Data:Folder"]
@@ -61,6 +62,7 @@ namespace ZBB
                 return;
             }
 
+            var logger = Sezam.Data.Store.LoggerFactory.CreateLogger("ZBBImport");
             try
             {
                 // Database reset and migration
