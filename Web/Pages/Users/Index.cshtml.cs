@@ -27,7 +27,7 @@ namespace Sezam.Web.Pages.Users
         public async Task OnGetAsync()
         {
                 Users = await _context.Users
-                    .Where(u => u.Username.Contains(q) || u.FullName.Contains(q) || u.City.Contains(q))
+                    .Where(u => u.LastCall.HasValue && (u.Username.Contains(q) || u.FullName.Contains(q) || u.City.Contains(q)))
                     .OrderByDescending(u => u.LastCall)
                     .Take(20)
                     .ToListAsync();

@@ -32,7 +32,7 @@ body {
 }
 @media (min-width: 768px) {
   html {
-    font-size: 16px;
+    font-size: 1em;
   }
 }
 
@@ -63,6 +63,7 @@ body {
   /* Margin bottom by footer height */
   margin-bottom: 120px;
 }
+
 .footer {
   position: absolute;
   bottom: 0;
@@ -150,3 +151,50 @@ h2 {
     font-size: 10px;
     border-top: 1px solid lightgray;
 }
+
+
+pre.terminal {
+    background: #000;
+    color: #f8f8f8;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.06);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace;
+    width: 100%;
+    max-width: 900px;
+    min-height: 160px;
+    padding: 1.2em 1.5em;
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+    text-align: left;
+    overflow: auto;
+    display: inline-block;
+    margin-top: 1rem;
+    white-space: pre-wrap;
+}
+
+.terminal-link {
+    text-decoration: none;
+    color: inherit;
+}
+
+.cursor::after {
+    content: '';
+    display: inline-block;
+    width: 0.6em;
+    height: 2px;
+    background: #f8f8f8;
+    margin-left: 2px;
+    vertical-align: baseline;
+    animation: blink 0.5s steps(2,start) infinite;
+}
+
+@keyframes blink {
+    
+    50% {
+        opacity: 0;
+    }
+}
+
+.monospace {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace;
+}
+
