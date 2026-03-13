@@ -1,4 +1,4 @@
-﻿/* Please see documentation at https://docs.microsoft.com/aspnet/core/client-side/bundling-and-minification
+/* Please see documentation at https://docs.microsoft.com/aspnet/core/client-side/bundling-and-minification
 for details on configuring this project to bundle and minify static web assets. */
 
 a.navbar-brand {
@@ -60,8 +60,9 @@ html {
 }
 
 body {
-  /* Margin bottom by footer height */
-  margin-bottom: 120px;
+    /* Margin bottom by footer height */
+    margin-bottom: 120px;
+    overflow-y: scroll;
 }
 
 .footer {
@@ -117,7 +118,9 @@ h2 {
 
 #Messages {
     width: 600px;
+    background: #fbfbfb;
     margin: 0 0 60px 0;
+    padding: 0 1em 0 1em;
     float: left;
 }
 
@@ -197,4 +200,5 @@ pre.terminal {
 .monospace {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace;
 }
+
 
