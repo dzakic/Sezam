@@ -11,18 +11,19 @@
     <Product>Sezam.Console</Product>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.4" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.4" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.4">
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Proxies" Version="10.0.4" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.4" />
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.4" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.4" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.4" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Proxies" Version="10.0.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.5" />
     <PackageReference Include="MySql.EntityFrameworkCore" Version="10.0.1" />
+    <PackageReference Include="StackExchange.Redis" Version="2.12.1" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Migrations\" />

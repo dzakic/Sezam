@@ -77,7 +77,7 @@ namespace Sezam.Web.Pages.Conference
                     .ToListAsync();
             }
             
-            _logger.LogInformation($"Got conference {Conference} ConfName={ConfName}, TopicName={TopicName}, Messages: {Messages?.Count()}");
+            _logger.LogInformation($"Got conference {Conference.VolumeName} Topic={TopicName}, Messages: {Messages?.Count()}");
         }
     }
 }

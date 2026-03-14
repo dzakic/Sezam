@@ -37,15 +37,7 @@ namespace Sezam.Data
         /// </summary>
         void Close();
 
-        /// <summary>
-        /// Start the session.  This method is called after the session is created and 
-        /// added to the session manager, but before it is used to handle any requests.  
-        /// The implementation can perform any necessary initialization here, such as 
-        /// setting up resources or starting background tasks.  The method can be synchronous 
-        /// or asynchronous, but callers can invoke it without awaiting.  If the session 
-        /// fails to start, it should throw an exception to indicate that it cannot be used.
-        /// </summary>
-        Task Run();
+
         void Broadcast(string from, string message);
 
     }

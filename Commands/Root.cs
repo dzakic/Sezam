@@ -16,7 +16,7 @@ namespace Sezam.Commands
             session.terminal.Line(L("Root_WelcomeUser"), session.User.FullName, session.User.LastCall);
         }
 
-        public override string GetPrompt() => string.Empty;
+        public override string GetPrompt() => "s:/";
 
         public Conference Conference() => null;
 
@@ -31,22 +31,18 @@ namespace Sezam.Commands
         [CommandParameter("message", "Message to send to the user", true)]
         public async Task Page()
         {
-            var user = await GetRequiredUser();
-
-            var pagedSession = Data.Store.Sessions.Where(s => s.Value.Username == user.Username).Select(s => s.Value).FirstOrDefault();
-            if (pagedSession is null)
-                throw new ArgumentException($"User '{user.Username}' is not currently online.");
-
+            var userSession = GetUserSession();
             var message = session.cmdLine.GetRemainingText();
             if (!message.IsWhiteSpace())
-                pagedSession.Broadcast(session.User.Username, message);
+                userSession.Broadcast(/* From */ session.User.Username, message);
              else 
                 while (true)
                 {
-                    message = await session.terminal.PromptEdit($"-> {user.Username}: ");
+                    message = await session.terminal.PromptEdit($"Page {userSession.Username}: ");
                     if (message.IsWhiteSpace())
                         break;
-                        pagedSession.Broadcast(session.User.Username, message);                    
+                    // userSession.Broadcast(/* From */ session.User.Username, message);                    
+                    Sezam.Data.Store.MessageBroadcaster.Send(message);
                 }
         }
 
@@ -86,11 +82,7 @@ namespace Sezam.Commands
             {
                 FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
                 var fi = new System.IO.FileInfo(fvi.OriginalFilename);
-                session.terminal.Line("{0,-28} {1,-36} {2:dd-MMM-yyyy HH:mm}",
-                    assembly.ManifestModule.Name,
-                    assembly.ManifestModule.ModuleVersionId,
-                    fi.LastWriteTime
-                    );
+                session.terminal.Line($"{assembly.ManifestModule.Name,-30} {fvi.FileVersion,-16} {fi.LastWriteTime:dd-MMM-yyyy HH:mm}");
             }
         }
 

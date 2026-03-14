@@ -6,10 +6,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Sezam.Data.EF;
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Xml.Linq;
 
 
 namespace Sezam.Data
@@ -189,39 +186,23 @@ namespace Sezam.Data
             using var context = GetNewContext();
             var pendingMigrations = context.Database.GetPendingMigrations().ToList();
 
-            if (pendingMigrations.Count > 0)
+            if (pendingMigrations.Count == 0)
             {
-                logger?.LogInformation("Applying {Count} pending migration(s): {Migrations}", 
+                logger?.LogDebug("Database is up to date.");
+                return;
+            }
+
+            logger?.LogInformation("Applying {Count} pending migration(s): {Migrations}",
                     pendingMigrations.Count, string.Join(", ", pendingMigrations));
-
-                try
-                {
-                    context.Database.Migrate();
-                }
-                catch (Exception ex)
-                {
-                    logger?.LogError(ex, "Error applying migrations.");
-                }
-                logger?.LogInformation("Database migrations applied successfully.");
-            }
-            else
+            try
             {
-                logger?.LogDebug("No pending migrations.");
+                context.Database.Migrate();
             }
-        }
-
-        /// <summary>
-        /// Ensures database exists and applies any pending migrations.
-        /// Call this at application startup.
-        /// </summary>
-        public static void EnsureDatabase()
-        {
-            using var context = GetNewContext();
-
-            // This will create the database if it doesn't exist and apply all migrations
-            context.Database.Migrate();
-
-            logger?.LogInformation("Database ready.");
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, "Error applying migrations.");
+            }
+            logger?.LogInformation("Database migrations applied successfully.");
         }
 
         public static readonly ConcurrentDictionary<Guid, ISession> Sessions = new();

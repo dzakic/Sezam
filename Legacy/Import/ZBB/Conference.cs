@@ -228,7 +228,7 @@ namespace ZBB
                 // Create new Archive
                 if (File.Exists(archivePath))
                     File.Delete(archivePath);
-                using (var newArchive = SharpCompress.Archives.ArchiveFactory.Create(SharpCompress.Common.ArchiveType.Zip))
+                using (var newArchive = SharpCompress.Archives.ArchiveFactory.CreateArchive<SharpCompress.Writers.Zip.ZipWriterOptions>())
                 {
                     foreach (var (sourceFile, archiveEntry) in filesToAdd)
                     {
@@ -244,7 +244,7 @@ namespace ZBB
                     // Save new archive
                     using (var newStream = File.Create(archivePath))
                     {
-                        newArchive.SaveTo(newStream, new SharpCompress.Writers.WriterOptions(SharpCompress.Common.CompressionType.Deflate));
+                        newArchive.SaveTo(newStream, new SharpCompress.Writers.Zip.ZipWriterOptions(SharpCompress.Common.CompressionType.Deflate));
                     }
                 }
                 logger.LogInformation($"Updated archive: {archivePath} (+{filesToAdd.Count} new files)");
@@ -363,8 +363,9 @@ namespace ZBB
                     msg.ReplyTo = Ndxs[id].ReplyTo;
                     if (msg.ReplyTo >= 0 && id > 0)
                     {
+                        // ReplyTo == 0 means no reply, even though technically Msgs[0] exists. :shrug:
                         msg.ParentMsg =
-                           msg.ReplyTo < Messages.Count ?
+                           msg.ReplyTo > 0  && msg.ReplyTo < Messages.Count ?
                               Messages[msg.ReplyTo] : null;
                         if (msg.ParentMsg == null)
                         {

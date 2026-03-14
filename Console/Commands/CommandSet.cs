@@ -1,5 +1,6 @@
 ﻿namespace Sezam.Commands
 {
+    using Sezam.Data;
     using Sezam.Data.EF;
     using System;
     using System.Collections.Generic;
@@ -53,8 +54,10 @@
         /// </summary>
         public string L(string Key) => _resourceManager?.GetString(Key, session.SessionCulture) ?? Key;
 
-        public async Task<bool> ExecuteCommand(string cmd)
+        public virtual async Task<bool> ExecuteCommand(string cmd)
         {
+            // Remove leading dots
+            cmd = cmd.TrimStart('.');
 
             // Command Set with this name?
             var cmdSet = GetCommandSet(cmd);
@@ -360,12 +363,6 @@
 
         public CommandSet GetCommandSet(string cmd)
         {
-            if (cmd.StartsWith("."))
-            {
-                // cmd = cmd.RegexMatch("\.+(.*)");
-                // cmdSet = session.rootCmdSet...
-            }
-
             if (PartialMatch(Catalog.Keys, cmd) is not { } cmdSetName)
                 return null;
 
@@ -418,6 +415,15 @@
         }
         #endregion
 
+        protected ISession GetUserSession()
+        {
+            var user = session.cmdLine.GetToken().ToLower();
+            var candidateSessions = Data.Store.Sessions
+                .Where(s => s.Value.Username.StartsWith(user)).Select(s => s.Value).ToList();
+            if (candidateSessions.Count != 1)
+                throw new ArgumentException($"User '{user}' is not currently online.");
+            return candidateSessions.First();
+        }
     }
 
     public static class MethodExtensions

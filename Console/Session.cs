@@ -113,7 +113,7 @@ namespace Sezam
                 {
                     try
                     {
-                        await Data.Store.MessageBroadcaster.BroadcastSessionLeaveAsync(Id);
+                        await MessageBroadcaster.BroadcastSessionLeaveAsync(Id);
                         logger.LogDebug("Broadcasted session leave for user {Username}", User.Username);
                     }
                     catch (Exception ex)
@@ -167,12 +167,12 @@ namespace Sezam
                 SetSessionCulture("sr");
 
                 // Broadcast session join to other nodes
-                if (Data.Store.MessageBroadcaster != null)
+                if (MessageBroadcaster != null)
                 {
                     try
                     {
-                        var sessionInfo = SessionInfo.FromSession(this as ISession, Data.Store.MessageBroadcaster.LocalNodeId, terminal.Id);
-                        await Data.Store.MessageBroadcaster.BroadcastSessionJoinAsync(sessionInfo);
+                        var sessionInfo = SessionInfo.FromSession(this as ISession, MessageBroadcaster.LocalNodeId, terminal.Id);
+                        await MessageBroadcaster.BroadcastSessionJoinAsync(sessionInfo);
                         logger.LogDebug("Broadcasted session join for user {Username}", user.Username);
                     }
                     catch (Exception ex)
@@ -302,8 +302,8 @@ namespace Sezam
                 }
             }
 
-            string prompt = currentCommandSet?.GetPrompt() ?? ">";
-            string cmd = await terminal.PromptEdit(prompt + ">");
+            var prompt = currentCommandSet?.GetPrompt() ?? string.Empty;
+            var cmd = await terminal.PromptEdit(prompt.Length == 0 ? string.Empty : prompt + "> ");
 
             if (terminal.Connected)
                 await ExecCmd(cmd);
@@ -429,7 +429,7 @@ namespace Sezam
 
         public void Broadcast(string fromUser, string message)
         {
-            terminal.PageMessage($"{fromUser}: {message}");
+            terminal.PageMessage(Terminal.BEL + $"{fromUser}: {message}");
         }
 
         public CommandLine cmdLine = null;

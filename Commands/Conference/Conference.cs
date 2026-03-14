@@ -3,6 +3,7 @@ using Sezam.Data.EF;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -87,8 +88,10 @@ namespace Sezam.Commands
                 .Where(c => EF.Functions.Like(c.Name, confPattern + "%"));
             foreach (var g in conferences.DisplayOrder())
             {
-                await session.terminal.Line("{0,-16} {1,5} {2:MMM yyyy} - {3:MMM yyyy}",
-                    g.VolumeName, g.ConfTopics.Sum(t => t.NextSequence), g.FromDate, g.ToDate);
+                await session.terminal.Line(
+                    string.Format(CultureInfo.InvariantCulture,
+                        "{0,-16} {1,5} {2:MMM yyyy} - {3:MMM yyyy}",
+                        g.VolumeName, g.ConfTopics.Sum(t => t.NextSequence), g.FromDate, g.ToDate));
             }
         }
 

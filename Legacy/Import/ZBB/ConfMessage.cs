@@ -74,9 +74,8 @@ namespace ZBB
             Time = dosTime ?? DateTime.MinValue;
 
             // Att
-            Filename = hdr.ReadShortString(12);
-            // Filename = hdr.ReadFixedString(13);
-            _ = hdr.ReadInt32(); // filelen, filesize[bytes]
+            Filename = hdr.ReadShortString(12);            
+            FileLen = hdr.ReadInt32(); // filelen, filesize[bytes]
 
             status = (MsgStatus)hdr.ReadByte();
             _ = hdr.ReadByte(); // reserved

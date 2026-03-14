@@ -18,6 +18,14 @@ namespace Sezam.Web
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
+                .ConfigureLogging(logging =>
+                {
+                    logging.AddSimpleConsole(options =>
+                    {
+                        options.SingleLine = true;
+                        options.TimestampFormat = "HH:mm:ss ";
+                    });
+                })
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>();

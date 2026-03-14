@@ -9,11 +9,11 @@
     <StartupObject>ZBB.MainClass</StartupObject>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.4" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.4" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.4" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.4" />
-    <PackageReference Include="SharpCompress" Version="0.37.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.5" />
+    <PackageReference Include="SharpCompress" Version="0.47.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Console\Sezam.Console.csproj" />
