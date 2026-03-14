@@ -72,6 +72,8 @@ namespace ZBB
                     {
                         logger.LogWarning("Deleting database (--reset)...");
                         dbx.Database.EnsureDeleted();
+                        logger.LogWarning("Deleting conf attachment .zip files...");
+                        DeleteFiles(Path.Combine(dataFolder, "ConfFiles"), "*.zip", logger);
                     }
 
                     logger.LogInformation("Applying database migrations...");
@@ -87,12 +89,12 @@ namespace ZBB
                 if (options.ImportAllConferences)
                 {
                     logger.LogInformation("Importing all conferences...");
-                    importer.ImportConferences();
+                    importer.ImportConferences(options.Reimport);
                 }
                 else if (options.ConferenceNames.Any())
                 {
                     logger.LogInformation("Importing {0} conference(s)...", options.ConferenceNames.Count);
-                    importer.ImportConferences(options.ConferenceNames);
+                    importer.ImportConferences(options.ConferenceNames, options.Reimport);
                 }
 
                 logger.LogInformation("Import completed successfully.");
@@ -115,6 +117,10 @@ namespace ZBB
                 if (argLower == "/reset" || argLower == "--reset")
                 {
                     options.Reset = true;
+                }
+                if (argLower == "/reimport" || argLower == "--reimport")
+                {
+                    options.Reimport = true;
                 }
                 else if (argLower.StartsWith("/conf:") || argLower.StartsWith("--conf:"))
                 {
@@ -148,6 +154,7 @@ namespace ZBB
             Console.WriteLine("  /reset, --reset         Delete and recreate the database before import");
             Console.WriteLine("  /conf:*, --conf:*       Import all conferences");
             Console.WriteLine("  /conf:<name>            Import specific conference by name");
+            Console.WriteLine("  /reimport               Attempt Conf re-Import if it exists");
             Console.WriteLine("  /help, --help, -h, /?   Show this help message");
             Console.WriteLine();
             Console.WriteLine("Examples:");
@@ -157,11 +164,39 @@ namespace ZBB
             Console.WriteLine("  ZBB.Import /conf:*                        Import all conferences");
             Console.WriteLine();
         }
+
+        private static void DeleteFiles(string folderPath, string searchPattern, ILogger logger)
+        {
+            try
+            {
+                if (!Directory.Exists(folderPath))
+                    return;
+
+                var files = Directory.EnumerateFiles(folderPath, searchPattern, SearchOption.TopDirectoryOnly);
+                foreach (var file in files)
+                {
+                    try
+                    {
+                        File.Delete(file);
+                        logger.LogInformation("Deleted file {FilePath}", file);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to delete file {FilePath}", file);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to enumerate/delete files in {FolderPath} with pattern {SearchPattern}", folderPath, searchPattern);
+            }
+        }
     }
 
     internal class ImportOptions
     {
         public bool Reset { get; set; }
+        public bool Reimport { get; set; }
         public bool ImportAllConferences { get; set; }
         public List<string> ConferenceNames { get; set; } = new List<string>();
         public bool ShowHelp { get; set; }

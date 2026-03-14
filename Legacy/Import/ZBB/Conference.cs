@@ -61,10 +61,20 @@ namespace ZBB
             foreach (var zbbConfMsg in zbbconf.Messages)
             {
                 var msg = zbbConfMsg.ToEFConfMessage();
-                if (msg.Topic == null || msg.MsgNo == 0)
+                if (msg.Topic == null)
                     msg.Topic = unknownTopic;
-                msg.Topic.NextSequence++;
-                msg.MsgNo = msg.Topic.NextSequence;
+
+                if (msg.MsgNo <= msg.Topic.NextSequence)
+                {
+                    // Assign new MsgNo sequentially in the topic
+                    msg.Topic.NextSequence++;
+                    msg.MsgNo = msg.Topic.NextSequence;
+                } else
+                {
+                    msg.Topic.NextSequence = msg.MsgNo;
+                }
+
+
                 msg.Topic.Messages.Add(msg);
             }
 
@@ -91,7 +101,7 @@ namespace ZBB
 
             foreach (var t in conf.ConfTopics)
             {
-                logger.LogInformation($"Topic [{t.TopicNo,2}] {conf.Name,-16}:{t.Name,-16} - {t.Messages.Count,6}");
+                logger.LogInformation($"Topic [{t.TopicNo,2}] {conf.VolumeName} {t.TopicNo,2}. {t.Name,-16} {t.Messages.Count,6}");
             }
 
             zbbconf.EFConference = conf;
@@ -151,7 +161,7 @@ namespace ZBB
 
         public ConferenceVolume(string name)
         {
-            var regex = new Regex(@"([\w]+)\.?(\d*)");
+            var regex = new Regex(@"([A-Za-z_]+)\.?(\d*)");
             var match = regex.Match(name);
             if (match.Success && match.Groups.Count > 2)
             {
@@ -187,7 +197,7 @@ namespace ZBB
             var messages = Messages.Where(m => !string.IsNullOrEmpty(m.Filename));
 
             // Ensure Data folder exists
-            string dataFolder = Path.GetFullPath(Path.Combine(confDir, "..", ".."));
+            string dataFolder = Path.GetFullPath(Path.Combine(confDir, "..", "..", "ConfFiles"));
             Directory.CreateDirectory(dataFolder);
 
             string archiveFileName = $"{Name}.zip";
@@ -247,6 +257,7 @@ namespace ZBB
 
         private void ImportNdx()
         {
+            var logger = Sezam.Data.Store.LoggerFactory.CreateLogger("ImportConfNdx");
             string ndxFileName = Path.Combine(confDir, "conf.ndx");
             using BinaryReader r = new BinaryReader(File.Open(ndxFileName, FileMode.Open));
             /*
@@ -267,8 +278,8 @@ namespace ZBB
             for (int i = 1; i <= ConferenceVolume.MaxTopics; i++)
             {
                 ConfTopic topic = new ConfTopic(this, i);
-                Topics.Add(topic);
                 topic.Import(r);
+                Topics.Add(topic);
             }
 
             /*
@@ -285,11 +296,11 @@ namespace ZBB
             for (int i = 0; i < NdxSize; i++)
                 try
                 {
-                    if (r.PeekChar() == -1)
-                    {
-                        Debug.WriteLine("Premature end of Conf NDX " + Name);
-                        break;
-                    }
+                    //if (r.PeekChar() == -1)
+                    //{
+                    //    logger.LogWarning($"Premature end of Conf NDX {Name}");
+                    //    break;
+                    //}
                     Ndxs[ndxCount].Topic = r.ReadByte();
                     Ndxs[ndxCount].MsgNo = r.ReadInt16();
                     Ndxs[ndxCount].ReplyTo = r.ReadInt16();
@@ -323,7 +334,7 @@ namespace ZBB
 
         private void ImportHdr()
         {
-            var logger = Sezam.Data.Store.LoggerFactory.CreateLogger("ImportHdr");
+            var logger = Sezam.Data.Store.LoggerFactory.CreateLogger("ImportConfHdr");
             string hdrFileName = Path.Combine(confDir, "conf.hdr");
             using BinaryReader hdr = new BinaryReader(File.Open(hdrFileName, FileMode.Open));
             int id = 0;
@@ -363,7 +374,7 @@ namespace ZBB
 
                     if (Ndxs[id].Topic != 0 && msg.TopicNo != Ndxs[id].Topic)
                     {
-                        logger.LogWarning($"Fixing topic {msg.TopicNo,2} to {Ndxs[id].Topic,2} for {msg}");
+                        logger.LogWarning($"Fixing topic {msg.TopicNo,2} to {Ndxs[id].Topic,2} for msg#{msg.MsgNo}");
                         msg.TopicNo = Ndxs[id].Topic;
                     }
                     id++;

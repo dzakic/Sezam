@@ -92,6 +92,7 @@ h2 {
 #Conferences li ol li {
     display: inline-block;
     width: 60px;
+    padding:abs() 4px 2px
 }
 
 #Conferences li ol li .volume {
@@ -103,27 +104,44 @@ h2 {
     font-size: 10px;
     text-transform: uppercase;
     text-align: center;
+    display: block;
+    box-sizing: border-box;
+    padding: 2px 4px;
+    border: 1px solid transparent;
 }
 
 #Conferences li ol li a:hover {
     font-weight: 800;
     text-decoration: none;
+    background: #fafafa;
+    border: 1px solid lightgray;
 }
 
 #Topics {
     list-style: none;
     float: left;
-    margin: 0 60px 0 0;
+    margin: 0 40px 0 0;
 }
 
 #Messages {
-    width: 600px;
-    background: #fbfbfb;
+    width: 620px;
     margin: 0 0 60px 0;
     padding: 0 1em 0 1em;
-    float: left;
+    float: left;    
 }
 
+#Messages message {
+    display: block;
+    padding: 0.2em 0.2em 0.2em 0.2em;
+    margin: 2em 0 2em;
+}
+
+#Messages header {
+    width: 400px;
+    border-bottom: 1px dashed darkorange;
+    margin: 8px 0 8px 0;
+    
+}
 #Messages author {
     font-weight: 800;
 }
@@ -133,25 +151,16 @@ h2 {
     font-variant: small-caps;
 }
 
-#Messages message {
-    margin: 1em;
-}
-
-#Messages header {
-    width: 400px;
-    border-bottom: 1px dashed darkorange;
-    margin: 8px 0 8px 0;
-}
-
 #Messages content {
     display: block;
     font-family: 'Fira Mono', monospace;
     font-size: 12px;
     white-space: pre;
+    margin: 1em 1em 0em 2em;
 }
 
 #Messages file {
-    font-size: 10px;
+    font-size: 12px;
     border-top: 1px solid lightgray;
 }
 

@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -18,7 +19,7 @@ namespace ZBB
         public string ConfPath { get { return Path.Combine(this.rootPath.FullName, "Conf"); } }
 
 
-        private void ImportConference(string confName)
+        private void ImportConference(string confName, bool reimport)
         {
             var logger = Sezam.Data.Store.LoggerFactory.CreateLogger("ImportConf");
             using (var Dbx = Sezam.Data.Store.GetNewContext())
@@ -27,12 +28,13 @@ namespace ZBB
                 try
                 {
 
-                    if (Dbx
-                        .Conferences
+                    var Conf = Dbx.Conferences
                         .Where(c => c.Name == zbbConf.NameOnly && c.VolumeNo == zbbConf.VolumeNumber)
-                        .Any())
+                        .FirstOrDefault();
+
+                    if (Conf is not null && !reimport)
                     {
-                        logger.LogInformation("Conf {0} is already imported.", confName);
+                        logger.LogInformation($"Conf {Conf.VolumeName} with {Conf.ConfTopics.Count} is already imported.");
                         return;
                     }
 
@@ -51,7 +53,7 @@ namespace ZBB
 
                     if (usersToAdd.Any())
                     {
-                        logger.LogInformation("Adding users: {0}", string.Join(", ", usersToAdd.Select(u => u.Username)));
+                        logger.LogInformation("Adding {1} users: {0}", string.Join(", ", usersToAdd.Select(u => u.Username)), usersToAdd.Count());
                         Dbx.Users.AddRange(usersToAdd);
                         Dbx.SaveChanges();
                     }
@@ -77,23 +79,24 @@ namespace ZBB
                 }
                 catch (Exception e)
                 {
+                    
                     logger.LogError($"Error importing conf {confName}");
                     Sezam.ErrorHandling.PrintException(e);
                 }
             }
         }
 
-        public void ImportConferences()
+        public void ImportConferences(bool reimport)
         {
             var confDirInfo = new DirectoryInfo(ConfPath);
             var confNames = confDirInfo.EnumerateDirectories().Select(dir => dir.Name);
-            ImportConferences(confNames);
+            ImportConferences(confNames, reimport);
         }
 
-        public void ImportConferences(IEnumerable<string> conferenceNames)
+        public void ImportConferences(IEnumerable<string> conferenceNames, bool reimport)
         {
-            var options = new ParallelOptions() { MaxDegreeOfParallelism = 1 };
-            Parallel.ForEach(conferenceNames, options, conf => ImportConference(conf));
+            var options = new ParallelOptions() { MaxDegreeOfParallelism = 2 };
+            Parallel.ForEach(conferenceNames, options, conf => ImportConference(conf, reimport));
         }
 
         public void ImportUsers()

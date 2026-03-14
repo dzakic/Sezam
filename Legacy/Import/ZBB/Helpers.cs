@@ -133,7 +133,11 @@ namespace ZBB
 
         public static string DecodeText(byte[] binTxt)
         {
-            return new string(CP852.GetChars(binTxt)).TrimEnd('\0');
+            var s = new string(CP852.GetChars(binTxt));
+            var nulIndex = s.IndexOf('\0');
+            if (nulIndex >= 0)
+                s = s[..nulIndex];
+            return s;
         }
 
         private static int GetBits(long value, int start, int len)
