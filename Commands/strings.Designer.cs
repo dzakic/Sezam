@@ -61,11 +61,47 @@ namespace Sezam.Commands {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to No messages found..
+        /// </summary>
+        internal static string Conf_NoMessages {
+            get {
+                return ResourceManager.GetString("Conf_NoMessages", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No new messages..
+        /// </summary>
+        internal static string Conf_NoNewMessages {
+            get {
+                return ResourceManager.GetString("Conf_NoNewMessages", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Resigned from topic {0}.
         /// </summary>
         internal static string Conf_Resigned {
             get {
                 return ResourceManager.GetString("Conf_Resigned", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to All messages in {0} marked as seen..
+        /// </summary>
+        internal static string Conf_Seen {
+            get {
+                return ResourceManager.GetString("Conf_Seen", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to All messages in all conferences marked as seen..
+        /// </summary>
+        internal static string Conf_SeenAll {
+            get {
+                return ResourceManager.GetString("Conf_SeenAll", resourceCulture);
             }
         }
         
@@ -124,7 +160,7 @@ namespace Sezam.Commands {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Current time is: {0: HH:mm:ss dd MMMM yyyy}.
+        ///   Looks up a localized string similar to Current time is: {0: HH:mm:ss dd MMMM yyyy} in {1}.
         /// </summary>
         internal static string Root_Time {
             get {

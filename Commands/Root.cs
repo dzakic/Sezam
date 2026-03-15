@@ -103,7 +103,7 @@ namespace Sezam.Commands
         public async Task Time()
         {
             var localTime = session.User.ToLocalTime(DateTime.UtcNow);
-            await session.terminal.Line(L("Root_Time"), localTime);
+            await session.terminal.Line(L("Root_Time"), localTime, session.User.TimeZoneId);
         }
 
         [Command(Aliases = ["Clear"], Description = "Clear screan")]

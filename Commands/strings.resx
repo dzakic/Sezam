@@ -125,7 +125,7 @@
     <value>Hello relatives</value>
   </data>
   <data name="Root_Time" xml:space="preserve">
-    <value>Current time is: {0: HH:mm:ss dd MMMM yyyy}</value>
+    <value>Current time is: {0: HH:mm:ss dd MMMM yyyy} in {1}</value>
   </data>
   <data name="Set_Msg_PasswordsMismatch" xml:space="preserve">
     <value>Passwords don't match</value>

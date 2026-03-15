@@ -45,7 +45,7 @@ namespace Sezam.Commands
             await session.terminal.Line(strings.Set_Password_Changed);
         }
 
-        [Command(Description = "Set your timezone for displaying dates and times")]
+        [Command(Aliases = ["TZ, Zone"], Description = "Set your timezone for displaying dates and times")]
         [CommandParameter("timezone", "Timezone ID (e.g., 'Europe/Belgrade', 'America/New_York', 'UTC'). Use 'list' to see available timezones.")]
         public async Task Timezone()
         {

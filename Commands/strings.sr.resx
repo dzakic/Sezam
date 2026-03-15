@@ -125,7 +125,7 @@
     <value>Здраво рођаци</value>
   </data>
   <data name="Root_Time" xml:space="preserve">
-    <value>Тачно време је: {0: HH:mm:ss dd MMMM yyyy}</value>
+    <value>Тачно време је: {0: HH:mm:ss dd MMMM yyyy} y {1}</value>
   </data>
   <data name="Set_Msg_PasswordsMismatch" xml:space="preserve">
     <value>Унете шифре се не подударају</value>
@@ -169,5 +169,17 @@
   </data>
   <data name="Set_LangUpdated" xml:space="preserve">
     <value>Језик промењен у {0} ({1})</value>
+  </data>
+  <data name="Conf_NoNewMessages" xml:space="preserve">
+    <value>Nema novih poruka.</value>
+  </data>
+  <data name="Conf_NoMessages" xml:space="preserve">
+    <value>Nema poruka.</value>
+  </data>
+  <data name="Conf_Seen" xml:space="preserve">
+    <value>Све поруке у {0} прочитане.</value>
+  </data>
+  <data name="Conf_SeenAll" xml:space="preserve">
+    <value>Све поруке у свим конференцијама прочитане.</value>
   </data>
 </root>
