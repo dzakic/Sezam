@@ -1,175 +1,207 @@
-# Distributed Session Discovery
+# Distributed Sessions & Messaging
 
 ## Overview
 
-Sezam now automatically discovers and shares connected user sessions across all nodes in a swarm deployment. When a user connects to any node, that session information is broadcast to all other nodes via Redis, enabling every connection to see who else is online - even on different pods/containers.
+Sezam automatically discovers and shares connected user sessions across all nodes in a swarm deployment. When a user connects to any node, that session information is broadcast to all other nodes via Redis, enabling every connection to see who else is online — even on different pods/containers.
+
+Messages (Page, Chat) are routed through `Data.Store` with a local shortcut: if the target user is on the same node, delivery is instant without Redis. Otherwise the message is published via Redis for the remote node to deliver.
 
 ## Architecture
 
 ### Components
 
-1. **SessionInfo** (`Console/Messaging/SessionInfo.cs`)
-   - Serializable representation of a session
-   - Contains: username, connect time, login time, node ID, terminal ID
-   - Used for broadcasting across Redis
+1. **SessionInfo** (`Data/Messaging/SessionInfo.cs`)
+   - Universal session descriptor — used for local display, remote transport, and registry queries
+   - JSON-serializable for Redis distribution between nodes
+   - Contains: `Id`, `Username`, `ConnectTime`, `LoginTime`, `NodeId`, `TerminalId`, `State`, `IsLocal`, `ConnectedDuration`
+   - `State` tracks current user activity (e.g. `"CHAT"`, `"TRANSFER"`, `"READ"`) — nullable, null means idle
+   - `IsLocal` is not serialized — computed locally on each node
 
-2. **MessageBroadcaster Extensions**
-   - `BroadcastSessionJoinAsync(sessionInfo)` - Send session connect event
-   - `BroadcastSessionLeaveAsync(sessionId)` - Send session disconnect event
-   - `GetRemoteSessions()` - Retrieve all remote sessions
-   - `OnSessionJoined/OnSessionLeft` - Event callbacks
+2. **ISession** (`Data/Sessions.cs`)
+   - Minimal interface for live local sessions: `Id`, `Username`, `ConnectTime`, `LoginTime`, `Close()`, `Deliver()`
+   - `Deliver(from, message)` pushes a message to the session's terminal
+   - Only meaningful for local sessions (you can't `Deliver` to a remote session directly)
 
-3. **Session Integration** (`Console/Session.cs`)
-   - Broadcasts session join after login succeeds
-   - Broadcasts session leave on disconnect
-   - `MessageBroadcaster` property for event distribution
+3. **MessageBroadcaster** (`Data/Messaging/MessageBroadcaster.cs`)
+   - Redis Pub/Sub for session events and message routing
+   - Session protocol on `sezam:sessions` channel: `UPDATE`, `LEAVE`, `DISCOVER`, `DISCOVER_RESPONSE`
+   - Message protocol on `sezam:broadcast` channel: `BROADCAST`, `USER`, `CHAT`
+   - Falls back to local-only mode if Redis is unavailable
 
-4. **DistributedSessionRegistry** (`Console/Messaging/DistributedSessionRegistry.cs`)
-   - Query all sessions across all nodes
-   - Search by username, node ID, or session ID
-   - Get online usernames, node summaries
-   - Session location awareness (local vs. remote)
+4. **DistributedSessionRegistry** (`Data/Messaging/DistributedSessionRegistry.cs`)
+   - Unified view of sessions across all nodes
+   - All methods return `SessionInfo` (no separate `SessionDetails` type)
+   - Query by username, session ID, node ID; get online usernames, node summaries
+
+5. **Data.Store Messaging API** (`Data/Store.cs`)
+   - `LocalBroadcast(from, message)` — this node only (e.g. "shutting down")
+   - `GlobalBroadcast(from, message)` — all nodes (local + Redis)
+   - `SendToUser(toUser, from, message)` — local shortcut, then Redis fallback
+   - `SendToChat(room, from, message)` — all nodes, room `"*"` = public chat
+
+### Type Hierarchy (Simplified)
+
+```
+ISession (interface)           SessionInfo (class)
+├── Id                         ├── Id
+├── Username                   ├── Username
+├── ConnectTime                ├── ConnectTime
+├── LoginTime                  ├── LoginTime
+├── Close()                    ├── NodeId
+└── Deliver(from, message)     ├── TerminalId
+                               ├── State         (nullable: "CHAT", "READ", etc.)
+                               ├── IsLocal        (not serialized)
+                               └── ConnectedDuration (computed)
+
+ISession = live local session (has terminal, can deliver messages)
+SessionInfo = universal read-only view (local or remote, serializable)
+```
 
 ## Message Flow
 
-### Session Join (User Logs In)
+### Session Update (Login, State Change)
 
 ```
-Terminal A
+User Login / State Change
    ↓
-User Login → User.set()
+Session.PublishSessionUpdate()
    ↓
-LoginTime = now
+SessionInfo.FromSession(this, nodeId, terminalId)
    ↓
-SessionInfo.FromSession(this)
-   ↓
-BroadcastSessionJoinAsync(sessionInfo)
+BroadcastSessionUpdateAsync(sessionInfo)
    ↓
 Redis Channel "sezam:sessions"
+   {nodeId}|UPDATE:{SessionInfo JSON}
    ↓
-┌──────────────────────┬──────────────────────┐
-│                      │                      │
-Terminal A (echo)    Terminal B            Terminal C
-(filtered)           (display)             (display)
-   ↓                    ↓                    ↓
-Add to cache         Add to cache         Add to cache
-   ↓                    ↓                    ↓
-Users can query:       Available in        Available in
-"who's online"         registry            registry
+Remote nodes: upsert in _remoteSessionCache
 ```
 
-### Session Leave (User Disconnects)
+### Session Leave (Disconnect)
 
 ```
-Finally Block Executing
+Session.Run() finally block
    ↓
 BroadcastSessionLeaveAsync(Id)
    ↓
 Redis Channel "sezam:sessions"
+   {nodeId}|LEAVE:{sessionGuid}
    ↓
-┌──────────────────────┬──────────────────────┐
-│                      │                      │
-Terminal A (echo)    Terminal B            Terminal C
-(filtered)           (remove from cache)  (remove from cache)
-   ↓                    ↓                    ↓
-Session list           Session list         Session list
-updated                updated              updated
+Remote nodes: remove from _remoteSessionCache
+```
+
+### Node Discovery (New Node Comes Online)
+
+```
+Node B starts → InitializeAsync()
+   ↓
+Publishes DISCOVER on sezam:sessions
+   ↓
+Node A receives DISCOVER
+   → Collects Store.Sessions (locals)
+   → Publishes DISCOVER_RESPONSE:[SessionInfo array]
+   ↓
+Node B receives DISCOVER_RESPONSE
+   → Upserts each into _remoteSessionCache
+```
+
+### Page Message (User → User)
+
+```
+Page "alice hello"
+   ↓
+Store.SendToUser("alice", "bob", "hello")
+   ↓
+Is alice local? ──yes──→ alice.Deliver("bob", "hello") → terminal
+   │
+   no
+   ↓
+Redis: BROADCAST channel: "USER:alice:bob:hello"
+   ↓
+Remote node receives → HandleMessageEnvelope
+   → finds local session "alice" → alice.Deliver("bob", "hello")
+```
+
+### Chat Message (Room Broadcast)
+
+```
+Chat "hi everyone"
+   ↓
+Store.SendToChat("*", "bob", "hi everyone")
+   ↓
+All local sessions: Deliver("bob", ":chat:*:hi everyone")
+   ↓
+Redis: BROADCAST channel: "CHAT:*:bob:hi everyone"
+   ↓
+Remote nodes: deliver to all their local sessions
 ```
 
 ## Usage Examples
 
-### Basic Session Queries
+### Session Queries
 
 ```csharp
-// Get the registry (inject or create)
-var registry = new DistributedSessionRegistry(messageBroadcaster);
+// Create registry from the global broadcaster
+var registry = new DistributedSessionRegistry(Data.Store.MessageBroadcaster);
 
-// Get all online usernames
+// Get all online usernames (local + remote)
 var onlineUsers = registry.GetOnlineUsernames();
 // Result: ["Alice", "Bob", "Charlie"]
 
-// Check if user is online
+// Check if user is online (any node)
 bool isOnline = registry.IsUserOnline("Alice");
-// Result: true (on any node)
 
 // Get specific user's session info
-var sessionInfo = registry.GetSessionByUsername("Alice");
-// Result: SessionDetails with Alice's info
+SessionInfo session = registry.GetSessionByUsername("Alice");
+// session.IsLocal, session.NodeId, session.ConnectedDuration, session.State
 ```
 
-### Advanced Session Discovery
+### Sending Messages
 
 ```csharp
-// Get all sessions with details
-var allSessions = registry.GetAllSessions();
-foreach (var session in allSessions)
-{
-    Console.WriteLine($"{session.Username} @ {session.NodeId}");
-    Console.WriteLine($"  Connected: {session.ConnectedDuration.TotalMinutes:F1}m ago");
-    Console.WriteLine($"  Local: {session.IsLocal}");
-}
+// Page a specific user (local shortcut or Redis)
+Data.Store.SendToUser("alice", "bob", "hey!");
 
-// Get sessions by node
-var localSessions = registry.GetSessionsByNode(messageBroadcaster.LocalNodeId);
-Console.WriteLine($"Local sessions: {localSessions.Count()}");
+// Chat to a room (all nodes)
+Data.Store.SendToChat("*", "bob", "hello everyone");
 
-// Get node summaries
-var nodes = registry.GetNodeSummaries();
-foreach (var node in nodes)
-{
-    Console.WriteLine($"{node.NodeId}: {node.SessionCount} sessions");
-}
+// Local-only broadcast (e.g. shutdown notice)
+Data.Store.LocalBroadcast("SYSTEM", "Server shutting down in 5 minutes");
+
+// Global broadcast (all nodes)
+Data.Store.GlobalBroadcast("ADMIN", "System maintenance at 22:00");
 ```
 
-### Statistics
+### In Commands
 
 ```csharp
-// Session counts
-int local = registry.GetLocalSessionCount();     // 5
-int remote = registry.GetRemoteSessionCount();   // 8
-int total = registry.GetTotalSessionCount();     // 13
+// In CommandSet subclasses:
 
-// Check location
-var session = registry.GetSessionByUsername("Alice");
-if (session.IsLocal)
-    Console.WriteLine("Alice is on this node");
-else
-    Console.WriteLine($"Alice is on {session.NodeId}");
+// Find an online user by partial name (local + remote)
+var target = FindOnlineUser("ali");  // returns SessionInfo or null
+
+// Get all sessions for display
+var allSessions = GetAllSessions();  // returns IEnumerable<SessionInfo>
 ```
 
 ## Data Structures
 
-### SessionInfo (Broadcast Format)
+### SessionInfo (JSON format on Redis)
 
-```csharp
+```json
 {
   "id": "a1b2c3d4-e5f6-47a8-9b0c-1d2e3f4a5b6c",
   "username": "alice",
   "connectTime": "2024-01-15T10:30:45Z",
   "loginTime": "2024-01-15T10:31:00Z",
-  "nodeId": "xyz789-abc123",
-  "terminalId": "telnet-001"
+  "nodeId": "xyz789ab-c123-...",
+  "terminalId": "telnet-001",
+  "state": "CHAT"
 }
 ```
 
-### SessionDetails (Query Result)
+Note: `isLocal` and `connectedDuration` are not serialized — computed locally on each node.
 
-```csharp
-public class SessionDetails
-{
-    public Guid Id { get; set; }
-    public string Username { get; set; }
-    public DateTime ConnectTime { get; set; }
-    public DateTime LoginTime { get; set; }
-    public string NodeId { get; set; }
-    public string TerminalId { get; set; }
-    public bool IsLocal { get; set; }
-    
-    public TimeSpan ConnectedDuration => DateTime.Now - ConnectTime;
-}
-```
-
-### NodeSummary (Statistics)
+### NodeSummary
 
 ```csharp
 public class NodeSummary
@@ -180,221 +212,52 @@ public class NodeSummary
 }
 ```
 
-## Integration with Commands
+## Redis Channels & Protocol
 
-### Who Command Example
+### Session Channel: `sezam:sessions`
 
-```csharp
-public class Who : CommandSet
-{
-    private DistributedSessionRegistry _registry;
-    
-    public Who(DistributedSessionRegistry registry)
-    {
-        _registry = registry;
-    }
-    
-    public void Execute()
-    {
-        var allSessions = _registry.GetAllSessions();
-        
-        await terminal.Line("Online users:");
-        foreach (var session in allSessions)
-        {
-            var location = session.IsLocal ? "here" : "remote";
-            var duration = session.ConnectedDuration.TotalMinutes;
-            await terminal.Line($"  {session.Username} ({location}) - {duration:F0}m");
-        }
-        
-        await terminal.Line($"Total: {_registry.GetTotalSessionCount()} users");
-    }
-}
-```
+Format: `{nodeId}|{EventType}:{Data}`
 
-### User Lookup Command
+| Event | Data | Receiver Action |
+|---|---|---|
+| `UPDATE` | Full SessionInfo JSON | Upsert in remote cache |
+| `LEAVE` | Session GUID | Remove from remote cache |
+| `DISCOVER` | *(empty)* | Respond with all local sessions |
+| `DISCOVER_RESPONSE` | SessionInfo[] JSON array | Upsert each in remote cache |
 
-```csharp
-[Command("FIND")]
-public void FindUser(string username)
-{
-    var session = _registry.GetSessionByUsername(username);
-    
-    if (session == null)
-    {
-        await terminal.Line($"User '{username}' not online");
-        return;
-    }
-    
-    var location = session.IsLocal ? "on this node" : $"on node {session.NodeId}";
-    await terminal.Line($"{session.Username} is online {location}");
-    await terminal.Line($"Connected: {session.ConnectedDuration}");
-}
-```
+### Message Channel: `sezam:broadcast`
 
-## Event Callbacks
+Format: `{nodeId}|{EnvelopeType}:{payload}`
 
-### Registering for Session Events
-
-```csharp
-// When a session joins on another node
-messageBroadcaster.OnSessionJoined(async (sessionInfo) =>
-{
-    Console.WriteLine($"New session: {sessionInfo.Username}");
-    // Update UI, update cache, send notification, etc.
-});
-
-// When a session leaves on another node
-messageBroadcaster.OnSessionLeft(async (sessionId) =>
-{
-    Console.WriteLine($"Session {sessionId} disconnected");
-    // Update UI, cleanup, send notification, etc.
-});
-```
-
-## Redis Channels
-
-### Message Channel (Page Messages)
-- Channel: `sezam:broadcast`
-- Format: `{NodeID}|{message}`
-- Existing feature (no change)
-
-### Session Channel (Session Events)
-- Channel: `sezam:sessions`
-- Format: `{NodeID}|{EventType}:{Data}`
-- Events:
-  - `JOIN:` followed by SessionInfo JSON
-  - `LEAVE:` followed by SessionId GUID
+| Envelope | Payload | Receiver Action |
+|---|---|---|
+| `BROADCAST` | `{from}:{message}` | Deliver to all local sessions |
+| `USER` | `{toUser}:{from}:{message}` | Find local session by username, deliver |
+| `CHAT` | `{room}:{from}:{message}` | Deliver to all local sessions |
 
 ## Local vs. Remote
 
-### Local Sessions
-- Sessions on the current node
-- Full ISession object available
-- Direct access to terminal and user object
-- Can immediately terminate or broadcast to
-
-### Remote Sessions
-- Sessions on other nodes
-- Only SessionInfo available (read-only)
-- No direct access to terminal
-- Can query username, times, node location
-
-## Limitations & Design Decisions
-
-1. **Session Expiry**: Remote sessions stay cached until explicit leave event
-   - If node crashes: sessions remain cached until timeout (future enhancement)
-   - Solution: Add TTL-based cleanup (optional)
-
-2. **Session Ordering**: Order may change across nodes
-   - Recommendation: Sort by username or login time for consistency
-
-3. **Node Failover**: If node with sessions crashes
-   - Remote sessions remain visible until explicit cleanup
-   - Future: Implement heartbeat/health checks
-
-4. **Bandwidth**: One Redis message per connect/disconnect
-   - Minimal impact: ~100 bytes per event
-   - Can optimize with batching (future)
-
-## Performance
-
-- **Join Event Latency**: 1-2ms (Redis network)
-- **Query Time**: O(n) where n = remote session count
-- **Memory**: ~200 bytes per remote session
-- **Throughput**: >100 joins/sec per node
+| | Local Session | Remote Session |
+|---|---|---|
+| **Type** | `ISession` (live object in `Store.Sessions`) | `SessionInfo` (cached from Redis) |
+| **Can deliver** | Yes — `session.Deliver(from, msg)` | No — must route via `Store.SendToUser()` |
+| **Can close** | Yes — `session.Close()` | No |
+| **Terminal access** | Yes | No |
+| **Updated by** | Direct property changes + `PublishSessionUpdate()` | Redis UPDATE events |
 
 ## Error Handling
 
-### Broadcast Failures
+- Redis unavailable at startup → local-only mode, no errors
+- Redis disconnects mid-session → messages to remote users silently fail (logged as warning)
+- Broadcast failures → logged but session continues normally
+- Malformed Redis events → logged and skipped
 
-```csharp
-// If Redis unavailable during join:
-if (_messageBroadcaster != null)
-{
-    try
-    {
-        await _messageBroadcaster.BroadcastSessionJoinAsync(sessionInfo);
-    }
-    catch (Exception ex)
-    {
-        // Logged but session continues
-        Debug.WriteLine($"Failed to broadcast: {ex.Message}");
-    }
-}
-```
+## File References
 
-### Parsing Failures
-
-```csharp
-// If session event is malformed:
-try
-{
-    var sessionInfo = JsonSerializer.Deserialize<SessionInfo>(eventData);
-    if (sessionInfo != null)
-    {
-        _remoteSessionCache[sessionInfo.Id] = sessionInfo;
-    }
-}
-catch (Exception ex)
-{
-    System.Diagnostics.Debug.WriteLine($"Error processing: {ex.Message}");
-    // Continue, skip this event
-}
-```
-
-## Testing Locally
-
-### Single Node (No Remote Sessions)
-
-```bash
-# Run normally - works without Redis
-dotnet run -p Telnet/Sezam.Telnet.csproj
-
-# Connect as Alice
-# GetOnlineUsernames() returns ["Alice"]
-# GetRemoteSessionCount() returns 0
-```
-
-### Multi-Node (With Remote Sessions)
-
-```bash
-# Terminal 1: Start Redis
-docker run -d -p 6379:6379 redis:7-alpine
-
-# Terminal 2: Run instance 1
-REDIS_CONNECTION_STRING=localhost:6379 \
-  dotnet run -p Telnet/Sezam.Telnet.csproj
-
-# Terminal 3: Run instance 2
-REDIS_CONNECTION_STRING=localhost:6379 \
-  dotnet run -p Telnet/Sezam.Telnet.csproj
-
-# Terminal 4: Connect as Alice to instance 1
-telnet localhost 2023
-
-# Terminal 5: Connect as Bob to instance 2
-telnet localhost 2023
-
-# Now:
-# Instance 1 knows about Bob (remote)
-# Instance 2 knows about Alice (remote)
-# Both instances: GetOnlineUsernames() = ["Alice", "Bob"]
-```
-
-## Future Enhancements
-
-1. **Session TTL**: Auto-expire stale remote sessions
-2. **Heartbeat**: Periodic ping to verify session still active
-3. **Session Store**: Persist session to database for replay
-4. **Metrics**: Track join/leave events and latency
-5. **Filtering**: Query sessions by criteria (online > 5min, etc.)
-6. **Notifications**: Publish session changes to subscribers
-7. **Bulk Load**: Request all sessions from node on startup
-
-## References
-
-- SessionInfo: `Console/Messaging/SessionInfo.cs`
-- MessageBroadcaster: `Console/Messaging/MessageBroadcaster.cs` 
-- DistributedSessionRegistry: `Console/Messaging/DistributedSessionRegistry.cs`
-- Session Integration: `Console/Session.cs`
-- Redis Broadcasting: `Doc/REDIS_BROADCASTING.md`
+- **SessionInfo**: `Data/Messaging/SessionInfo.cs`
+- **ISession**: `Data/Sessions.cs`
+- **MessageBroadcaster**: `Data/Messaging/MessageBroadcaster.cs`
+- **DistributedSessionRegistry**: `Data/Messaging/DistributedSessionRegistry.cs`
+- **Store messaging API**: `Data/Store.cs`
+- **Session integration**: `Console/Session.cs`
+- **Command helpers**: `Console/Commands/CommandSet.cs` (`FindOnlineUser`, `GetAllSessions`)

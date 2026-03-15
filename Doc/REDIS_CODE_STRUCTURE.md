@@ -9,80 +9,91 @@
 │ - _redis: IConnectionMultiplexer                        │
 │ - _subscriber: ISubscriber                              │
 │ - _localNodeId: string (Guid)                           │
-│ - _onMessageReceived: Func<string, Task>               │
 │ - _redisAvailable: bool                                 │
+│ - _logger: ILogger                                      │
+│ - _remoteSessionCache: ConcurrentDictionary<Guid, SI>   │
 ├─────────────────────────────────────────────────────────┤
 │ + IsRedisConnected: bool                                │
-│ + InitializeAsync(redisConnectionString)               │
-│ + OnMessageReceived(handler)                            │
+│ + LocalNodeId: string                                   │
+│ + InitializeAsync(connectionString)                     │
 │ + BroadcastAsync(message): Task                         │
+│ + BroadcastSessionUpdateAsync(SessionInfo): Task        │
+│ + BroadcastSessionLeaveAsync(Guid): Task                │
+│ + GetRemoteSessions(): IEnumerable<SessionInfo>         │
+│ + GetRemoteSession(Guid): SessionInfo                   │
+│ + GetRemoteSessionCount(): int                          │
 │ + DisposeAsync(): ValueTask                             │
+│ - HandleSessionEvent(message)                           │
+│ - HandleMessageEnvelope(envelope)                       │
+│ - HandleUpdate/Leave/DiscoverRequest/DiscoverResponse   │
 └─────────────────────────────────────────────────────────┘
-         │
-         │ uses
-         │
-         ▼
-┌─────────────────────────────────────────────────────────┐
-│                   Terminal (abstract)                   │
-├─────────────────────────────────────────────────────────┤
-│ - messageBroadcaster: MessageBroadcaster                │
-│ - messageQueue: ConcurrentQueue<string>                 │
-├─────────────────────────────────────────────────────────┤
-│ + SetMessageBroadcaster(broadcaster)                    │
-│ + PageMessage(message)                                  │
-│ + checkPage()                                           │
-└─────────────────────────────────────────────────────────┘
-         ▲                          ▲
-         │                          │
-         │ extends                  │ extends
-         │                          │
-    ┌────────────────┐         ┌──────────────────┐
-    │ ConsoleTerminal│         │  TelnetTerminal  │
-    └────────────────┘         └──────────────────┘
-
 
 ┌─────────────────────────────────────────────────────────┐
-│                      Server                             │
+│                      Data.Store                         │
 ├─────────────────────────────────────────────────────────┤
-│ - messageBroadcaster: MessageBroadcaster                │
-│ - configuration: IConfigurationRoot                     │
+│ + Sessions: ConcurrentDictionary<Guid, ISession>        │
+│ + MessageBroadcaster: MessageBroadcaster                │
 ├─────────────────────────────────────────────────────────┤
-│ + InitializeAsync(): Task                               │
-│ + Dispose()                                             │
-│ + RunConsoleSession()                                   │
-│ - ListenerThread()                                      │
+│ + LocalBroadcast(from, message)                         │
+│ + GlobalBroadcast(from, message)                        │
+│ + SendToUser(toUser, from, message)                     │
+│ + SendToChat(room, from, message)                       │
+│ + AddSession(ISession) / RemoveSession(ISession)        │
 └─────────────────────────────────────────────────────────┘
-
 
 ┌─────────────────────────────────────────────────────────┐
-│               TelnetHostedService                       │
+│              DistributedSessionRegistry                 │
 ├─────────────────────────────────────────────────────────┤
-│ + ExecuteAsync(CancellationToken)                       │
+│ - _broadcaster: MessageBroadcaster                      │
+├─────────────────────────────────────────────────────────┤
+│ + GetAllSessions(): IEnumerable<SessionInfo>            │
+│ + GetLocalSessions(): IEnumerable<SessionInfo>          │
+│ + GetRemoteSessions(): IEnumerable<SessionInfo>         │
+│ + IsUserOnline(username): bool                          │
+│ + GetSessionByUsername(username): SessionInfo            │
+│ + GetOnlineUsernames(): IEnumerable<string>             │
+│ + GetNodeSummaries(): IEnumerable<NodeSummary>          │
 └─────────────────────────────────────────────────────────┘
-         │
-         │ creates & initializes
-         │
-         ▼
-      Server
 ```
 
-## Sequence Diagram: Message Broadcasting
+## Sequence Diagram: Page Message (User → User)
 
 ```
-Node 1: Terminal A        Node 1: Server         Redis         Node 2: Server        Node 2: Terminal B
-    │                        │                    │                │                    │
-    │ PageMessage("hi")       │                    │                │                    │
-    ├──────────────────────>  │                    │                │                    │
-    │                         │ BroadcastAsync()   │                │                    │
-    │                         ├──────────────────> │                │                    │
-    │                         │   Pub NodeID|"hi"  │                │                    │
-    │                         │                    ├──────────────> │ OnMessageReceived()│
-    │                         │                    │                ├──────────────────> │
-    │                         │                    │                │   PageMessage()    │
-    │                         │                    │                │                    │
-    │ checkPage()             │                    │                │ checkPage()        │
-    │ Show "hi" to Terminal A │                    │                │ Show "hi" to B     │
-    │ <local queue>           │                    │                │ <from Redis>       │
+Node 1: Session A          Data.Store          Redis            Node 2: Broadcaster      Node 2: Session B
+    │                         │                  │                    │                       │
+    │ Page "bob hello"        │                  │                    │                       │
+    ├──────────────────────>  │                  │                    │                       │
+    │  SendToUser("bob",      │                  │                    │                       │
+    │    "alice", "hello")    │                  │                    │                       │
+    │                         │ bob local?       │                    │                       │
+    │                         │ No → Redis       │                    │                       │
+    │                         ├────────────────> │                    │                       │
+    │                         │ USER:bob:alice:  │                    │                       │
+    │                         │ hello            │                    │                       │
+    │                         │                  ├──────────────────> │                       │
+    │                         │                  │ HandleEnvelope     │                       │
+    │                         │                  │                    │ find "bob" locally     │
+    │                         │                  │                    ├─────────────────────> │
+    │                         │                  │                    │ Deliver("alice",      │
+    │                         │                  │                    │   "hello")             │
+    │                         │                  │                    │                       │ → terminal
+```
+
+## Sequence Diagram: Node Discovery
+
+```
+Node B (new)              Redis              Node A (existing)
+    │                       │                      │
+    │ InitializeAsync()     │                      │
+    │ Subscribe             │                      │
+    │ DISCOVER ───────────> │ ───────────────────> │
+    │                       │                      │ HandleDiscoverRequest()
+    │                       │                      │ collect local sessions
+    │                       │ <─────────────────── │ DISCOVER_RESPONSE:[...]
+    │ <──────────────────── │                      │
+    │ HandleDiscoverResponse│                      │
+    │ upsert remote cache   │                      │
+    │                       │                      │
 ```
 
 ## Call Stack: Initialization
@@ -95,69 +106,77 @@ Program.Main()
             └─> TelnetHostedService.ExecuteAsync()
                     │
                     └─> new Server(configuration)
+                    │       └─> Store.ConfigureFrom(configuration)
                     │
                     └─> server.InitializeAsync()
                             │
-                            └─> new MessageBroadcaster()
-                            │
-                            └─> broadcaster.InitializeAsync(
-                                    configuration["Redis:ConnectionString"]
-                                    OR env["REDIS_CONNECTION_STRING"]
-                                    OR default "localhost:6379"
-                                )
+                            └─> if RedisEnabled:
                                     │
-                                    └─> ConnectionMultiplexer.ConnectAsync()
+                                    └─> new MessageBroadcaster()
+                                    │       → Store.MessageBroadcaster = broadcaster
                                     │
-                                    ├─ Success: _redisAvailable = true
-                                    │           Subscribe to "sezam:broadcast"
-                                    └─ Failure: _redisAvailable = false
-                                                (graceful fallback)
+                                    └─> broadcaster.InitializeAsync(RedisConnectionString)
+                                            │
+                                            └─> ConnectionMultiplexer.ConnectAsync()
+                                            │
+                                            ├─ Success: _redisAvailable = true
+                                            │   Subscribe to "sezam:broadcast"
+                                            │   Subscribe to "sezam:sessions"
+                                            │   Publish DISCOVER request
+                                            │
+                                            └─ Failure: _redisAvailable = false
+                                                        (local-only mode)
                     │
                     └─> server.Start()
                             │
                             └─> ListenerThread()
-                                    │
                                     └─> Accept connection
-                                    │
                                     └─> new TelnetTerminal(tcpClient)
-                                    │
-                                    └─> terminal.SetMessageBroadcaster(broadcaster)
-                                    │       └─> broadcaster.OnMessageReceived(callback)
-                                    │
                                     └─> new Session(terminal)
+                                    └─> Store.AddSession(session)
 ```
 
-## Call Stack: Message Broadcasting
+## Call Stack: Page Message
 
 ```
-User sends command "PAGE message"
+User sends command "PAGE alice hello"
     │
     └─> Session.InputAndExecCmd()
             │
-            └─> CommandSet.ExecuteCommand()
+            └─> Root.Page()
                     │
-                    └─> Page.Execute()
+                    └─> FindOnlineUser("alice")  → SessionInfo
+                    │       (searches local + remote via registry)
+                    │
+                    └─> Store.SendToUser("alice", "bob", "hello")
                             │
-                            └─> terminal.PageMessage("message")
-                                    │
-                                    ├─> messageQueue.Enqueue("message")
-                                    ├─> paged.TrySetResult()
-                                    │
-                                    └─> messageBroadcaster?.BroadcastAsync("message")
-                                            │
-                                            └─> subscriber.PublishAsync(
-                                                    "sezam:broadcast",
-                                                    "NodeID|message"
-                                                )
-                                                    │
-                                                    └─ Other nodes receive via subscriber.OnMessage()
-                                                            │
-                                                            └─> OnMessageReceived callback
-                                                                    │
-                                                                    └─> PageMessage(msgFromRedis)
-                                                                            │
-                                                                            └─> messageQueue.Enqueue()
-                                                                            └─> paged.TrySetResult()
+                            ├─ alice is local?
+                            │   YES → alice.Deliver("bob", "hello")
+                            │           → terminal.PageMessage(...)
+                            │
+                            └─ alice is remote?
+                                → BroadcastAsync("USER:alice:bob:hello")
+                                    → Redis "sezam:broadcast" channel
+                                        → Remote node: HandleMessageEnvelope()
+                                            → find local "alice"
+                                            → alice.Deliver("bob", "hello")
+```
+
+## Call Stack: Chat Message
+
+```
+User types "hello" in Chat mode
+    │
+    └─> Chat.ExecuteCommand("hello")
+            │
+            └─> Chat.Say(room="*", "hello")
+                    │
+                    └─> Store.SendToChat("*", "bob", "hello")
+                            │
+                            ├─ All local sessions: Deliver("bob", ":chat:*:hello")
+                            │
+                            └─ Redis: BroadcastAsync("CHAT:*:bob:hello")
+                                → Remote nodes: deliver to all their locals
 ```
 
 ## Configuration Resolution
@@ -188,43 +207,35 @@ Example Resolution:
 
 ```
 Sezam/
-├── Console/
-│   ├── Messaging/
-│   │   └── MessageBroadcaster.cs          ← NEW
-│   ├── Terminal/
-│   │   ├── Terminal.cs                    ← MODIFIED
-│   │   ├── ConsoleTerminal.cs
-│   │   └── TelnetTerminal.cs
-│   ├── Server.cs                          ← MODIFIED
-│   ├── Session.cs
-│   └── Sezam.Console.csproj               ← MODIFIED
-│
-├── Telnet/
-│   ├── TelnetHostedService.cs             ← MODIFIED
-│   ├── TelnetServer.cs
-│   ├── ConsoleLoop.cs
-│   ├── appsettings.json                   ← MODIFIED
-│   └── Sezam.Telnet.csproj
-│
-├── Web/
-│   ├── Startup.cs                         ← MODIFIED
-│   ├── Program.cs
-│   ├── appsettings.json                   ← MODIFIED
-│   └── Sezam.Web.csproj                   ← MODIFIED
-│
 ├── Data/
-│   └── ...
+│   ├── Store.cs                            ← Messaging API: SendToUser, SendToChat, etc.
+│   ├── Sessions.cs                         ← ISession interface
+│   └── Messaging/
+│       ├── MessageBroadcaster.cs           ← Redis Pub/Sub, protocol handling
+│       ├── SessionInfo.cs                  ← Universal session descriptor
+│       └── DistributedSessionRegistry.cs   ← Unified session query layer
+│
+├── Console/
+│   ├── Session.cs                          ← PublishSessionUpdate(), Deliver()
+│   ├── Server.cs                           ← Initialization, lifecycle
+│   ├── Commands/
+│   │   └── CommandSet.cs                   ← FindOnlineUser(), GetAllSessions()
+│   └── Terminal/
+│       ├── Terminal.cs
+│       ├── ConsoleTerminal.cs
+│       └── TelnetTerminal.cs
 │
 ├── Commands/
-│   └── ...
+│   ├── Root.cs                             ← Page, Who commands
+│   └── Chat/
+│       └── Chat.cs                         ← Chat To, Say commands
 │
-└── Doc/
-    ├── REDIS_BROADCASTING.md              ← NEW
-    ├── REDIS_DEPLOYMENT_EXAMPLES.md       ← NEW
-    ├── REDIS_IMPLEMENTATION_SUMMARY.md    ← NEW
-    ├── REDIS_QUICKSTART.md                ← NEW
-    ├── REDIS_CODE_STRUCTURE.md            ← NEW (this file)
-    └── ...
+├── Telnet/
+│   ├── TelnetHostedService.cs
+│   └── ConsoleLoop.cs
+│
+└── Web/
+    └── Startup.cs
 ```
 
 ## Class Dependency Graph

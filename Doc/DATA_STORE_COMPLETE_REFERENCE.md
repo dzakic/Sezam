@@ -44,8 +44,8 @@ public static bool RedisEnabled { get; private set; }
 ### Global Services
 
 ```csharp
-public static dynamic MessageBroadcaster { get; set; }
-// Singleton MessageBroadcaster instance for distributed messaging
+public static MessageBroadcaster MessageBroadcaster { get; set; }
+// Typed singleton for distributed messaging (was previously dynamic)
 // Initialized in Server.InitializeAsync() if RedisEnabled
 // Null if Redis not configured
 ```
@@ -112,6 +112,34 @@ public static void RemoveSession(ISession session)
 // Thread-safe (uses ConcurrentDictionary)
 ```
 
+### Messaging API
+
+```csharp
+public static void LocalBroadcast(string fromUser, string message)
+// Deliver to all local sessions only. No Redis.
+// Use for node-local announcements (e.g. "shutting down")
+```
+
+```csharp
+public static void GlobalBroadcast(string fromUser, string message)
+// Deliver to all sessions on all nodes.
+// Local first, then publishes to Redis for other nodes.
+```
+
+```csharp
+public static void SendToUser(string toUsername, string fromUser, string message)
+// Send to a specific user by username.
+// Local shortcut: if user is on this node, delivers directly.
+// Otherwise publishes via Redis for the remote node to deliver.
+```
+
+```csharp
+public static void SendToChat(string room, string fromUser, string message)
+// Send to a chat room on all nodes.
+// Room "*" means public chat (all sessions).
+// Delivers locally, then publishes to Redis.
+```
+
 ## Configuration Priority Order
 
 ### Database (ServerName)
@@ -165,14 +193,20 @@ var dbName = Store.DbName;      // "sezam"
 var sessionCount = Store.Sessions.Count;
 ```
 
-### Message Broadcasting
+### Messaging
 
 ```csharp
-// From any class
-if (Store.MessageBroadcaster != null)
-{
-    await Store.MessageBroadcaster.BroadcastAsync("message");
-}
+// Send a message to a specific user (local shortcut → Redis)
+Store.SendToUser("alice", "bob", "hey there!");
+
+// Chat to everyone
+Store.SendToChat("*", "bob", "hello all");
+
+// Local-only broadcast
+Store.LocalBroadcast("SYSTEM", "Server shutting down");
+
+// Global broadcast (all nodes)
+Store.GlobalBroadcast("ADMIN", "Maintenance at 22:00");
 ```
 
 ### Session Management
@@ -232,7 +266,7 @@ public static readonly ConcurrentDictionary<Guid, ISession> Sessions = new();
 public static string ServerName { get; private set; }  // Set once in ConfigureFrom()
 
 // MessageBroadcaster is set once during initialization
-public static dynamic MessageBroadcaster { get; set; }  // Set in InitializeAsync()
+public static MessageBroadcaster MessageBroadcaster { get; set; }  // Set in InitializeAsync()
 ```
 
 ## Initialization Sequence
@@ -313,19 +347,12 @@ Resulting properties:
 ## Error Handling
 
 ```csharp
-// Graceful degradation if Redis not available
-if (Store.RedisEnabled && Store.MessageBroadcaster != null)
-{
-    try
-    {
-        await Store.MessageBroadcaster.BroadcastAsync("message");
-    }
-    catch (Exception ex)
-    {
-        Debug.WriteLine($"Broadcast failed: {ex.Message}");
-        // Continue - messages stay local only
-    }
-}
+// Messaging API handles graceful degradation internally:
+// - SendToUser: if user not local and Redis unavailable, logs warning
+// - SendToChat/GlobalBroadcast: delivers locally, Redis failures logged
+// - LocalBroadcast: never touches Redis, always works
+Store.SendToUser("alice", "bob", "hey!");
+// If alice is not local and Redis is down → logged as warning, no exception
 ```
 
 ## Testing and Mocking

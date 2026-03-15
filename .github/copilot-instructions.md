@@ -53,11 +53,21 @@ public class Root : CommandSet {
 - Configuration read from environment variables first, then `appsettings.json`: `ServerName`, `Password`, connection string
 - Users authenticated per-session; multi-user isolation is automatic via context filters
 
-### Session Management
-- `Session` runs on a dedicated thread (`Session.thread`)
-- `Server.sessions` (thread-safe list) tracks active `ISession` instances
+### Session Management & Messaging
+- `Session` implements `ISession`; runs on a dedicated thread
+- `Data.Store.Sessions` (ConcurrentDictionary) tracks active local `ISession` instances
+- `SessionInfo` is the universal session descriptor (local + remote, JSON-serializable)
+- `DistributedSessionRegistry` provides unified view across all nodes
 - Session catches and logs exceptions; continues on `ArgumentException`, `NotImplementedException`
 - Terminal disconnection raises `TerminalException(ClientDisconnected)` to cleanly exit
+
+### Messaging API (Data.Store)
+- `Store.SendToUser(toUser, from, message)` — local shortcut, then Redis fallback
+- `Store.SendToChat(room, from, message)` — all nodes; room `"*"` = public chat
+- `Store.LocalBroadcast(from, message)` — this node only (e.g. shutdown notice)
+- `Store.GlobalBroadcast(from, message)` — all nodes via Redis
+- `Session.PublishSessionUpdate()` — broadcasts session snapshot to other nodes (login, state change)
+- `CommandSet.FindOnlineUser(partial)` — searches local + remote sessions
 
 ## Build & Deployment
 
@@ -113,6 +123,9 @@ dotnet publish -c Release Sezam.Telnet/Sezam.Telnet.csproj
 - **Entry points**: [Telnet/Sezam.Telnet.csproj](Telnet/Sezam.Telnet.csproj), [Web/Program.cs](Web/Program.cs)
 - **Command dispatch**: [Console/Commands/CommandSet.cs](Console/Commands/CommandSet.cs), [Commands/Root.cs](Commands/Root.cs)
 - **Session lifecycle**: [Console/Session.cs](Console/Session.cs), [Console/Server.cs](Console/Server.cs)
+- **Session types**: [Data/Sessions.cs](Data/Sessions.cs) (ISession), [Data/Messaging/SessionInfo.cs](Data/Messaging/SessionInfo.cs)
+- **Messaging**: [Data/Store.cs](Data/Store.cs), [Data/Messaging/MessageBroadcaster.cs](Data/Messaging/MessageBroadcaster.cs)
+- **Session registry**: [Data/Messaging/DistributedSessionRegistry.cs](Data/Messaging/DistributedSessionRegistry.cs)
 - **Database model**: [Data/Store.cs](Data/Store.cs), [Data/EF/](Data/EF/)
 - **Terminal interface**: [Console/Terminal/Terminal.cs](Console/Terminal/Terminal.cs), [Console/Terminal/TelnetTerminal.cs](Console/Terminal/TelnetTerminal.cs)
 
@@ -167,13 +180,17 @@ When working:
 ### Smart Configuration in Data.Store
 ```csharp
 // ALL global configuration and services go in Data.Store
-Store.ServerName              // Database host
-Store.DbName                  // Database name (default: "sezam")
-Store.Password                // Database password
-Store.RedisConnectionString   // Redis host:port
-Store.RedisEnabled            // Is Redis configured?
-Store.MessageBroadcaster      // Global broadcaster singleton
-Store.Sessions                // All active sessions (thread-safe)
+Store.DbConnectionString           // Database connection string
+Store.RedisConnectionString        // Redis host:port
+Store.RedisEnabled                 // Is Redis configured?
+Store.MessageBroadcaster           // Typed MessageBroadcaster singleton (not dynamic)
+Store.Sessions                     // All active local sessions (ConcurrentDictionary)
+
+// Messaging API
+Store.SendToUser(to, from, msg)    // User-to-user (local shortcut → Redis)
+Store.SendToChat(room, from, msg)  // Chat room (all nodes)
+Store.LocalBroadcast(from, msg)    // This node only
+Store.GlobalBroadcast(from, msg)   // All nodes
 ```
 
 ### Configuration Rules
@@ -182,11 +199,13 @@ Store.Sessions                // All active sessions (thread-safe)
 - **Graceful disabling**: Features (Redis) auto-disable if not configured
 - **Singletons**: Global services stored in `Data.Store`; accessible from anywhere
 
-### Redis Configuration
+### Redis Configuration & Protocol
 - Centralized in `Data.Store.RedisConnectionString`
 - Check availability via `Data.Store.RedisEnabled`
 - Use `RedisChannel.Literal()` for channel names (NOT implicit string conversion)
-- Channels: `"sezam:broadcast"` (messages), `"sezam:sessions"` (session events)
+- Session channel `"sezam:sessions"`: events `UPDATE`, `LEAVE`, `DISCOVER`, `DISCOVER_RESPONSE`
+- Message channel `"sezam:broadcast"`: envelopes `BROADCAST`, `USER`, `CHAT`
+- Node discovery: new nodes send `DISCOVER`, existing nodes respond with local sessions
 
 ## Build & Code Quality Standards
 
