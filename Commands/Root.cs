@@ -75,22 +75,22 @@ namespace Sezam.Commands
         }
 
         [Command(Description = "Show the software version (internal)")]
-        public void Version()
+        public async Task Version()
         {
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies()
                 .Where(a => a.FullName.StartsWith("Sezam")))
             {
                 FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
                 var fi = new System.IO.FileInfo(fvi.OriginalFilename);
-                session.terminal.Line($"{assembly.ManifestModule.Name,-30} {fvi.FileVersion,-16} {fi.LastWriteTime:dd-MMM-yyyy HH:mm}");
+                await session.terminal.Line($"{assembly.ManifestModule.Name,-30} {fvi.FileVersion,-16} {fi.LastWriteTime:dd-MMM-yyyy HH:mm}");
             }
         }
 
         [Command(Aliases = ["Date"], Description = "Show current time in your timezone")]
-        public void Time()
+        public async Task Time()
         {
             var localTime = session.User.ToLocalTime(DateTime.UtcNow);
-            session.terminal.Line(L("Root_Time"), localTime);
+            await session.terminal.Line(L("Root_Time"), localTime);
         }
 
         [Command(Aliases = ["Clear"], Description = "Clear screan")]

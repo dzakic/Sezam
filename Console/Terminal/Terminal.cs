@@ -208,7 +208,30 @@ namespace Sezam
             {
                 try
                 {
-                    char ch = char.ToLower(await ReadCharWithPage());
+                    char ch = await ReadCharWithPage();
+
+                    // Skip ANSI escape sequences (e.g. arrow keys send ESC [ A/B/C/D)
+                    // to prevent accidental option matching on sequence characters
+                    if (ch == Esc)
+                    {
+                        char next = await ReadCharWithPage();
+                        if (next == '[')
+                        {
+                            // Consume the CSI sequence terminator (letter) and any
+                            // intermediate chars (digits, semicolons, tilde)
+                            char seq;
+                            do { seq = await ReadCharWithPage(); }
+                            while (seq is (>= '0' and <= '9') or ';');
+                        }
+                        continue;
+                    }
+
+                    // Skip non-printable characters (LF, NUL, etc.)
+                    if (ch < ' ' && ch != CR)
+                        continue;
+
+                    ch = char.ToLower(ch);
+
                     if (ch == CR)
                     {
                         // Accept Default (first) option on Enter

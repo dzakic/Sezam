@@ -278,7 +278,7 @@ namespace Sezam.Commands
                 .ThenBy(m => m.MsgNo);
         }
 
-        private void ConfDir(Data.EF.Conference conf)
+        private async Task ConfDir(Data.EF.Conference conf)
         {
             var selTopics = session.Db.ConfTopics
                 .Include(t => t.UserTopic)
@@ -287,14 +287,14 @@ namespace Sezam.Commands
                 .OrderBy(t => t.TopicNo);
 
             foreach (var topic in selTopics)
-                session.terminal.Line(ConfFormatter.FormatTopic(topic));
+                await session.terminal.Line(ConfFormatter.FormatTopic(topic));
         }
 
         [Command(Description = "Show a list of topics in the current conference, or all in all conferences if none open")]
         public async Task Directory()
         {
             if (currentConference != null)
-                ConfDir(currentConference);
+                await ConfDir(currentConference);
             else
             {
                 var activeConferences = GetConferences()
@@ -303,7 +303,7 @@ namespace Sezam.Commands
                 foreach (var conf in activeConferences)
                 {
                     await session.terminal.Line("Conference {0}", conf.VolumeName);
-                    ConfDir(conf);
+                    await ConfDir(conf);
                     await session.terminal.Line();
                 }
             }

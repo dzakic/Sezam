@@ -23,7 +23,7 @@ namespace Sezam.Commands
         }
 
         [Command(Description = "Change login password")]
-        public async void Password()
+        public async Task Password()
         {
             if (session.User.Password.HasValue())
             {

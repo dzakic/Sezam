@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 
 namespace Sezam.Commands
 {
@@ -8,9 +9,9 @@ namespace Sezam.Commands
         #region Helpers
         private readonly Conference confProcessor;
 
-        public void Show()
+        public async Task Show()
         {
-            session.terminal.Line("{0}: {1} {2} {3} {4}", CurrentConference.VolumeName,
+            await session.terminal.Line("{0}: {1} {2} {3} {4}", CurrentConference.VolumeName,
                 CurrentConference.Status.HasFlag(Data.EF.ConfStatus.Private) ? "Private" : "Public",
                 CurrentConference.Status.HasFlag(Data.EF.ConfStatus.ReadOnly) ? "ReadOnly" : "Writable",
                 CurrentConference.Status.HasFlag(Data.EF.ConfStatus.Closed) ? "Closed" : "",
@@ -41,53 +42,53 @@ namespace Sezam.Commands
                string.Format("Conf:{0} Status", conf.Name) : "ConfSet";
         }
 
-        private void SetConfStatus(Data.EF.ConfStatus stat)
+        private async Task SetConfStatus(Data.EF.ConfStatus stat)
         {
             CurrentConference.Status |= stat;
-            Show();
+            await Show();
             session.Db.SaveChanges();
         }
 
-        private void ResetConfStatus(Data.EF.ConfStatus stat)
+        private async Task ResetConfStatus(Data.EF.ConfStatus stat)
         {
             CurrentConference.Status &= ~stat;
-            Show();
+            await Show();
             session.Db.SaveChanges();
         }
         #endregion
 
-        public void Close()
+        public async Task Close()
         {
-            SetConfStatus(Data.EF.ConfStatus.Closed);
+            await SetConfStatus(Data.EF.ConfStatus.Closed);
         }
 
-        public void Open()
+        public async Task Open()
         {
-            ResetConfStatus(Data.EF.ConfStatus.Closed);
+            await ResetConfStatus(Data.EF.ConfStatus.Closed);
         }
 
         [Command(Aliases = ["ro"])]
-        public void ReadOnly()
+        public async Task ReadOnly()
         {
-            SetConfStatus(Data.EF.ConfStatus.ReadOnly);
+            await SetConfStatus(Data.EF.ConfStatus.ReadOnly);
         }
 
         [Command(Aliases = ["rw"])]
-        public void ReadWrite()
+        public async Task ReadWrite()
         {
-            ResetConfStatus(Data.EF.ConfStatus.ReadOnly);
+            await ResetConfStatus(Data.EF.ConfStatus.ReadOnly);
         }
 
-        public void Private()
+        public async Task Private()
         {
-            SetConfStatus(Data.EF.ConfStatus.Private);
+            await SetConfStatus(Data.EF.ConfStatus.Private);
         }
-        public void Public()
+        public async Task Public()
         {
-            ResetConfStatus(Data.EF.ConfStatus.Private);
+            await ResetConfStatus(Data.EF.ConfStatus.Private);
         }
 
-        public async void Moderator()
+        public async Task Moderator()
         {
             var moderator = await GetRequiredUser();
             var mConfData = moderator.GetUserConfInfo(CurrentConference);

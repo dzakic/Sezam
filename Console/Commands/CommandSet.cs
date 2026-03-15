@@ -120,22 +120,22 @@
         public virtual void Exit() => session.ExitCurrentCommand();
 
         [Command(Aliases = ["?"], Description = "Show help")]
-        public virtual void Help()
+        public virtual async Task Help()
         {
             string topic = session.cmdLine.GetToken();
             if (topic.HasValue())
             {
-                PrintDetailedHelp(topic);
+                await PrintDetailedHelp(topic);
                 return;
             }
 
-            session.terminal.Line("== {0} HELP ==", DisplayName().ToUpper());
+            await session.terminal.Line("== {0} HELP ==", DisplayName().ToUpper());
 
             foreach (var cmdSet in GetCommandSets())
             {
                 var desc = cmdSet.GetCustomAttribute<CommandAttribute>()?.Description
                     is { Length: > 0 } d ? $" - {d}" : "";
-                session.terminal.Line("* {0,-20} {1}", cmdSet.Name.ToUpper(), desc);
+                await session.terminal.Line("* {0,-20} {1}", cmdSet.Name.ToUpper(), desc);
             }
 
             foreach (var method in GetMethods())
@@ -146,11 +146,11 @@
                     : method.Name;
 
                 var desc = method.GetCustomAttribute<CommandAttribute>()?.Description ?? "";
-                session.terminal.Line("- {0,-20} {1}", line, desc);
+                await session.terminal.Line("- {0,-20} {1}", line, desc);
             }
         }
 
-        private void PrintDetailedHelp(string topic)
+        private async Task PrintDetailedHelp(string topic)
         {
             var currentSet = this;
             var currentTopic = topic;
@@ -159,22 +159,22 @@
             {
                 if (currentSet.GetCommandSet(currentTopic) is { } nextSet)
                 {
-                    nextSet.Help();
+                    await nextSet.Help();
                     return;
                 }
 
                 if (currentSet.GetCommandMethod(currentTopic) is { } method)
                 {
-                    PrintHelp(method);
+                    await PrintHelp(method);
                     return;
                 }
 
-                session.terminal.Line("Unknown command or topic: {0}", currentTopic);
+                await session.terminal.Line("Unknown command or topic: {0}", currentTopic);
                 return;
             }
         }
 
-        private void PrintHelp(MethodInfo method)
+        private async Task PrintHelp(MethodInfo method)
         {
             var attr = method.GetCustomAttribute<CommandAttribute>();
             var parameters = method.GetCustomAttributes<CommandParameterAttribute>().ToArray();
@@ -189,39 +189,39 @@
 
             var terminalWidth = session.terminal.LineWidth;
 
-            session.terminal.Line();
-            session.terminal.Line("Syntax: {0}", string.Join(" ", syntaxParts));
+            await session.terminal.Line();
+            await session.terminal.Line("Syntax: {0}", string.Join(" ", syntaxParts));
 
-            session.terminal.Line();
+            await session.terminal.Line();
             foreach (var line in WordWrap(desc, terminalWidth))
-                session.terminal.Line(line);
+                await session.terminal.Line(line);
 
             if (aliases is { Length: > 0 })
             {
-                session.terminal.Line();
-                session.terminal.Line("Aliases: {0}", string.Join(", ", aliases));
+                await session.terminal.Line();
+                await session.terminal.Line("Aliases: {0}", string.Join(", ", aliases));
             }
 
             if (parameters is { Length: > 0 })
             {
-                session.terminal.Line();
-                session.terminal.Line("Parameters:");
+                await session.terminal.Line();
+                await session.terminal.Line("Parameters:");
                 foreach (var parameter in parameters)
                 {
                     var descriptionSuffix = parameter.IsRequired ? "" : " [Optional]";
-                    PrintHelpLine(parameter.Name, parameter.Description + descriptionSuffix, terminalWidth);
+                    await PrintHelpLine(parameter.Name, parameter.Description + descriptionSuffix, terminalWidth);
                 }
             }
 
             if (switches.Length > 0)
             {
-                session.terminal.Line("Switches:");
+                await session.terminal.Line("Switches:");
                 foreach (var commandSwitch in switches)
-                    PrintHelpLine($"/{commandSwitch.Switch}", commandSwitch.Description, terminalWidth);
+                    await PrintHelpLine($"/{commandSwitch.Switch}", commandSwitch.Description, terminalWidth);
             }
         }
 
-        private void PrintHelpLine(string label, string description, int terminalWidth)
+        private async Task PrintHelpLine(string label, string description, int terminalWidth)
         {
             const string leftIndent = "  ";
             const int labelWidth = 24;
@@ -234,11 +234,11 @@
             if (wrappedDescription.Count == 0)
                 wrappedDescription.Add(string.Empty);
 
-            session.terminal.Line("{0}{1} {2}", leftIndent, (label ?? string.Empty).PadRight(labelWidth), wrappedDescription[0]);
+            await session.terminal.Line("{0}{1} {2}", leftIndent, (label ?? string.Empty).PadRight(labelWidth), wrappedDescription[0]);
 
             string continuationPrefix = leftIndent + new string(' ', labelWidth) + " ";
             foreach (var continuationLine in wrappedDescription.Skip(1))
-                session.terminal.Line(continuationPrefix + continuationLine);
+                await session.terminal.Line(continuationPrefix + continuationLine);
         }
 
         // TODO: Move to a utility class, this can be useful elsewhere
