@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -26,24 +25,21 @@ namespace Sezam
             var serverLogger = loggerFactory.CreateLogger<Server>();
             server = new Server(configuration, serverLogger, loggerFactory);
             await server.InitializeAsync();
-            console = new ConsoleLoop(server);
+            var console = new ConsoleLoop(server);
 
             lifetime.ApplicationStopping.Register(OnApplicationStopping);
 
             logger.LogInformation("Telnet server starting");
-            console.Start();
             server.Start();
 
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                if (console.EscPressed.WaitOne(1000))
-                {
-                    logger.LogInformation("ESC pressed, requesting graceful shutdown");
-                    lifetime.StopApplication();
-                    break;
-                }
+            var consoleTask = console.RunAsync();
+            var cancelTask = Task.Delay(Timeout.Infinite, stoppingToken);
+            await Task.WhenAny(consoleTask, cancelTask).ConfigureAwait(false);
 
-                await Task.Delay(250, stoppingToken).ConfigureAwait(false);
+            if (consoleTask.IsCompletedSuccessfully && consoleTask.Result)
+            {
+                logger.LogInformation("ESC pressed, requesting graceful shutdown");
+                lifetime.StopApplication();
             }
         }
 
@@ -56,7 +52,6 @@ namespace Sezam
             finally
             {
                 try { server?.Stop(); } catch (Exception ex) { ErrorHandling.Handle(ex); }
-                try { console?.Stop(); } catch (Exception ex) { ErrorHandling.Handle(ex); }
                 try { server?.Dispose(); } catch (Exception ex) { ErrorHandling.Handle(ex); }
             }
 
@@ -89,7 +84,6 @@ namespace Sezam
         private readonly IConfigurationRoot configuration;
         private readonly IHostApplicationLifetime lifetime;
         private Server server;
-        private ConsoleLoop console;
         private int drainStarted;
     }
 }

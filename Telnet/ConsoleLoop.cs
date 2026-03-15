@@ -1,41 +1,20 @@
-﻿using System.Threading;
+﻿using System.Threading.Tasks;
 
 namespace Sezam
 {
-    class ConsoleLoop
+    class ConsoleLoop(Server server)
     {
+        /// <summary>Returns true if ESC was pressed (shutdown requested).</summary>
+        public Task<bool> RunAsync() => Task.Run(Loop);
 
-        public ConsoleLoop(Server sezamNet)
+        private bool Loop()
         {
-            server = sezamNet;
-        }
-
-        public void Start()
-        {
-            consoleThread = new Thread(new ThreadStart(TreadLoop));
-            consoleThread.Start();
-        }
-
-        public void Stop()
-        {
-            consoleThread.Interrupt();
-        }
-
-        private void TreadLoop()
-        {
-            while (Thread.CurrentThread.IsAlive && System.Console.WindowHeight + System.Console.WindowWidth > 0)
+            while (System.Console.WindowHeight + System.Console.WindowWidth > 0)
             {
                 if (!server.RunConsoleSession())
-                {
-                    EscPressed.Set();
-                    break;
-                }
+                    return true;
             }
+            return false;
         }
-
-        private readonly Server server;
-        private Thread consoleThread;
-        public EventWaitHandle EscPressed = new EventWaitHandle(false, EventResetMode.ManualReset);
-    
     }
 }
