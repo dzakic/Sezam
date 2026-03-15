@@ -1,15 +1,14 @@
 using Sezam.Data;
 using System;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
 
 namespace Sezam
 {
     /// <summary>
-    /// Serializable session information for distribution across nodes.
-    /// Contains only public information that can be shared between nodes.
+    /// Universal session descriptor used for local display, remote transport, and registry queries.
+    /// Serializable via System.Text.Json for Redis distribution between nodes.
     /// </summary>
-    public class SessionInfo 
+    public class SessionInfo
     {
         [JsonPropertyName("id")]
         public Guid Id { get; set; }
@@ -29,6 +28,21 @@ namespace Sezam
         [JsonPropertyName("terminalId")]
         public string TerminalId { get; set; }
 
+        /// <summary>
+        /// Current user state (e.g. "CHAT", "TRANSFER", "READ"). Null means idle/command prompt.
+        /// </summary>
+        [JsonPropertyName("state")]
+        public string State { get; set; }
+
+        /// <summary>
+        /// True when this session lives on the current node. Not serialized — computed locally.
+        /// </summary>
+        [JsonIgnore]
+        public bool IsLocal { get; set; }
+
+        [JsonIgnore]
+        public TimeSpan ConnectedDuration => DateTime.Now - ConnectTime;
+
         public static SessionInfo FromSession(ISession session, string nodeId, string terminalId)
         {
             if (session == null)
@@ -41,29 +55,15 @@ namespace Sezam
                 ConnectTime = session.ConnectTime,
                 LoginTime = session.LoginTime,
                 NodeId = nodeId,
-                TerminalId = terminalId
-            };
-        }
-
-        /// <summary>
-        /// Creates a deep copy of this SessionInfo
-        /// </summary>
-        public SessionInfo Clone()
-        {
-            return new SessionInfo
-            {
-                Id = Id,
-                Username = Username,
-                ConnectTime = ConnectTime,
-                LoginTime = LoginTime,
-                NodeId = NodeId,
-                TerminalId = TerminalId
+                TerminalId = terminalId,
+                IsLocal = true
             };
         }
 
         public override string ToString()
         {
-            return $"{Username}@{NodeId} (connected {ConnectTime:HH:mm:ss})";
+            var location = IsLocal ? "local" : $"@{NodeId?[..Math.Min(8, NodeId.Length)]}";
+            return $"{Username} {location} ({ConnectedDuration.TotalMinutes:F1}m)";
         }
     }
 }

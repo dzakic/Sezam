@@ -166,21 +166,8 @@ namespace Sezam
                 // SetSessionCulture(User.Language);
                 SetSessionCulture("sr");
 
-                // Broadcast session join to other nodes
-                if (MessageBroadcaster != null)
-                {
-                    try
-                    {
-                        var sessionInfo = SessionInfo.FromSession(this as ISession, MessageBroadcaster.LocalNodeId, terminal.Id);
-                        await MessageBroadcaster.BroadcastSessionJoinAsync(sessionInfo);
-                        logger.LogDebug("Broadcasted session join for user {Username}", user.Username);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex, "Failed to broadcast session join: {Message}", ex.Message);
-                        ErrorHandling.Handle(ex);
-                    }
-                }
+                // Publish session update (login) to other nodes
+                await PublishSessionUpdate();
 
                 try
                 {
@@ -427,9 +414,27 @@ namespace Sezam
             }
         }
 
-        public void Broadcast(string fromUser, string message)
+        public void Deliver(string fromUser, string message)
         {
             terminal.PageMessage(Terminal.BEL + $"{fromUser}: {message}");
+        }
+
+        /// <summary>
+        /// Publish the current session snapshot to all other nodes.
+        /// Call after login, state changes, or any session detail update.
+        /// </summary>
+        public async Task PublishSessionUpdate()
+        {
+            if (MessageBroadcaster is null) return;
+            try
+            {
+                var info = SessionInfo.FromSession(this, MessageBroadcaster.LocalNodeId, terminal.Id);
+                await MessageBroadcaster.BroadcastSessionUpdateAsync(info);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to publish session update for {Username}", Username);
+            }
         }
 
         public CommandLine cmdLine = null;

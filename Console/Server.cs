@@ -100,7 +100,7 @@ namespace Sezam
         private void LocalBroadcast(string fromUser, string toUser, string message)
         {
             foreach (Session s in Data.Store.Sessions.Values.Where(s => toUser == "*" || s.Username.Equals(toUser)))
-                s.Broadcast(fromUser, message);
+                s.Deliver(fromUser, message);
         }
 
         public bool WaitForDrain(TimeSpan timeout)

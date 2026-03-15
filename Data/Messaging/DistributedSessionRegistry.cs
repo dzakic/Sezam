@@ -6,8 +6,8 @@ using Sezam.Data;
 namespace Sezam
 {
     /// <summary>
-    /// Provides distributed session information across all nodes in the swarm.
-    /// Combines local sessions (from current node) with remote sessions (from other nodes).
+    /// Provides a unified view of sessions across all nodes in the swarm.
+    /// Combines local sessions (current node) with remote sessions (other nodes via Redis).
     /// </summary>
     public class DistributedSessionRegistry
     {
@@ -19,263 +19,131 @@ namespace Sezam
         }
 
         /// <summary>
-        /// Get all sessions on this node (local sessions)
+        /// Build a <see cref="SessionInfo"/> from a local <see cref="ISession"/>.
         /// </summary>
-        public IEnumerable<ISession> GetLocalSessions()
+        private SessionInfo ToSessionInfo(ISession session)
         {
-            return Data.Store.Sessions.Values.ToList();
+            return SessionInfo.FromSession(session, _broadcaster.LocalNodeId, null);
         }
 
         /// <summary>
-        /// Get all sessions from other nodes (remote sessions)
+        /// Mark a remote <see cref="SessionInfo"/> as non-local.
+        /// The objects coming from the broadcaster cache already have the right fields;
+        /// we just stamp IsLocal = false for callers that care.
+        /// </summary>
+        private static SessionInfo AsRemote(SessionInfo remote)
+        {
+            remote.IsLocal = false;
+            return remote;
+        }
+
+        /// <summary>
+        /// Get all sessions on this node as <see cref="SessionInfo"/>.
+        /// </summary>
+        public IEnumerable<SessionInfo> GetLocalSessions()
+        {
+            return Data.Store.Sessions.Values.Select(ToSessionInfo).ToList();
+        }
+
+        /// <summary>
+        /// Get all sessions from other nodes.
         /// </summary>
         public IEnumerable<SessionInfo> GetRemoteSessions()
         {
-            return _broadcaster.GetRemoteSessions();
+            return _broadcaster.GetRemoteSessions().Select(AsRemote).ToList();
         }
 
         /// <summary>
-        /// Get all sessions across all nodes (local + remote)
+        /// Get all sessions across all nodes (local + remote).
         /// </summary>
-        public IEnumerable<SessionDetails> GetAllSessions()
+        public IEnumerable<SessionInfo> GetAllSessions()
         {
-            var result = new List<SessionDetails>();
-
-            // Add local sessions
-            foreach (var session in GetLocalSessions())
-            {
-                result.Add(new SessionDetails
-                {
-                    Id = session.Id,
-                    Username = session.Username,
-                    ConnectTime = session.ConnectTime,
-                    LoginTime = session.LoginTime,
-                    NodeId = _broadcaster.LocalNodeId,
-                    // TerminalId = session is ISession s ? s.Terminal?.Id : "Unknown",
-                    IsLocal = true
-                });
-            }
-
-            // Add remote sessions
-            foreach (var remote in GetRemoteSessions())
-            {
-                result.Add(new SessionDetails
-                {
-                    Id = remote.Id,
-                    Username = remote.Username,
-                    ConnectTime = remote.ConnectTime,
-                    LoginTime = remote.LoginTime,
-                    NodeId = remote.NodeId,
-                    TerminalId = remote.TerminalId,
-                    IsLocal = false
-                });
-            }
-
-            return result;
+            return GetLocalSessions().Concat(GetRemoteSessions());
         }
 
-        /// <summary>
-        /// Get count of sessions on this node
-        /// </summary>
-        public int GetLocalSessionCount() => GetLocalSessions().Count();
+        public int GetLocalSessionCount() => Data.Store.Sessions.Count;
 
-        /// <summary>
-        /// Get count of sessions on other nodes
-        /// </summary>
         public int GetRemoteSessionCount() => _broadcaster.GetRemoteSessionCount();
 
-        /// <summary>
-        /// Get total count of sessions across all nodes
-        /// </summary>
         public int GetTotalSessionCount() => GetLocalSessionCount() + GetRemoteSessionCount();
 
         /// <summary>
-        /// Check if a user is online (on any node)
+        /// Check if a user is online on any node.
         /// </summary>
         public bool IsUserOnline(string username)
         {
             if (string.IsNullOrEmpty(username))
                 return false;
 
-            // Check local sessions
-            if (GetLocalSessions().Any(s => s.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
-                return true;
-
-            // Check remote sessions
-            if (GetRemoteSessions().Any(s => s.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
-                return true;
-
-            return false;
+            return GetAllSessions().Any(s =>
+                s.Username != null && s.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>
-        /// Get session details by username (searches local and remote)
+        /// Find a session by username (searches local first, then remote).
         /// </summary>
-        public SessionDetails GetSessionByUsername(string username)
+        public SessionInfo GetSessionByUsername(string username)
         {
             if (string.IsNullOrEmpty(username))
                 return null;
 
-            // Check local sessions
-            var localSession = GetLocalSessions()
-                .FirstOrDefault(s => s.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
-            if (localSession != null)
-            {
-                return new SessionDetails
-                {
-                    Id = localSession.Id,
-                    Username = localSession.Username,
-                    ConnectTime = localSession.ConnectTime,
-                    LoginTime = localSession.LoginTime,
-                    NodeId = _broadcaster.LocalNodeId,
-                    // TerminalId = localSession is Session s ? s.terminal?.Id : "Unknown",
-                    IsLocal = true
-                };
-            }
-
-            // Check remote sessions
-            var remoteSession = GetRemoteSessions()
-                .FirstOrDefault(s => s.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
-            if (remoteSession != null)
-            {
-                return new SessionDetails
-                {
-                    Id = remoteSession.Id,
-                    Username = remoteSession.Username,
-                    ConnectTime = remoteSession.ConnectTime,
-                    LoginTime = remoteSession.LoginTime,
-                    NodeId = remoteSession.NodeId,
-                    TerminalId = remoteSession.TerminalId,
-                    IsLocal = false
-                };
-            }
-
-            return null;
+            return GetAllSessions().FirstOrDefault(s =>
+                s.Username != null && s.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>
-        /// Get session details by ID (searches local and remote)
+        /// Find a session by ID (searches local first, then remote).
         /// </summary>
-        public SessionDetails GetSessionById(Guid sessionId)
+        public SessionInfo GetSessionById(Guid sessionId)
         {
-            // Check local sessions
-            var localSession = GetLocalSessions()
-                .FirstOrDefault(s => s.Id == sessionId);
-            if (localSession != null)
-            {
-                return new SessionDetails
-                {
-                    Id = localSession.Id,
-                    Username = localSession.Username,
-                    ConnectTime = localSession.ConnectTime,
-                    LoginTime = localSession.LoginTime,
-                    NodeId = _broadcaster.LocalNodeId,
-                    // TerminalId = localSession is Session s ? s.terminal?.Id : "Unknown",
-                    IsLocal = true
-                };
-            }
-
-            // Check remote sessions
-            var remoteSession = _broadcaster.GetRemoteSession(sessionId);
-            if (remoteSession != null)
-            {
-                return new SessionDetails
-                {
-                    Id = remoteSession.Id,
-                    Username = remoteSession.Username,
-                    ConnectTime = remoteSession.ConnectTime,
-                    LoginTime = remoteSession.LoginTime,
-                    NodeId = remoteSession.NodeId,
-                    TerminalId = remoteSession.TerminalId,
-                    IsLocal = false
-                };
-            }
-
-            return null;
+            return GetAllSessions().FirstOrDefault(s => s.Id == sessionId);
         }
 
         /// <summary>
-        /// Get list of online usernames
+        /// Get sorted list of online usernames across all nodes.
         /// </summary>
         public IEnumerable<string> GetOnlineUsernames()
         {
-            var usernames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var session in GetLocalSessions())
-                if (!string.IsNullOrEmpty(session.Username))
-                    usernames.Add(session.Username);
-
-            foreach (var session in GetRemoteSessions())
-                if (!string.IsNullOrEmpty(session.Username))
-                    usernames.Add(session.Username);
-
-            return usernames.OrderBy(u => u);
+            return GetAllSessions()
+                .Where(s => !string.IsNullOrEmpty(s.Username))
+                .Select(s => s.Username)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(u => u);
         }
 
         /// <summary>
-        /// Get sessions by node ID
+        /// Get sessions belonging to a specific node.
         /// </summary>
-        public IEnumerable<SessionDetails> GetSessionsByNode(string nodeId)
+        public IEnumerable<SessionInfo> GetSessionsByNode(string nodeId)
         {
-            if (nodeId == _broadcaster.LocalNodeId)
-            {
-                return GetLocalSessions().Select(s => new SessionDetails
-                {
-                    Id = s.Id,
-                    Username = s.Username,
-                    ConnectTime = s.ConnectTime,
-                    LoginTime = s.LoginTime,
-                    NodeId = nodeId,
-                    // TerminalId = s is Session ss ? ss.terminal?.Id : "Unknown",
-                    IsLocal = true
-                });
-            }
-            else
-            {
-                return GetRemoteSessions()
-                    .Where(s => s.NodeId == nodeId)
-                    .Select(s => new SessionDetails
-                    {
-                        Id = s.Id,
-                        Username = s.Username,
-                        ConnectTime = s.ConnectTime,
-                        LoginTime = s.LoginTime,
-                        NodeId = s.NodeId,
-                        TerminalId = s.TerminalId,
-                        IsLocal = false
-                    });
-            }
+            return nodeId == _broadcaster.LocalNodeId
+                ? GetLocalSessions()
+                : GetRemoteSessions().Where(s => s.NodeId == nodeId);
         }
 
         /// <summary>
-        /// Get summary of all nodes and their sessions
+        /// Get summary of all nodes and their session counts.
         /// </summary>
         public IEnumerable<NodeSummary> GetNodeSummaries()
         {
-            var nodes = new Dictionary<string, NodeSummary>();
-
-            // Add local node
-            var localNode = new NodeSummary
+            var nodes = new Dictionary<string, NodeSummary>
             {
-                NodeId = _broadcaster.LocalNodeId,
-                IsLocal = true,
-                SessionCount = GetLocalSessionCount()
-            };
-            nodes[_broadcaster.LocalNodeId] = localNode;
-
-            // Add remote nodes
-            var remoteNodes = GetRemoteSessions()
-                .GroupBy(s => s.NodeId)
-                .Select(g => new NodeSummary
+                [_broadcaster.LocalNodeId] = new NodeSummary
                 {
-                    NodeId = g.Key,
-                    IsLocal = false,
-                    SessionCount = g.Count()
-                });
+                    NodeId = _broadcaster.LocalNodeId,
+                    IsLocal = true,
+                    SessionCount = GetLocalSessionCount()
+                }
+            };
 
-            foreach (var node in remoteNodes)
+            foreach (var group in GetRemoteSessions().GroupBy(s => s.NodeId))
             {
-                nodes[node.NodeId] = node;
+                nodes[group.Key] = new NodeSummary
+                {
+                    NodeId = group.Key,
+                    IsLocal = false,
+                    SessionCount = group.Count()
+                };
             }
 
             return nodes.Values.OrderBy(n => n.IsLocal ? 0 : 1);
@@ -283,29 +151,7 @@ namespace Sezam
     }
 
     /// <summary>
-    /// Complete session details across all nodes
-    /// </summary>
-    public class SessionDetails
-    {
-        public Guid Id { get; set; }
-        public string Username { get; set; }
-        public DateTime ConnectTime { get; set; }
-        public DateTime LoginTime { get; set; }
-        public string NodeId { get; set; }
-        public string TerminalId { get; set; }
-        public bool IsLocal { get; set; }
-
-        public TimeSpan ConnectedDuration => DateTime.Now - ConnectTime;
-
-        public override string ToString()
-        {
-            var location = IsLocal ? "local" : $"@{NodeId.Substring(0, 8)}";
-            return $"{Username} {location} ({ConnectedDuration.TotalMinutes:F1}m)";
-        }
-    }
-
-    /// <summary>
-    /// Summary of a node's sessions
+    /// Summary of a node's sessions.
     /// </summary>
     public class NodeSummary
     {
@@ -315,7 +161,7 @@ namespace Sezam
 
         public override string ToString()
         {
-            var location = IsLocal ? "Local" : NodeId.Substring(0, 8);
+            var location = IsLocal ? "Local" : NodeId[..Math.Min(8, NodeId.Length)];
             return $"{location}: {SessionCount} session(s)";
         }
     }

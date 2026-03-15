@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Sezam.Data;
 using StackExchange.Redis;
 
 namespace Sezam
@@ -11,6 +14,14 @@ namespace Sezam
     /// <summary>
     /// Broadcasts messages and session information to other nodes in a swarm via Redis Pub/Sub.
     /// Falls back to local-only operation if Redis is unavailable.
+    /// 
+    /// Session event protocol on the <c>sezam:sessions</c> channel:
+    /// <list type="bullet">
+    ///   <item><c>UPDATE</c>  – full <see cref="SessionInfo"/> snapshot (login, state change, etc.)</item>
+    ///   <item><c>LEAVE</c>   – session GUID only; receivers remove from cache</item>
+    ///   <item><c>DISCOVER</c> – new node requests all remote sessions</item>
+    ///   <item><c>DISCOVER_RESPONSE</c> – existing node responds with its local sessions</item>
+    /// </list>
     /// </summary>
     public class MessageBroadcaster : IAsyncDisposable
     {
@@ -20,26 +31,27 @@ namespace Sezam
         private const string SESSION_CHANNEL = "sezam:sessions";
         private readonly string _localNodeId = Guid.NewGuid().ToString();
         private Func<string, Task> _onMessageReceived;
-        private Func<SessionInfo, Task> _onSessionJoined;
-        private Func<Guid, Task> _onSessionLeft;
         private bool _redisAvailable;
+        private ILogger _logger = NullLogger.Instance;
 
-        // Local cache of sessions from all nodes
+        // Cache of sessions from remote nodes
         private readonly ConcurrentDictionary<Guid, SessionInfo> _remoteSessionCache = new();
 
         public bool IsRedisConnected => _redisAvailable && _redis?.IsConnected == true;
 
         /// <summary>
-        /// Get the local node ID (unique per instance)
+        /// Unique identifier for this node instance.
         /// </summary>
         public string LocalNodeId => _localNodeId;
 
         /// <summary>
         /// Initialize the broadcaster and attempt to connect to Redis.
-        /// If Redis is unavailable, it will operate in local-only mode.
+        /// After subscribing, sends a DISCOVER request so existing nodes report their sessions.
         /// </summary>
         public async Task InitializeAsync(string redisConnectionString = "localhost:6379")
         {
+            _logger = (ILogger)Data.Store.LoggerFactory?.CreateLogger<MessageBroadcaster>() ?? NullLogger.Instance;
+
             try
             {
                 if (string.IsNullOrWhiteSpace(redisConnectionString))
@@ -68,7 +80,7 @@ namespace Sezam
                 await _subscriber.SubscribeAsync(RedisChannel.Literal(MESSAGE_CHANNEL), async (channel, value) =>
                 {
                     var message = value.ToString();
-                    if (!message.StartsWith(_localNodeId)) // Ignore our own messages
+                    if (!message.StartsWith(_localNodeId))
                     {
                         _onMessageReceived?.Invoke(message);
                     }
@@ -77,53 +89,118 @@ namespace Sezam
                 // Subscribe to session events from other nodes
                 await _subscriber.SubscribeAsync(RedisChannel.Literal(SESSION_CHANNEL), async (channel, value) =>
                 {
-                    var message = value.ToString();
-                    try
-                    {
-                        var parts = message.Split('|', 2);
-                        if (parts.Length != 2)
-                            return;
-
-                        var senderId = parts[0];
-                        if (senderId == _localNodeId)
-                            return; // Ignore our own messages
-
-                        var eventType = parts[1].Split(':', 2)[0];
-                        var eventData = parts[1].Substring(eventType.Length + 1);
-
-                        if (eventType == "JOIN")
-                        {
-                            var sessionInfo = JsonSerializer.Deserialize<SessionInfo>(eventData);
-                            if (sessionInfo != null)
-                            {
-                                _remoteSessionCache[sessionInfo.Id] = sessionInfo;
-                                _onSessionJoined?.Invoke(sessionInfo);
-                            }
-                        }
-                        else if (eventType == "LEAVE")
-                        {
-                            if (Guid.TryParse(eventData, out var sessionId))
-                            {
-                                _remoteSessionCache.TryRemove(sessionId, out _);
-                                _onSessionLeft?.Invoke(sessionId);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Error processing session event: {ex.Message}");
-                    }
+                    await HandleSessionEvent(value.ToString());
                 });
+
+                // Ask existing nodes to report their sessions
+                await PublishSessionEvent("DISCOVER:");
+
+                _logger.LogInformation("MessageBroadcaster initialized, DISCOVER sent (node {NodeId})", _localNodeId[..8]);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Redis connection failed: {ex.Message}");
+                _logger.LogError(ex, "Redis connection failed");
                 _redisAvailable = false;
             }
         }
 
+        private async Task HandleSessionEvent(string message)
+        {
+            try
+            {
+                var parts = message.Split('|', 2);
+                if (parts.Length != 2)
+                    return;
+
+                var senderId = parts[0];
+                if (senderId == _localNodeId)
+                    return;
+
+                var colonIndex = parts[1].IndexOf(':');
+                if (colonIndex < 0)
+                    return;
+
+                var eventType = parts[1][..colonIndex];
+                var eventData = parts[1][(colonIndex + 1)..];
+
+                switch (eventType)
+                {
+                    case "UPDATE":
+                        HandleUpdate(eventData);
+                        break;
+
+                    case "LEAVE":
+                        HandleLeave(eventData);
+                        break;
+
+                    case "DISCOVER":
+                        await HandleDiscoverRequest();
+                        break;
+
+                    case "DISCOVER_RESPONSE":
+                        HandleDiscoverResponse(eventData);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error processing session event");
+            }
+        }
+
+        private void HandleUpdate(string json)
+        {
+            var sessionInfo = JsonSerializer.Deserialize<SessionInfo>(json);
+            if (sessionInfo != null)
+            {
+                sessionInfo.IsLocal = false;
+                _remoteSessionCache[sessionInfo.Id] = sessionInfo;
+                _logger.LogDebug("Session UPDATE: {Username} on node {NodeId}", sessionInfo.Username, sessionInfo.NodeId?[..8]);
+            }
+        }
+
+        private void HandleLeave(string data)
+        {
+            if (Guid.TryParse(data, out var sessionId))
+            {
+                _remoteSessionCache.TryRemove(sessionId, out var removed);
+                _logger.LogDebug("Session LEAVE: {SessionId} ({Username})", sessionId, removed?.Username);
+            }
+        }
+
         /// <summary>
-        /// Register callback for when messages arrive from other nodes
+        /// Another node asked to discover sessions. Respond with all our local sessions.
+        /// </summary>
+        private async Task HandleDiscoverRequest()
+        {
+            var localSessions = Data.Store.Sessions.Values
+                .Select(s => SessionInfo.FromSession(s, _localNodeId, null))
+                .ToList();
+
+            if (localSessions.Count == 0)
+                return;
+
+            var json = JsonSerializer.Serialize(localSessions);
+            await PublishSessionEvent($"DISCOVER_RESPONSE:{json}");
+            _logger.LogDebug("Responded to DISCOVER with {Count} local session(s)", localSessions.Count);
+        }
+
+        private void HandleDiscoverResponse(string json)
+        {
+            var sessions = JsonSerializer.Deserialize<List<SessionInfo>>(json);
+            if (sessions == null)
+                return;
+
+            foreach (var s in sessions)
+            {
+                s.IsLocal = false;
+                _remoteSessionCache[s.Id] = s;
+            }
+            _logger.LogDebug("DISCOVER_RESPONSE received: {Count} session(s) added", sessions.Count);
+        }
+
+        /// <summary>
+        /// Register callback for when messages arrive from other nodes.
         /// </summary>
         public void OnMessageReceived(Func<string, Task> handler)
         {
@@ -131,28 +208,12 @@ namespace Sezam
         }
 
         /// <summary>
-        /// Register callback for when a session joins on another node
-        /// </summary>
-        public void OnSessionJoined(Func<SessionInfo, Task> handler)
-        {
-            _onSessionJoined = handler;
-        }
-
-        /// <summary>
-        /// Register callback for when a session leaves on another node
-        /// </summary>
-        public void OnSessionLeft(Func<Guid, Task> handler)
-        {
-            _onSessionLeft = handler;
-        }
-
-        /// <summary>
-        /// Broadcast a message to all nodes in the swarm
+        /// Broadcast a message to all nodes in the swarm.
         /// </summary>
         public async Task BroadcastAsync(string message)
         {
             if (!IsRedisConnected)
-                return; // Local mode: messages stay in local queue
+                return;
 
             try
             {
@@ -161,54 +222,53 @@ namespace Sezam
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to broadcast message: {ex.Message}");
+                _logger.LogWarning(ex, "Failed to broadcast message");
             }
         }
 
         /// <summary>
-        /// Broadcast session join event to all nodes
+        /// Publish a full session snapshot (UPDATE) to all nodes.
+        /// Called on login, state changes, or any session detail update.
         /// </summary>
-        public async Task BroadcastSessionJoinAsync(SessionInfo sessionInfo)
+        public async Task BroadcastSessionUpdateAsync(SessionInfo sessionInfo)
         {
             if (sessionInfo == null)
                 throw new ArgumentNullException(nameof(sessionInfo));
 
             if (!IsRedisConnected)
-                return; // Local mode: only local sessions known
+                return;
 
             try
             {
                 var json = JsonSerializer.Serialize(sessionInfo);
-                var fullMessage = $"{_localNodeId}|JOIN:{json}";
-                await _subscriber.PublishAsync(RedisChannel.Literal(SESSION_CHANNEL), fullMessage);
+                await PublishSessionEvent($"UPDATE:{json}");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to broadcast session join: {ex.Message}");
+                _logger.LogWarning(ex, "Failed to broadcast session update for {Username}", sessionInfo.Username);
             }
         }
 
         /// <summary>
-        /// Broadcast session leave event to all nodes
+        /// Broadcast session leave event to all nodes.
         /// </summary>
         public async Task BroadcastSessionLeaveAsync(Guid sessionId)
         {
             if (!IsRedisConnected)
-                return; // Local mode: only local sessions known
+                return;
 
             try
             {
-                var fullMessage = $"{_localNodeId}|LEAVE:{sessionId}";
-                await _subscriber.PublishAsync(RedisChannel.Literal(SESSION_CHANNEL), fullMessage);
+                await PublishSessionEvent($"LEAVE:{sessionId}");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to broadcast session leave: {ex.Message}");
+                _logger.LogWarning(ex, "Failed to broadcast session leave for {SessionId}", sessionId);
             }
         }
 
         /// <summary>
-        /// Get all sessions known to this node (local + remote)
+        /// Get all remote sessions (from other nodes).
         /// </summary>
         public IEnumerable<SessionInfo> GetRemoteSessions()
         {
@@ -216,7 +276,7 @@ namespace Sezam
         }
 
         /// <summary>
-        /// Get a specific remote session by ID
+        /// Get a specific remote session by ID.
         /// </summary>
         public SessionInfo GetRemoteSession(Guid sessionId)
         {
@@ -225,9 +285,15 @@ namespace Sezam
         }
 
         /// <summary>
-        /// Get count of remote sessions
+        /// Get count of remote sessions.
         /// </summary>
         public int GetRemoteSessionCount() => _remoteSessionCache.Count;
+
+        private async Task PublishSessionEvent(string eventPayload)
+        {
+            var fullMessage = $"{_localNodeId}|{eventPayload}";
+            await _subscriber.PublishAsync(RedisChannel.Literal(SESSION_CHANNEL), fullMessage);
+        }
 
         public async ValueTask DisposeAsync()
         {

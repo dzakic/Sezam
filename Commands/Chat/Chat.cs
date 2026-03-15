@@ -26,7 +26,7 @@ namespace Sezam.Commands
             var userSession = GetUserSession();
             var message = session.cmdLine.GetRemainingText();
             var toUser = userSession.Username;
-            session.Broadcast(/* From */ session.User.Username, $":chat:{toUser}:{message}");
+            session.Deliver(/* From */ session.User.Username, $":chat:{toUser}:{message}");
         }
 
         public async Task Who()
@@ -49,7 +49,7 @@ namespace Sezam.Commands
 
         public void Say(string to, string message)
         {
-            session.Broadcast(/* From */ session.User.Username, $":chat:{to}:{message}");
+            session.Deliver(/* From */ session.User.Username, $":chat:{to}:{message}");
         }
 
         public override async Task<bool> ExecuteCommand(string cmd)

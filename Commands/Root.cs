@@ -34,15 +34,14 @@ namespace Sezam.Commands
             var userSession = GetUserSession();
             var message = session.cmdLine.GetRemainingText();
             if (!message.IsWhiteSpace())
-                userSession.Broadcast(/* From */ session.User.Username, message);
+                userSession.Deliver(/* From */ session.User.Username, message);
              else 
                 while (true)
                 {
                     message = await session.terminal.PromptEdit($"Page {userSession.Username}: ");
                     if (message.IsWhiteSpace())
                         break;
-                    // userSession.Broadcast(/* From */ session.User.Username, message);                    
-                    Sezam.Data.Store.MessageBroadcaster.Send(message);
+                    userSession.Deliver(/* From */ session.User.Username, message);
                 }
         }
 
