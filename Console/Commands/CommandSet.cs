@@ -415,14 +415,61 @@
         }
         #endregion
 
+        /// <summary>
+        /// Find a local session by partial username match.
+        /// Returns the live <see cref="ISession"/> for direct delivery.
+        /// </summary>
         protected ISession GetUserSession()
         {
             var user = session.cmdLine.GetToken().ToLower();
             var candidateSessions = Data.Store.Sessions
-                .Where(s => s.Value.Username.StartsWith(user)).Select(s => s.Value).ToList();
+                .Where(s => s.Value.Username != null &&
+                    s.Value.Username.StartsWith(user, StringComparison.OrdinalIgnoreCase))
+                .Select(s => s.Value).ToList();
             if (candidateSessions.Count != 1)
                 throw new ArgumentException($"User '{user}' is not currently online.");
             return candidateSessions.First();
+        }
+
+        /// <summary>
+        /// Find an online user by partial username match across all nodes (local + remote).
+        /// Returns a <see cref="SessionInfo"/> for display or routed messaging via Store.
+        /// </summary>
+        protected SessionInfo FindOnlineUser(string partialUsername)
+        {
+            if (string.IsNullOrEmpty(partialUsername))
+                return null;
+
+            var candidates = GetAllSessions()
+                .Where(s => s.Username != null &&
+                    s.Username.StartsWith(partialUsername, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            return candidates.Count == 1 ? candidates[0] : null;
+        }
+
+        /// <summary>
+        /// Get all sessions across all nodes. If Redis/broadcaster is unavailable,
+        /// returns local sessions only.
+        /// </summary>
+        protected IEnumerable<SessionInfo> GetAllSessions()
+        {
+            var broadcaster = Data.Store.MessageBroadcaster;
+            if (broadcaster != null)
+            {
+                var registry = new DistributedSessionRegistry(broadcaster);
+                return registry.GetAllSessions();
+            }
+
+            // Fallback: local only
+            return Data.Store.Sessions.Values.Select(s => new SessionInfo
+            {
+                Id = s.Id,
+                Username = s.Username,
+                ConnectTime = s.ConnectTime,
+                LoginTime = s.LoginTime,
+                IsLocal = true
+            });
         }
     }
 

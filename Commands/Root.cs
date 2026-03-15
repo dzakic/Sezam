@@ -31,18 +31,29 @@ namespace Sezam.Commands
         [CommandParameter("message", "Message to send to the user", true)]
         public async Task Page()
         {
-            var userSession = GetUserSession();
+            var toUsername = session.cmdLine.GetToken();
+            if (!toUsername.HasValue())
+                throw new ArgumentException("Username required");
+
+            // Verify user is online (local or remote)
+            var targetSession = FindOnlineUser(toUsername)
+                ?? throw new ArgumentException($"User '{toUsername}' is not currently online.");
+
             var message = session.cmdLine.GetRemainingText();
             if (!message.IsWhiteSpace())
-                userSession.Deliver(/* From */ session.User.Username, message);
-             else 
+            {
+                Data.Store.SendToUser(targetSession.Username, session.User.Username, message);
+            }
+            else
+            {
                 while (true)
                 {
-                    message = await session.terminal.PromptEdit($"Page {userSession.Username}: ");
+                    message = await session.terminal.PromptEdit($"Page {targetSession.Username}: ");
                     if (message.IsWhiteSpace())
                         break;
-                    userSession.Deliver(/* From */ session.User.Username, message);
+                    Data.Store.SendToUser(targetSession.Username, session.User.Username, message);
                 }
+            }
         }
 
         [Command(Description = "Show a list of system users")]
@@ -66,10 +77,13 @@ namespace Sezam.Commands
         public async Task Who()
         {
             await session.terminal.Line("Logged in as {0}, {1}", session.User.Username, session.User.FullName);
-            foreach (var _ in Data.Store.Sessions.Values)
+            foreach (var s in GetAllSessions())
             {
-                if (!string.IsNullOrWhiteSpace(_.Username))
-                    await session.terminal.Line("{0,-16} -- {1:HH:mm}", _.Username, _.LoginTime);
+                if (!string.IsNullOrWhiteSpace(s.Username))
+                {
+                    var location = s.IsLocal ? "" : $" @{s.NodeId?[..System.Math.Min(8, s.NodeId?.Length ?? 0)]}";
+                    await session.terminal.Line("{0,-16} -- {1:HH:mm}{2}", s.Username, s.LoginTime, location);
+                }
             }
         }
 

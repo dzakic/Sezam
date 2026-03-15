@@ -30,7 +30,6 @@ namespace Sezam
         private const string MESSAGE_CHANNEL = "sezam:broadcast";
         private const string SESSION_CHANNEL = "sezam:sessions";
         private readonly string _localNodeId = Guid.NewGuid().ToString();
-        private Func<string, Task> _onMessageReceived;
         private bool _redisAvailable;
         private ILogger _logger = NullLogger.Instance;
 
@@ -79,11 +78,16 @@ namespace Sezam
                 // Subscribe to incoming messages from other nodes
                 await _subscriber.SubscribeAsync(RedisChannel.Literal(MESSAGE_CHANNEL), async (channel, value) =>
                 {
-                    var message = value.ToString();
-                    if (!message.StartsWith(_localNodeId))
-                    {
-                        _onMessageReceived?.Invoke(message);
-                    }
+                    var raw = value.ToString();
+                    // Format: {nodeId}|{envelope}
+                    var pipeIndex = raw.IndexOf('|');
+                    if (pipeIndex < 0) return;
+
+                    var senderId = raw[..pipeIndex];
+                    if (senderId == _localNodeId) return;
+
+                    var envelope = raw[(pipeIndex + 1)..];
+                    HandleMessageEnvelope(envelope);
                 });
 
                 // Subscribe to session events from other nodes
@@ -200,11 +204,65 @@ namespace Sezam
         }
 
         /// <summary>
-        /// Register callback for when messages arrive from other nodes.
+        /// Handle a structured message envelope received from another node.
+        /// Envelope formats:
+        ///   BROADCAST:{from}:{message}
+        ///   USER:{toUsername}:{from}:{message}
+        ///   CHAT:{room}:{from}:{message}
         /// </summary>
-        public void OnMessageReceived(Func<string, Task> handler)
+        private void HandleMessageEnvelope(string envelope)
         {
-            _onMessageReceived = handler;
+            try
+            {
+                var colonIndex = envelope.IndexOf(':');
+                if (colonIndex < 0) return;
+
+                var type = envelope[..colonIndex];
+                var payload = envelope[(colonIndex + 1)..];
+
+                switch (type)
+                {
+                    case "BROADCAST":
+                    {
+                        // payload = "{from}:{message}"
+                        var parts = payload.Split(':', 2);
+                        if (parts.Length == 2)
+                            Data.Store.LocalBroadcast(parts[0], parts[1]);
+                        break;
+                    }
+                    case "USER":
+                    {
+                        // payload = "{toUsername}:{from}:{message}"
+                        var parts = payload.Split(':', 3);
+                        if (parts.Length == 3)
+                        {
+                            var localSession = Data.Store.Sessions.Values
+                                .FirstOrDefault(s => s.Username != null &&
+                                    s.Username.Equals(parts[0], StringComparison.OrdinalIgnoreCase));
+                            localSession?.Deliver(parts[1], parts[2]);
+                        }
+                        break;
+                    }
+                    case "CHAT":
+                    {
+                        // payload = "{room}:{from}:{message}"
+                        var parts = payload.Split(':', 3);
+                        if (parts.Length == 3)
+                        {
+                            foreach (var s in Data.Store.Sessions.Values)
+                                s.Deliver(parts[1], $":chat:{parts[0]}:{parts[2]}");
+                        }
+                        break;
+                    }
+                    default:
+                        _logger.LogDebug("Unknown message envelope type: {Type}", type);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error handling message envelope");
+            }
         }
 
         /// <summary>

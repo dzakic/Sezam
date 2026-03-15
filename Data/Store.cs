@@ -8,7 +8,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Linq;
 
-
 namespace Sezam.Data
 {
     public class SezamDbContext(DbContextOptions options) : DbContext(options)
@@ -217,6 +216,83 @@ namespace Sezam.Data
             Sessions.TryRemove(session.Id, out _);
         }
 
+        #region Messaging API
+
+        /// <summary>
+        /// Deliver a message to all local sessions. Does not publish to Redis.
+        /// Use for node-local announcements (e.g. "shutting down").
+        /// </summary>
+        public static void LocalBroadcast(string fromUser, string message)
+        {
+            foreach (var s in Sessions.Values)
+                s.Deliver(fromUser, message);
+        }
+
+        /// <summary>
+        /// Deliver a message to all sessions on all nodes.
+        /// Delivers locally first, then publishes to Redis for other nodes.
+        /// </summary>
+        public static void GlobalBroadcast(string fromUser, string message)
+        {
+            LocalBroadcast(fromUser, message);
+
+            if (MessageBroadcaster is { IsRedisConnected: true })
+            {
+                var envelope = $"BROADCAST:{fromUser}:{message}";
+                _ = MessageBroadcaster.BroadcastAsync(envelope);
+            }
+        }
+
+        /// <summary>
+        /// Send a message to a specific user by username.
+        /// If the user is on this node, delivers directly (local shortcut).
+        /// Otherwise publishes via Redis for the remote node to deliver.
+        /// </summary>
+        public static void SendToUser(string toUsername, string fromUser, string message)
+        {
+            // Local shortcut: find user on this node
+            var localSession = Sessions.Values
+                .FirstOrDefault(s => s.Username != null &&
+                    s.Username.Equals(toUsername, StringComparison.OrdinalIgnoreCase));
+
+            if (localSession != null)
+            {
+                localSession.Deliver(fromUser, message);
+                return;
+            }
+
+            // Not local — send via Redis
+            if (MessageBroadcaster is { IsRedisConnected: true })
+            {
+                var envelope = $"USER:{toUsername}:{fromUser}:{message}";
+                _ = MessageBroadcaster.BroadcastAsync(envelope);
+            }
+            else
+            {
+                logger?.LogWarning("Cannot reach user {ToUser}: not local and Redis unavailable", toUsername);
+            }
+        }
+
+        /// <summary>
+        /// Send a message to a chat room on all nodes.
+        /// Room "*" means public chat (all sessions).
+        /// </summary>
+        public static void SendToChat(string room, string fromUser, string message)
+        {
+            // Deliver to all local sessions (chat filtering is the receiver's concern)
+            foreach (var s in Sessions.Values)
+                s.Deliver(fromUser, $":chat:{room}:{message}");
+
+            // Publish to Redis for other nodes
+            if (MessageBroadcaster is { IsRedisConnected: true })
+            {
+                var envelope = $"CHAT:{room}:{fromUser}:{message}";
+                _ = MessageBroadcaster.BroadcastAsync(envelope);
+            }
+        }
+
+        #endregion
+
         // Database Configuration Properties
         public static string DbConnectionString { get; private set; }
 
@@ -225,8 +301,8 @@ namespace Sezam.Data
         // Redis is enabled if connection string is not empty            
         public static bool RedisEnabled => !RedisConnectionString.IsWhiteSpace();
 
-        // Message Broadcaster Singleton (dynamic type to avoid circular dependency)
-        public static dynamic MessageBroadcaster { get; set; }
+        // Message Broadcaster Singleton
+        public static MessageBroadcaster MessageBroadcaster { get; set; }
 
         public static ILogger logger;
         public static ILoggerFactory LoggerFactory;

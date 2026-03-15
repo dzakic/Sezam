@@ -1,6 +1,4 @@
-﻿using System.Configuration;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 
 namespace Sezam.Commands
 {
@@ -23,33 +21,28 @@ namespace Sezam.Commands
         public async Task To()
         {
             // direct message to another user
-            var userSession = GetUserSession();
+            var toUsername = session.cmdLine.GetToken();
+            if (!toUsername.HasValue())
+                throw new System.ArgumentException("Username required");
+
+            var target = FindOnlineUser(toUsername)
+                ?? throw new System.ArgumentException($"User '{toUsername}' is not currently online.");
+
             var message = session.cmdLine.GetRemainingText();
-            var toUser = userSession.Username;
-            session.Deliver(/* From */ session.User.Username, $":chat:{toUser}:{message}");
+            Data.Store.SendToUser(target.Username, session.User.Username, $":chat:{message}");
         }
 
         public async Task Who()
         {
             // who's in chat?
-            await ExecuteCommand("..who");
-
-            //var sessions = Data.Store.Sessions
-            //   .Where(s => s.Value.ChatRoom == room).ToList();
-            // foreach (var s in sessions)
-            // {
-            //     var user = session.Db.Users.FirstOrDefault(u => u.Id == s.UserId);
-            //     if (user != null)
-            //         await session.terminal.Line($"{user.Username} ({user.FullName})");
-            //}
+            // await ExecuteCommand("..who");
         }
 
         public override string GetPrompt() => string.Empty;
 
-
         public void Say(string to, string message)
         {
-            session.Deliver(/* From */ session.User.Username, $":chat:{to}:{message}");
+            Data.Store.SendToChat(to, session.User.Username, message);
         }
 
         public override async Task<bool> ExecuteCommand(string cmd)
