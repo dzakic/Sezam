@@ -5,6 +5,7 @@ using Sezam.Data;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.Eventing.Reader;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -53,7 +54,14 @@ namespace Sezam
             try
             {
                 await Data.Store.MessageBroadcaster.InitializeAsync(Data.Store.RedisConnectionString);
-                Data.Store.logger.LogInformation("Redis message broadcaster initialized successfully on {RedisConnectionString}", Data.Store.RedisConnectionString);
+                if (Data.Store.MessageBroadcaster.IsRedisConnected)
+                {
+                    Data.Store.logger.LogInformation("Redis message broadcaster connected successfully on {RedisConnectionString}", Data.Store.RedisConnectionString);
+                }
+                else
+                {
+                    Data.Store.logger.LogWarning("Failed to connect to Redis message broadcaster on {RedisConnectionString}", Data.Store.RedisConnectionString);
+                }                
             }
             catch (Exception ex)
             {

@@ -5,7 +5,6 @@
   </PropertyGroup>
   <PropertyGroup>
     <OutputPath>..\..\bin</OutputPath>
-    <UserSecretsId>02c5fb0e-5eb9-42e3-b21b-359a1c097097</UserSecretsId>
     <StartupObject>ZBB.MainClass</StartupObject>
   </PropertyGroup>
   <ItemGroup>

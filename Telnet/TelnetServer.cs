@@ -13,9 +13,10 @@ namespace Sezam
         {
             var builder = Host.CreateApplicationBuilder(args);
 
-            builder.Configuration
+            builder.Configuration                
                 .AddJsonFile("appsettings.json", optional: true)
                 .AddJsonFile("appsettings-secrets.json", optional: true)
+                .AddKeyPerFile(directoryPath: "/run/secrets", optional: true)
                 .AddEnvironmentVariables();
 
             // Configure logging with console output and colors

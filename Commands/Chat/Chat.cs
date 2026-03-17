@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using Google.Protobuf;
+using System.Threading.Tasks;
 
 namespace Sezam.Commands
 {
@@ -9,14 +10,42 @@ namespace Sezam.Commands
         public Chat(Session session)
            : base(session)
         {
-            room = "*";
+            enterRoom("*");
         }
 
         public async Task Private()
         {
             // enter private chat room
-            room = session.cmdLine.GetToken();
+            var room = session.cmdLine.GetToken("chatRoom");
+            enterRoom(room);
         }
+
+        public override void Exit()
+        {
+            var r = room;
+            leaveRoom();
+            if (r == "*")
+                base.Exit();
+            enterRoom("*");
+        }
+
+
+        public void chatAnnouncement(string room, string message)
+        {
+            Data.Store.SendToChat(room, "*", message);
+        }
+
+        public void enterRoom(string room)
+        {
+            this.room = room;
+            chatAnnouncement(room, string.Format(L("Chat_UserEntersRoom"), session.Username));
+        }
+        public void leaveRoom()
+        {
+            chatAnnouncement(room, string.Format(L("Chat_UserLeavesRoom"), session.Username));
+            room = "";
+        }
+
 
         public async Task To()
         {

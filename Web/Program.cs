@@ -18,6 +18,10 @@ namespace Sezam.Web
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
+                .ConfigureAppConfiguration((context, config) =>
+                {
+                    config.AddKeyPerFile(directoryPath: "/run/secrets", optional: true);
+                })
                 .ConfigureLogging(logging =>
                 {
                     logging.AddSimpleConsole(options =>
