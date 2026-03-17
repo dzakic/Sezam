@@ -133,10 +133,13 @@ namespace Sezam.Data
 
             // Redis Configuration
             string redisHost = ResolveConfigValue(configuration, "REDIS_HOST", "RedisHost");
+            string redisPassword = ResolveConfigValue(configuration, "REDIS_PASSWORD", "RedisPassword");
             if (!string.IsNullOrWhiteSpace(redisHost))
             {
                 // Infer connection string from host (add default port if not present)
                 RedisConnectionString = redisHost.Contains(":") ? redisHost : $"{redisHost}:6379";
+                if (!string.IsNullOrEmpty(redisPassword))
+                    RedisConnectionString += $",password={redisPassword}";
             }
             else
             {
