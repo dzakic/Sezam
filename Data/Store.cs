@@ -225,10 +225,10 @@ namespace Sezam.Data
         /// Deliver a message to all local sessions. Does not publish to Redis.
         /// Use for node-local announcements (e.g. "shutting down").
         /// </summary>
-        public static void LocalBroadcast(string fromUser, string message)
+        public static void LocalBroadcast(string from, string to, string message)
         {
             foreach (var s in Sessions.Values)
-                s.Deliver(fromUser, message);
+                s.Deliver(from, to, message);
         }
 
         /// <summary>
@@ -237,7 +237,7 @@ namespace Sezam.Data
         /// </summary>
         public static void GlobalBroadcast(string fromUser, string message)
         {
-            LocalBroadcast(fromUser, message);
+            LocalBroadcast(fromUser, "*", message);
 
             if (MessageBroadcaster is { IsRedisConnected: true })
             {
@@ -260,19 +260,20 @@ namespace Sezam.Data
 
             if (localSession != null)
             {
-                localSession.Deliver(fromUser, message);
+                localSession.Deliver(fromUser, toUsername, message);
                 return;
             }
 
             // Not local — send via Redis
             if (MessageBroadcaster is { IsRedisConnected: true })
             {
-                var envelope = $"USER:{toUsername}:{fromUser}:{message}";
+                var envelope = $"USER:{fromUser}:{toUsername}:{message}";
                 _ = MessageBroadcaster.BroadcastAsync(envelope);
             }
             else
             {
-                logger?.LogWarning("Cannot reach user {ToUser}: not local and Redis unavailable", toUsername);
+                // raise exception and log warning that Redis is not available to deliver the message
+                logger?.LogWarning("Cannot reach user {ToUser}: not local and Redis unavailable", toUsername);                
             }
         }
 
@@ -284,7 +285,7 @@ namespace Sezam.Data
         {
             // Deliver to all local sessions (chat filtering is the receiver's concern)
             foreach (var s in Sessions.Values)
-                s.Deliver(fromUser, $":chat:{room}:{message}");
+                s.Deliver(fromUser, room, message);
 
             // Publish to Redis for other nodes
             if (MessageBroadcaster is { IsRedisConnected: true })

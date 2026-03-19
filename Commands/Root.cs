@@ -12,6 +12,7 @@ namespace Sezam.Commands
     {
         public Root(Session session) : base(session) 
         {
+            // On Create, once
             session.terminal.Line();
             session.terminal.Line(L("Root_WelcomeUser"), session.User.FullName, session.User.LastCall);
         }

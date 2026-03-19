@@ -3,10 +3,7 @@
     [Command]
     public class Mail : CommandSet
     {
-        public Mail(Session session)
-           : base(session)
-        {
-        }
+        public Mail(Session session): base(session) { }
 
         [Command(Description = "Read Mail")]
         public void Read()

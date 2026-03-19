@@ -17,10 +17,7 @@ namespace Sezam.Commands
             "America/Los_Angeles", "Asia/Tokyo", "Asia/Shanghai", "Australia/Sydney", "UTC"
         };
 
-        public Set(Session session)
-           : base(session)
-        {
-        }
+        public Set(Session session) : base(session) { }
 
         [Command(Description = "Change login password")]
         public async Task Password()

@@ -182,4 +182,10 @@
   <data name="Conf_SeenAll" xml:space="preserve">
     <value>All messages in all conferences marked as seen.</value>
   </data>
+  <data name="Chat_UserEntersRoom" xml:space="preserve">
+    <value>{0} enters the chat</value>
+  </data>
+  <data name="Chat_UserLeavesRoom" xml:space="preserve">
+    <value>{0} leaves the chat</value>
+  </data>
 </root>

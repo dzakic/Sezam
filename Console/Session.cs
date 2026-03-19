@@ -143,8 +143,7 @@ namespace Sezam
             if (user is null)
             {
                 await terminal.Line(Console.strings.Login_UnknownUser);
-                terminal.Close();
-                logger.LogWarning("Unknown user attempted login from {TerminalId}", terminal.Id);
+                terminal.Close();                
             }
             else
             {
@@ -261,9 +260,12 @@ namespace Sezam
                         }
                         passTryCount++;
                     }
+                    logger.LogWarning("User {Username} failed authentication after {Attempts} attempts", username, passTryCount);
                     return null;
                 }
 
+                if (!username.IsWhiteSpace()) 
+                    logger.LogWarning("Unknown user '{Username}' attempted login from {TerminalId}", username, terminal.Id);
                 userTryCount++;
                 await terminal.Line();
             }
@@ -414,9 +416,12 @@ namespace Sezam
             }
         }
 
-        public void Deliver(string fromUser, string message)
+        public void Deliver(string from, string to, string message)
         {
-            terminal.PageMessage(Terminal.BEL + $"{fromUser}: {message}");
+            // logger.LogInformation("Delivering message to session {SessionId} from {From} to {To}: {Message}", Id, from, to, message);
+            string line = currentCommandSet?.onMsgReceived(from, to, message);           
+            if (!line.IsWhiteSpace())
+                terminal.PageMessage(line);
         }
 
         /// <summary>
@@ -481,5 +486,7 @@ namespace Sezam
         protected Task runTask;
         protected CancellationTokenSource cts;
     }
+
+
 }
 

@@ -61,6 +61,24 @@ namespace Sezam.Commands {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to {0} enters the chat.
+        /// </summary>
+        internal static string Chat_UserEntersRoom {
+            get {
+                return ResourceManager.GetString("Chat_UserEntersRoom", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} leaves the chat.
+        /// </summary>
+        internal static string Chat_UserLeavesRoom {
+            get {
+                return ResourceManager.GetString("Chat_UserLeavesRoom", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to No messages found..
         /// </summary>
         internal static string Conf_NoMessages {

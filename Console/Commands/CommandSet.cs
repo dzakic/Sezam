@@ -20,7 +20,7 @@
     public class CommandSet
     {
 
-        // Localization: Cached ResourceManager for efficient string lookups
+        // Localization: Cached ResourceManager for efficient string lookups - initialized once per CommandSet type
         private static System.Resources.ResourceManager _resourceManager;
 
         public CommandSet(Session session)
@@ -69,11 +69,12 @@
                 {
                     // execute command in the context of cmdSet
                     if (!await cmdSet.ExecuteCommand(cmd))
-                        await session.terminal.Line("Unknown {0} command {1}", cmdSet.DisplayName(), cmd);                }
+                        await session.terminal.Line("Unknown {0} command {1}", cmdSet.DisplayName(), cmd); }
                 else
                 {
                     // we are changing the current command set for this session
                     session.currentCommandSet = cmdSet;
+                    cmdSet.Enter();
                 }
                 return true;
             }
@@ -97,7 +98,7 @@
 
                 // Handle async methods that return Task
                 if (result is Task task)
-                {
+                { 
                     await task;
                 }
             }
@@ -117,6 +118,9 @@
         public virtual string GetPrompt() => GetType().Name;
 
         [Command(Aliases = [".."], Description = "Exit the command context")]
+
+        public virtual void Enter() { }
+
         public virtual void Exit() => session.ExitCurrentCommand();
 
         [Command(Aliases = ["?"], Description = "Show help")]
@@ -319,7 +323,7 @@
             var enumerator = strings.Where(s => PartialMatch(s, cmd)).GetEnumerator();
             if (!enumerator.MoveNext()) return null;
             var first = enumerator.Current;
-            if (enumerator.MoveNext()) return null;            
+            if (enumerator.MoveNext()) return null;
             return first;
         }
 
@@ -471,6 +475,19 @@
                 IsLocal = true
             });
         }
+
+        public virtual string onMsgReceived(string from, string to, string message)
+        {
+            // DM: fromUser -> toUser
+            // SYS: * -> $
+            if (to == "$" || to == session.User.Username)
+                if (to == "$" && from == "*")
+                    return $"SYSTEM: {L(message)}";
+                else
+                    return Terminal.BEL + $"{from}: {message}";
+            return string.Empty; 
+        }
+
     }
 
     public static class MethodExtensions
@@ -478,4 +495,6 @@
         public static string[] GetAliases(this MethodInfo method) =>
             method.GetCustomAttribute<CommandAttribute>()?.Aliases;
     }
+
+
 }

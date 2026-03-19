@@ -229,30 +229,29 @@ namespace Sezam
                         // payload = "{from}:{message}"
                         var parts = payload.Split(':', 2);
                         if (parts.Length == 2)
-                            Data.Store.LocalBroadcast(parts[0], parts[1]);
+                            Data.Store.LocalBroadcast(parts[0], "*", parts[1]);
                         break;
                     }
                     case "USER":
                     {
-                        // payload = "{toUsername}:{from}:{message}"
+                        // payload = "{from}:{to}:{message}"
                         var parts = payload.Split(':', 3);
                         if (parts.Length == 3)
                         {
                             var localSession = Data.Store.Sessions.Values
                                 .FirstOrDefault(s => s.Username != null &&
                                     s.Username.Equals(parts[0], StringComparison.OrdinalIgnoreCase));
-                            localSession?.Deliver(parts[1], parts[2]);
+                            localSession?.Deliver(parts[0], parts[1], parts[2]);
                         }
                         break;
                     }
                     case "CHAT":
                     {
-                        // payload = "{room}:{from}:{message}"
+                        // payload = "{from}:{to}:{message}"
                         var parts = payload.Split(':', 3);
                         if (parts.Length == 3)
                         {
-                            foreach (var s in Data.Store.Sessions.Values)
-                                s.Deliver(parts[1], $":chat:{parts[0]}:{parts[2]}");
+                            Data.Store.LocalBroadcast(parts[0], parts[1], parts[2]);
                         }
                         break;
                     }

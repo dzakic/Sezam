@@ -31,6 +31,6 @@ namespace Sezam.Data
         /// Deliver a message to this session's terminal.
         /// Only meaningful for local sessions.
         /// </summary>
-        void Deliver(string from, string message);
+        void Deliver(string from, string to, string message);
     }
 }

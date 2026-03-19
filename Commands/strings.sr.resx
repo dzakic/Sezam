@@ -171,15 +171,21 @@
     <value>Језик промењен у {0} ({1})</value>
   </data>
   <data name="Conf_NoNewMessages" xml:space="preserve">
-    <value>Nema novih poruka.</value>
+    <value>Нема нових порука</value>
   </data>
   <data name="Conf_NoMessages" xml:space="preserve">
-    <value>Nema poruka.</value>
+    <value>Нема порука</value>
   </data>
   <data name="Conf_Seen" xml:space="preserve">
     <value>Све поруке у {0} прочитане.</value>
   </data>
   <data name="Conf_SeenAll" xml:space="preserve">
     <value>Све поруке у свим конференцијама прочитане.</value>
+  </data>
+  <data name="Chat_UserEntersRoom" xml:space="preserve">
+    <value>{0} се укључује у разговор</value>
+  </data>
+  <data name="Chat_UserLeavesRoom" xml:space="preserve">
+    <value>{0} напушта разговор</value>
   </data>
 </root>
