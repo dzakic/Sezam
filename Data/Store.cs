@@ -21,7 +21,7 @@ namespace Sezam.Data
             modelBuilder.Entity<UserConf>()
                    .HasQueryFilter(uc => uc.UserId == UserId)
                    .HasKey(c => new { c.UserId, c.ConferenceId });
-            
+
             modelBuilder.Entity<UserTopic>()
                    .HasKey(c => new { c.UserId, c.TopicId });
 
@@ -237,6 +237,7 @@ namespace Sezam.Data
         /// </summary>
         public static void GlobalBroadcast(string fromUser, string message)
         {
+            logger.LogDebug("GlobalBroadcast: {FromUser}: {Message}", fromUser, message);
             LocalBroadcast(fromUser, "*", message);
 
             if (MessageBroadcaster is { IsRedisConnected: true })
@@ -253,9 +254,11 @@ namespace Sezam.Data
         /// </summary>
         public static void SendToUser(string toUsername, string fromUser, string message)
         {
+            logger.LogDebug("SendToUser: {ToUser} from {FromUser}: {Message}", toUsername, fromUser, message);
+
             // Local shortcut: find user on this node
             var localSession = Sessions.Values
-                .FirstOrDefault(s => s.Username != null &&
+                .FirstOrDefault(s => !string.IsNullOrEmpty(s.Username) &&
                     s.Username.Equals(toUsername, StringComparison.OrdinalIgnoreCase));
 
             if (localSession != null)
@@ -273,7 +276,7 @@ namespace Sezam.Data
             else
             {
                 // raise exception and log warning that Redis is not available to deliver the message
-                logger?.LogWarning("Cannot reach user {ToUser}: not local and Redis unavailable", toUsername);                
+                logger?.LogWarning("Cannot reach user {ToUser}: not local and Redis unavailable", toUsername);
             }
         }
 
@@ -283,6 +286,7 @@ namespace Sezam.Data
         /// </summary>
         public static void SendToChat(string room, string fromUser, string message)
         {
+            logger.LogDebug("SendToChat: {Room} from {FromUser}: {Message}", room, fromUser, message);
             // Deliver to all local sessions (chat filtering is the receiver's concern)
             foreach (var s in Sessions.Values)
                 s.Deliver(fromUser, room, message);

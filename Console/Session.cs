@@ -22,7 +22,7 @@ namespace Sezam
         {
             this.terminal = terminal;
             this.logger = logger;
-            Id = Guid.NewGuid();            
+            Id = Guid.NewGuid();
             commandSets = [];
             NodeNo = Environment.CurrentManagedThreadId;
             Db = Store.GetNewContext();
@@ -36,7 +36,7 @@ namespace Sezam
         // Broadcaster for distributing session events
         public MessageBroadcaster MessageBroadcaster => Data.Store.MessageBroadcaster;
 
-        private ConcurrentDictionary<string, User> userCache = new (StringComparer.OrdinalIgnoreCase);
+        private ConcurrentDictionary<string, User> userCache = new(StringComparer.OrdinalIgnoreCase);
 
         // Background thread run
         public async Task Run()
@@ -122,11 +122,11 @@ namespace Sezam
                     }
                 }
 
-                try { logger.LogInformation("Session disconnected for user {Username}", Username); } 
+                try { logger.LogInformation("Session disconnected for user {Username}", Username); }
                 catch { }
-                try { Db?.Dispose(); } 
+                try { Db?.Dispose(); }
                 catch (Exception ex) { logger.LogWarning(ex, "Error disposing DbContext: {Message}", ex.Message); }
-                try { OnFinish?.Invoke(this, null); } 
+                try { OnFinish?.Invoke(this, null); }
                 catch (Exception ex) { ErrorHandling.Handle(ex); }
             }
         }
@@ -143,7 +143,7 @@ namespace Sezam
             if (user is null)
             {
                 await terminal.Line(Console.strings.Login_UnknownUser);
-                terminal.Close();                
+                terminal.Close();
             }
             else
             {
@@ -264,7 +264,7 @@ namespace Sezam
                     return null;
                 }
 
-                if (!username.IsWhiteSpace()) 
+                if (!username.IsWhiteSpace())
                     logger.LogWarning("Unknown user '{Username}' attempted login from {TerminalId}", username, terminal.Id);
                 userTryCount++;
                 await terminal.Line();
@@ -331,9 +331,9 @@ namespace Sezam
             if (!cmd.HasValue())
                 return;
 
-            logger.LogDebug("Executing command {CommandSet}.{Command} with args {Args}", 
-                currentCommandSet.GetType().Name, 
-                cmd, 
+            logger.LogDebug("Executing command {CommandSet}.{Command} with args {Args}",
+                currentCommandSet.GetType().Name,
+                cmd,
                 string.Join(" ", cmdLine.GetRemainingTokens()));
 
             if (!(await currentCommandSet.ExecuteCommand(cmd)))
@@ -419,7 +419,7 @@ namespace Sezam
         public void Deliver(string from, string to, string message)
         {
             // logger.LogInformation("Delivering message to session {SessionId} from {From} to {To}: {Message}", Id, from, to, message);
-            string line = currentCommandSet?.onMsgReceived(from, to, message);           
+            string line = currentCommandSet?.onMsgReceived(from, to, message);
             if (!line.IsWhiteSpace())
                 terminal.PageMessage(line);
         }
@@ -447,8 +447,8 @@ namespace Sezam
 
         public User User;
 
-        public string Username { get { return User?.Username ?? "Unknown"; } }
-        public DateTime ConnectTime { get; set;  }
+        public string Username { get { return User?.Username; } }
+        public DateTime ConnectTime { get; set; }
         public DateTime LoginTime { get; set; }
         public DateTime LastCommand { get; set; }
         public System.Globalization.CultureInfo SessionCulture { get; set; }
@@ -456,7 +456,7 @@ namespace Sezam
         public Guid Id { get; private set; }
 
         private readonly Dictionary<Type, CommandSet> commandSets;
-        
+
         // legacy field kept for compatibility but no longer used
         // (initialization performed via lazyRootCommandSet)
         // protected volatile CommandSet rootCommandSet;
