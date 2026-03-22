@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -241,7 +241,7 @@ namespace Sezam.Data
 
             if (MessageBroadcaster is { IsRedisConnected: true })
             {
-                var envelope = $"BROADCAST:{fromUser}:{message}";
+                var envelope = $"BROADCAST:{fromUser}:*:{message}";
                 _ = MessageBroadcaster.BroadcastAsync(envelope);
             }
         }
@@ -290,7 +290,7 @@ namespace Sezam.Data
             // Publish to Redis for other nodes
             if (MessageBroadcaster is { IsRedisConnected: true })
             {
-                var envelope = $"CHAT:{room}:{fromUser}:{message}";
+                var envelope = $"CHAT:{fromUser}:{room}:{message}";
                 _ = MessageBroadcaster.BroadcastAsync(envelope);
             }
         }

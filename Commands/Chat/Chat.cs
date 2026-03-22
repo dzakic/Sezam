@@ -1,4 +1,4 @@
-﻿using Google.Protobuf;
+using Google.Protobuf;
 using Microsoft.EntityFrameworkCore.Query.Internal;
 using StackExchange.Redis;
 using System.Linq;
@@ -113,7 +113,7 @@ namespace Sezam.Commands
             if (from.Substring(0, 1) != CHAT_PREFIX)
                 line = base.onMsgReceived(from, to, message);
             else
-                from.Substring(1);
+                from = from.Substring(1);
 
             if (!line.IsWhiteSpace()) return line;
 

@@ -226,10 +226,10 @@ namespace Sezam
                 {
                     case "BROADCAST":
                     {
-                        // payload = "{from}:{message}"
-                        var parts = payload.Split(':', 2);
-                        if (parts.Length == 2)
-                            Data.Store.LocalBroadcast(parts[0], "*", parts[1]);
+                        // payload = "{from}:*:{message}"
+                        var parts = payload.Split(':', 3);
+                        if (parts.Length == 3)
+                            Data.Store.LocalBroadcast(parts[0], parts[1], parts[2]);
                         break;
                     }
                     case "USER":
@@ -240,14 +240,14 @@ namespace Sezam
                         {
                             var localSession = Data.Store.Sessions.Values
                                 .FirstOrDefault(s => s.Username != null &&
-                                    s.Username.Equals(parts[0], StringComparison.OrdinalIgnoreCase));
+                                    s.Username.Equals(parts[1], StringComparison.OrdinalIgnoreCase));
                             localSession?.Deliver(parts[0], parts[1], parts[2]);
                         }
                         break;
                     }
                     case "CHAT":
                     {
-                        // payload = "{from}:{to}:{message}"
+                        // payload = "{from}:{room}:{message}"
                         var parts = payload.Split(':', 3);
                         if (parts.Length == 3)
                         {
