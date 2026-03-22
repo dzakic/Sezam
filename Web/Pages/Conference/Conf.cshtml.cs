@@ -70,6 +70,9 @@ namespace Sezam.Web.Pages.Conference
             if (Topic != null)
             {
                 Messages = await _context.ConfMessages
+                    .Include(m => m.Author)
+                    .Include(m => m.ParentMessage)
+                        .ThenInclude(pm => pm.Author)
                     .Include(m => m.MessageText)
                     .Where(m => m.TopicId == Topic.Id && ((m.Status & ConfMessage.MessageStatus.Deleted) == 0))
                     .OrderBy(m => m.TopicId)

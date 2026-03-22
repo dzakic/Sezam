@@ -202,6 +202,7 @@ namespace Sezam.Commands
                 .Include(m => m.Topic)
                     .ThenInclude(t => t.UserTopic)
                 .Include(m => m.ParentMessage)
+                    .ThenInclude(pm => pm.Author)
                 .Include(m => m.Author);
 
             // Topic Selection
