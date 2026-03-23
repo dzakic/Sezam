@@ -161,7 +161,7 @@ namespace Sezam
 
         public override string ToString()
         {
-            var location = IsLocal ? "Local" : NodeId[..Math.Min(8, NodeId.Length)];
+            var location = IsLocal ? "Local" : NodeId[..Math.Min(4, NodeId.Length)];
             return $"{location}: {SessionCount} session(s)";
         }
     }

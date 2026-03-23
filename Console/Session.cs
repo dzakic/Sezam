@@ -137,7 +137,6 @@ namespace Sezam
             ConnectTime = DateTime.Now;
 
             PrintBanner();
-            logger.LogInformation("Session connected from {TerminalId}", terminal.Id);
 
             var user = await Login();
             if (user is null)
@@ -208,7 +207,7 @@ namespace Sezam
         }
 
         protected void PrintBanner() =>
-            terminal.Line(Console.strings.BannerConnected, ConnectTime, Environment.MachineName + '/' + NodeNo);
+            terminal.Line(Console.strings.BannerConnected, Environment.GetEnvironmentVariable("SITE") ?? "Sydney",  ConnectTime, Environment.MachineName + '/' + NodeNo);
 
         /// <summary>
         /// ROBUSTNESS: Issue #12 - Retrieve user with caching to avoid N+1 queries

@@ -23,7 +23,7 @@ namespace Sezam.Console {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class strings {
-
+        
         private static global::System.Resources.ResourceManager resourceMan;
         
         private static global::System.Globalization.CultureInfo resourceCulture;
@@ -61,7 +61,7 @@ namespace Sezam.Console {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Connected to Sezam.Net Sydney {0:dd-MMM-yyyy HH:mm:ss}, Node {1}.
+        ///   Looks up a localized string similar to Connected to Sezam.Net {0} {1:dd-MMM-yyyy HH:mm:ss}, Node {2}.
         /// </summary>
         public static string BannerConnected {
             get {

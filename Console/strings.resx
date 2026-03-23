@@ -118,7 +118,7 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="BannerConnected" xml:space="preserve">
-    <value>Connected to Sezam.Net Sydney {0:dd-MMM-yyyy HH:mm:ss}, Node {1}</value>
+    <value>Connected to Sezam.Net {0} {1:dd-MMM-yyyy HH:mm:ss}, Node {2}</value>
   </data>
   <data name="ErrorUnrecoverable" xml:space="preserve">
     <value>Unrecoverable error. {0}</value>

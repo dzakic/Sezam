@@ -1,7 +1,10 @@
 {
   "profiles": {
     "Sezam.Telnet": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "environmentVariables": {
+        "SITE": "Ryde"
+      }
     },
     "WSL": {
       "commandName": "WSL2",

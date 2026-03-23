@@ -220,7 +220,7 @@ namespace Sezam
                 var type = envelope[..colonIndex];
                 var payload = envelope[(colonIndex + 1)..];
 
-                _logger.LogDebug("Received message envelope of type {Type} with payload: {Payload}", type, payload);
+                _logger.LogDebug("Received {Type} payload: {Payload}", type, payload);
 
                 switch (type)
                 {
