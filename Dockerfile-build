@@ -22,7 +22,7 @@ RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
     -r linux-x64 \
     -p:DebugType=None \
     -p:DebugSymbols=false \
-    -p:Versions={%APP_VERSION%}
+    -p:Versions={%APP_VERSION%} \
     .
 
 RUN mv bin/net10.0/linux-x64/publish /app/publish && \
