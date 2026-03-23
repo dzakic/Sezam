@@ -7,6 +7,7 @@ using Sezam.Data.EF;
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Sezam.Data
 {
@@ -183,14 +184,14 @@ namespace Sezam.Data
         /// Applies any pending database migrations.
         /// Call this at application startup to ensure the database schema is up to date.
         /// </summary>
-        public static void ApplyMigrations()
+        public static async Task ApplyMigrations()
         {
             using var context = GetNewContext();
             var pendingMigrations = context.Database.GetPendingMigrations().ToList();
 
             if (pendingMigrations.Count == 0)
             {
-                logger?.LogDebug("Database is up to date.");
+                logger?.LogInformation("Database is up to date.");
                 return;
             }
 
@@ -198,7 +199,7 @@ namespace Sezam.Data
                     pendingMigrations.Count, string.Join(", ", pendingMigrations));
             try
             {
-                context.Database.Migrate();
+                await context.Database.MigrateAsync();
             }
             catch (Exception ex)
             {

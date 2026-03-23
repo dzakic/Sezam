@@ -27,20 +27,21 @@ namespace Sezam
             Data.Store.logger = logger;
             Data.Store.LoggerFactory = loggerFactory;
             Data.Store.ConfigureFrom(configuration);
-            Data.Store.ApplyMigrations();  // Only applies pending migrations, logs details
-
             sessionFinished = new AutoResetEvent(false);
             this.configuration = configuration;
         }
 
         public async Task InitializeAsync()
         {
+            // Fire and forget: apply migrations in background
+            _ = Data.Store.ApplyMigrations();
+
             if (Data.Store.RedisEnabled)
             {
                 Data.Store.MessageBroadcaster = new MessageBroadcaster();
                 Data.Store.logger.LogInformation("Starting Redis message broadcaster initialization on {RedisConnectionString}", Data.Store.RedisConnectionString);
 
-                // Fire and log: don't wait for Redis initialization
+                // Fire and forget: initialize Redis in background
                 _ = InitializeRedisInBackgroundAsync();
             }
             else
