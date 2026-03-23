@@ -12,7 +12,17 @@ COPY Tests/Sezam.Tests/*.csproj ./Tests/Sezam.Tests/
 COPY Data/*.csproj ./Data/
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
     dotnet restore && \
-    dotnet publish Data/Sezam.Data.csproj \
+    dotnet publish Telnet/Sezam.Telnet.csproj \
+        -c Release \
+        -r linux-x64 \
+        -o /app/dep \
+        -p:DebugType=None \
+        -p:DebugSymbols=false \
+        -p:Versions=0.0.0 \
+        -p:AssemblyVersion=0.0.0 \
+        -p:GenerateAppBundle=false \
+        -p:OutputType=Library && \
+    dotnet publish Web/Sezam.Web.csproj \
         -c Release \
         -r linux-x64 \
         -o /app/dep \
