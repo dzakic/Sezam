@@ -95,7 +95,7 @@ namespace Sezam.Commands
                 .Where(a => a.FullName.StartsWith("Sezam")))
             {
                 FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
-                var fi = new System.IO.FileInfo(fvi.OriginalFilename);
+                var fi = new System.IO.FileInfo(assembly.Location);
                 await session.terminal.Line($"{assembly.ManifestModule.Name,-30} {fvi.FileVersion,-16} {fi.LastWriteTime:dd-MMM-yyyy HH:mm}");
             }
         }
