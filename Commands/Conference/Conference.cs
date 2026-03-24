@@ -277,7 +277,7 @@ namespace Sezam.Commands
 
             return messages
                 .Where(m => !m.Status.HasFlag(ConfMessage.MessageStatus.Deleted))
-                .OrderBy(m => m.TopicId)
+                .OrderBy(m => m.Topic.TopicNo)
                 .ThenBy(m => m.MsgNo);
         }
 
@@ -352,8 +352,9 @@ namespace Sezam.Commands
         [CommandSwitch('a', "Select all messages, including old")]
         public async Task Read()
         {
+            // No need to .Include(m => m.MessageText)
+            // AsReadTDO projection will pull the text and EF Core will generate the necessary JOIN
             var query = (await GetConfMsgSelection())
-                .Include(m => m.MessageText)
                 .AsReadDTO();
             await foreach (var msg in query)
                 await ConfFormatter.ConfMsgRead(session.terminal, msg, session.User.ToLocalTime);
