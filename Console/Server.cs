@@ -94,7 +94,7 @@ namespace Sezam
 
             isDraining = true;
             Data.Store.logger.LogInformation("Server entering drain mode. No new sessions will be accepted.");
-            Data.Store.LocalBroadcast("*", "*", "Shutting down for maintenance in 30min.");
+            Data.Store.LocalBroadcast("*", "$", "Shutting down for maintenance in 30min.");
 
             try
             {

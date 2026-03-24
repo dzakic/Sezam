@@ -29,14 +29,14 @@
             <message>
                 <header>
                     <msgid>@msg.MsgId</msgid>
-                    <author>@msg.Author.Username</author>,
+                    <author>@msg.AuthorUsername</author>,
                     <time title="@string.Format("{0:dd/MM/yyyy HH:mm}", msg.Time)">@string.Format("{0:dd MMM yy}", msg.Time)</time>
-                    @if (msg.ParentMessage is not null)
+                    @if (msg.ParentMsgNo is not null)
                     {
-                        <reply>-> #@msg.ParentMessage.MsgNo, @msg.ParentMessage.Author.Username</reply>
+                        <reply>-> #@msg.ParentMsgNo, @msg.ParentAuthorUsername</reply>
                     }
                 </header>
-                <content>@msg.MessageText.Text</content>
+                <content>@msg.Text</content>
                 @if(msg.Filename.Length > 0)
                 {
                     <file>@msg.Filename</file>

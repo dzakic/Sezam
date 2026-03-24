@@ -32,8 +32,19 @@ namespace Sezam.Web.Pages.Conference
 
         public Sezam.Data.EF.Conference Conference;
         public IEnumerable<ConfTopic> ConfTopics { get { return Conference.ConfTopics.OrderBy(t => t.TopicNo); } }
-        public IEnumerable<ConfMessage> Messages;
+        public List<ConfMessageView> Messages;
         public ConfTopic Topic;
+
+        public record ConfMessageView(
+            string MsgId,
+            int MsgNo,
+            string AuthorUsername,
+            DateTime Time,
+            int? ParentMsgNo,
+            string ParentAuthorUsername,
+            string Text,
+            string Filename
+        );
 
         public async Task OnGetAsync()
         {
@@ -70,17 +81,23 @@ namespace Sezam.Web.Pages.Conference
             if (Topic != null)
             {
                 Messages = await _context.ConfMessages
-                    .Include(m => m.Author)
-                    .Include(m => m.ParentMessage)
-                        .ThenInclude(pm => pm.Author)
-                    .Include(m => m.MessageText)
                     .Where(m => m.TopicId == Topic.Id && ((m.Status & ConfMessage.MessageStatus.Deleted) == 0))
                     .OrderBy(m => m.TopicId)
                     .ThenBy(m => m.MsgNo)
+                    .Select(m => new ConfMessageView(
+                        m.Topic.Name + "." + m.MsgNo,
+                        m.MsgNo,
+                        m.Author.Username,
+                        m.Time,
+                        m.ParentMessage != null ? m.ParentMessage.MsgNo : null,
+                        m.ParentMessage != null ? m.ParentMessage.Author.Username : null,
+                        m.MessageText.Text,
+                        m.Filename
+                    ))
                     .ToListAsync();
             }
-            
-            _logger.LogInformation($"Got conference {Conference.VolumeName} Topic={TopicName}, Messages: {Messages?.Count()}");
+
+            _logger.LogInformation("Got conference {VolumeName} Topic={TopicName}, Messages: {Count}", Conference.VolumeName, TopicName, Messages?.Count);
         }
     }
 }

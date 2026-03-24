@@ -158,7 +158,7 @@ namespace Sezam.Data
                     ?? configuration?[$"ConnectionStrings:{name}"];
                 if (value != null)
                 {
-                    logger?.LogInformation($"Resolved config value for '{name}': {(string.IsNullOrEmpty(value) ? "null" : value)}");
+                    logger?.LogInformation($"Config {name}: {(string.IsNullOrEmpty(value) ? "null" : value)}");
                     return value;
                 }
                 // Trace.WriteLine($"Tried resolving config for '{name}', no luck.");
@@ -168,6 +168,9 @@ namespace Sezam.Data
 
         public static DbContextOptionsBuilder GetOptionsBuilder(DbContextOptionsBuilder builder)
         {
+            if (LoggerFactory != null)
+                builder.UseLoggerFactory(LoggerFactory);
+
             return builder
                 .UseMySQL(DbConnectionString)
                 .EnableSensitiveDataLogging()

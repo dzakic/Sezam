@@ -57,7 +57,7 @@ namespace Sezam.Web.Api
             return conf == null ? NotFound() : conf;
         }
 
-        // GET api/conf/SEZAMNET
+        // GET api/conf/<name>
         [HttpGet("{name:alpha}")]
         public async Task<ActionResult<DTO.Conf>> GetByName(string name)
         {
@@ -74,14 +74,14 @@ namespace Sezam.Web.Api
             return Forbid();
         }
 
-        // PUT api/conf/5
+        // PUT api/conf/<id>
         [HttpPut("{id}")]
         public IActionResult Put(int id, [FromBody] string value)
         {
             return Forbid();
         }
 
-        // DELETE api/conf/5
+        // DELETE api/conf/<id>
         [HttpDelete("{id}")]
         public IActionResult Delete(int id)
         {

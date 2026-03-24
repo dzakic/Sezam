@@ -198,12 +198,14 @@ namespace Sezam.Commands
 
             IQueryable<ConfMessage> messages = session.Db.ConfMessages;
 
+            // Note: No .Include() for Author/ParentMessage.Author needed here.
+            // The DTO projections (AsListDTO/AsReadDTO) use .Select() which makes
+            // EF Core generate JOINs only for the projected columns (e.g. Username),
+            // ignoring any .Include() calls. Navigation properties in .Where() clauses
+            // are also handled automatically by EF Core.
             messages = messages
                 .Include(m => m.Topic)
-                    .ThenInclude(t => t.UserTopic)
-                .Include(m => m.ParentMessage)
-                    .ThenInclude(pm => pm.Author)
-                .Include(m => m.Author);
+                    .ThenInclude(t => t.UserTopic);
 
             // Topic Selection
             if (topicMsgRange?.topic != null)
