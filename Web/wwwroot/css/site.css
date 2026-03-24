@@ -1,3 +1,47 @@
+/* Landing Hero Styles */
+.landing-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 340px;
+  margin-bottom: 2rem;
+}
+.landing-hero img {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  border-radius: 1.5rem;
+  transition: opacity 1.2s cubic-bezier(.4,0,.2,1);
+  opacity: 0;
+  animation: fadeInHero 1.2s forwards;
+}
+@keyframes fadeInHero {
+  to { opacity: 1; }
+}
+.landing-hero .hero-headline {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 2.5rem;
+  font-weight: 900;
+  text-shadow: 0 4px 24px rgba(0,0,0,0.45);
+  letter-spacing: 1px;
+  z-index: 2;
+}
+
+.display-4 {
+  font-size: 2.7rem;
+  font-weight: 800;
+  color: #1b6ec2;
+  letter-spacing: 1px;
+  margin-bottom: 1.2rem;
+}
+
+.font-weight-bold {
+  font-weight: 700 !important;
+}
 /* Please see documentation at https://docs.microsoft.com/aspnet/core/client-side/bundling-and-minification
 for details on configuring this project to bundle and minify static web assets. */
 
