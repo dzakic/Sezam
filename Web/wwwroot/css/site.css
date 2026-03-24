@@ -129,8 +129,31 @@ h2 {
     list-style: none;
 }
 
+
+#Conferences li {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5em;
+}
+
 #Conferences li .confname {
+    flex: 0 0 120px; /* fixed width */
+    font-size: 18px;
     font-weight: bold;
+    padding: 0 4px;
+    margin-right: 1em;
+    text-align: left;
+    white-space: nowrap;
+}
+
+#Conferences li ol {
+    flex: 1 1 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5em;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 #Conferences li ol li {
