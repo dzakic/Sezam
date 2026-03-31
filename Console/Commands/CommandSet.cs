@@ -117,10 +117,10 @@
 
         public virtual string GetPrompt() => GetType().Name;
 
+
+        protected virtual void Enter() { }
+
         [Command(Aliases = [".."], Description = "Exit the command context")]
-
-        public virtual void Enter() { }
-
         public virtual void Exit() => session.ExitCurrentCommand();
 
         [Command(Aliases = ["?"], Description = "Show help")]

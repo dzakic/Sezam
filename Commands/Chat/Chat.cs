@@ -17,7 +17,7 @@ namespace Sezam.Commands
 
         public Chat(Session session) : base(session) { Room = NO_ROOM; }
 
-        public override void Enter()
+        protected override void Enter()
         {
             enterRoom(PUBLIC_ROOM);
         }
