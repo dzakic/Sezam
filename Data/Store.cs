@@ -7,6 +7,7 @@ using Sezam.Data.EF;
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Sezam.Data
 {
@@ -157,7 +158,7 @@ namespace Sezam.Data
                     ?? configuration?[$"ConnectionStrings:{name}"];
                 if (value != null)
                 {
-                    logger?.LogInformation($"Resolved config value for '{name}': {(string.IsNullOrEmpty(value) ? "null" : value)}");
+                    logger?.LogInformation($"Config {name}: {(string.IsNullOrEmpty(value) ? "null" : value)}");
                     return value;
                 }
                 // Trace.WriteLine($"Tried resolving config for '{name}', no luck.");
@@ -167,6 +168,9 @@ namespace Sezam.Data
 
         public static DbContextOptionsBuilder GetOptionsBuilder(DbContextOptionsBuilder builder)
         {
+            if (LoggerFactory != null)
+                builder.UseLoggerFactory(LoggerFactory);
+
             return builder
                 .UseMySQL(DbConnectionString)
                 .EnableSensitiveDataLogging()
@@ -183,14 +187,14 @@ namespace Sezam.Data
         /// Applies any pending database migrations.
         /// Call this at application startup to ensure the database schema is up to date.
         /// </summary>
-        public static void ApplyMigrations()
+        public static async Task ApplyMigrations()
         {
             using var context = GetNewContext();
             var pendingMigrations = context.Database.GetPendingMigrations().ToList();
 
             if (pendingMigrations.Count == 0)
             {
-                logger?.LogDebug("Database is up to date.");
+                logger?.LogInformation("Database is up to date.");
                 return;
             }
 
@@ -198,7 +202,7 @@ namespace Sezam.Data
                     pendingMigrations.Count, string.Join(", ", pendingMigrations));
             try
             {
-                context.Database.Migrate();
+                await context.Database.MigrateAsync();
             }
             catch (Exception ex)
             {

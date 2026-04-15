@@ -198,12 +198,14 @@ namespace Sezam.Commands
 
             IQueryable<ConfMessage> messages = session.Db.ConfMessages;
 
+            // Note: No .Include() for Author/ParentMessage.Author needed here.
+            // The DTO projections (AsListDTO/AsReadDTO) use .Select() which makes
+            // EF Core generate JOINs only for the projected columns (e.g. Username),
+            // ignoring any .Include() calls. Navigation properties in .Where() clauses
+            // are also handled automatically by EF Core.
             messages = messages
                 .Include(m => m.Topic)
-                    .ThenInclude(t => t.UserTopic)
-                .Include(m => m.ParentMessage)
-                    .ThenInclude(pm => pm.Author)
-                .Include(m => m.Author);
+                    .ThenInclude(t => t.UserTopic);
 
             // Topic Selection
             if (topicMsgRange?.topic != null)
@@ -275,7 +277,7 @@ namespace Sezam.Commands
 
             return messages
                 .Where(m => !m.Status.HasFlag(ConfMessage.MessageStatus.Deleted))
-                .OrderBy(m => m.TopicId)
+                .OrderBy(m => m.Topic.TopicNo)
                 .ThenBy(m => m.MsgNo);
         }
 
@@ -350,8 +352,9 @@ namespace Sezam.Commands
         [CommandSwitch('a', "Select all messages, including old")]
         public async Task Read()
         {
+            // No need to .Include(m => m.MessageText)
+            // AsReadTDO projection will pull the text and EF Core will generate the necessary JOIN
             var query = (await GetConfMsgSelection())
-                .Include(m => m.MessageText)
                 .AsReadDTO();
             await foreach (var msg in query)
                 await ConfFormatter.ConfMsgRead(session.terminal, msg, session.User.ToLocalTime);
