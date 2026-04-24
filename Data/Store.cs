@@ -256,7 +256,7 @@ namespace Sezam.Data
         /// If the user is on this node, delivers directly (local shortcut).
         /// Otherwise publishes via Redis for the remote node to deliver.
         /// </summary>
-        public static void SendToUser(string toUsername, string fromUser, string message)
+        public static void SendToUser(string fromUser, string toUsername, string message)
         {
             logger.LogDebug("SendToUser: {ToUser} from {FromUser}: {Message}", toUsername, fromUser, message);
 

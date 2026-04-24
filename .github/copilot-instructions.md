@@ -46,6 +46,7 @@ public class Root : CommandSet {
 - Implement `ITerminal` (see `ConsoleTerminal`, `TelnetTerminal`) for I/O strategy
 - Session owns terminal; errors may throw `TerminalException` to signal client disconnect or interrupt
 - Use `terminal.Line()` for output, `terminal.PromptEdit()` for input, `terminal.PromptSelection()` for menu prompts
+- **Avoid polling loops and delay-based waits for console input handling; implement true wait-based signaling for immediate/event-driven key response.**
 
 ### Database & Sessions
 - `SezamDbContext` is **per-session scoped** via `Context.UserId` property set in `Session.GetDbContext()`

@@ -146,13 +146,7 @@ namespace Sezam
             }
             else
             {
-                var previousSession = Data.Store.Sessions.Values.Where(s => s.Username == user.Username).FirstOrDefault();
-                if (previousSession != null)
-                {
-                    await terminal.Line($"User {user.Username} is already online since {previousSession.ConnectTime}");
-                    terminal.Close();
-                    logger.LogWarning("User {Username} already online since {ConnectTime}", user.Username, previousSession.ConnectTime);
-                }
+                await TerminateExistingSessionsForUser(user.Username);
 
                 User = user;
                 logger.LogInformation("User {Username} authenticated from {TerminalId}", user.Username, terminal.Id);
@@ -177,6 +171,46 @@ namespace Sezam
                     ErrorHandling.Handle(ex);
                 }
             }
+        }
+
+        private const string TerminateForNewLoginControlMessage = "__SEZAM_TERMINATE_NEW_LOGIN__";
+        private const string TerminateForNewLoginDisplayMessage = "Terminating because new login";
+
+        private IEnumerable<SessionInfo> GetAllKnownSessions()
+        {
+            var broadcaster = Data.Store.MessageBroadcaster;
+            if (broadcaster != null)
+            {
+                var registry = new DistributedSessionRegistry(broadcaster);
+                return registry.GetAllSessions();
+            }
+
+            return Data.Store.Sessions.Values.Select(s => new SessionInfo
+            {
+                Id = s.Id,
+                Username = s.Username,
+                ConnectTime = s.ConnectTime,
+                LoginTime = s.LoginTime,
+                IsLocal = true
+            });
+        }
+
+        private async Task TerminateExistingSessionsForUser(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username))
+                return;
+
+            var activeSessions = GetAllKnownSessions()
+                .Where(s => !string.IsNullOrWhiteSpace(s.Username)
+                    && s.Username.Equals(username, StringComparison.OrdinalIgnoreCase)
+                    && s.Id != Id)
+                .ToList();
+
+            if (activeSessions.Count == 0)
+                return;
+
+            logger.LogInformation("User {Username} has {Count} existing session(s); requesting termination", username, activeSessions.Count);
+            Data.Store.SendToUser("*", username, TerminateForNewLoginControlMessage);
         }
 
         /// <summary>
@@ -418,6 +452,16 @@ namespace Sezam
         public void Deliver(string from, string to, string message)
         {
             // logger.LogInformation("Delivering message to session {SessionId} from {From} to {To}: {Message}", Id, from, to, message);
+            if (from == "*"
+                && !string.IsNullOrWhiteSpace(Username)
+                && to.Equals(Username, StringComparison.OrdinalIgnoreCase)
+                && message == TerminateForNewLoginControlMessage)
+            {
+                terminal.PageMessage(TerminateForNewLoginDisplayMessage);
+                Close();
+                return;
+            }
+
             string line = currentCommandSet?.onMsgReceived(from, to, message);
             if (!line.IsWhiteSpace())
                 terminal.PageMessage(line);

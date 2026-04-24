@@ -63,7 +63,7 @@ namespace Sezam.Commands
                 ?? throw new System.ArgumentException($"User '{toUsername}' is not currently online.");
 
             var message = session.cmdLine.GetRemainingText();
-            Data.Store.SendToUser(target.Username, CHAT_PREFIX + session.User.Username, message);
+            Data.Store.SendToUser(CHAT_PREFIX + session.User.Username, target.Username, message);
         }
 
         public override string GetPrompt() => string.Empty;

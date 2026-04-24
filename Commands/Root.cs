@@ -52,7 +52,7 @@ namespace Sezam.Commands
                     message = await session.terminal.PromptEdit($"Page {targetSession.Username}: ");
                     if (message.IsWhiteSpace())
                         break;
-                    Data.Store.SendToUser(targetSession.Username, session.User.Username, message);
+                    Data.Store.SendToUser(session.User.Username, targetSession.Username, message);
                 }
             }
         }
