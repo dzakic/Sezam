@@ -1,9 +1,23 @@
-﻿@page "/Conference/{ConfName}/{TopicName?}"
+@page "/Conference/{ConfName}/{TopicName?}"
 @model Sezam.Web.Pages.Conference.ConfModel
 
 @{
-    ViewData["Title"] = Model.Topic != null ? Model.ConfName + " : " + Model.Topic?.Name : Model.ConfName;
+    var title = Model.Topic != null ? Model.ConfName + " : " + Model.Topic?.Name : Model.ConfName;
+    if (Model.PageNumber > 1) title += $" - Page {Model.PageNumber}";
+    ViewData["Title"] = title;
     Layout = "~/Pages/Shared/_Layout.cshtml";
+}
+
+@section Meta {
+    @if (Model.PageNumber > 1)
+    {
+        <link rel="prev" href="@Url.Page("./Conf", new { ConfName = Model.ConfName, TopicName = Model.TopicName, p = Model.PageNumber - 1 })" />
+    }
+    @if (Model.PageNumber < Model.TotalPages)
+    {
+        <link rel="next" href="@Url.Page("./Conf", new { ConfName = Model.ConfName, TopicName = Model.TopicName, p = Model.PageNumber + 1 })" />
+    }
+    <link rel="canonical" href="@Url.Page("./Conf", new { ConfName = Model.ConfName, TopicName = Model.TopicName, p = Model.PageNumber > 1 ? (int?)Model.PageNumber : null })" />
 }
 
 <h1>@Model.ConfName</h1>
@@ -22,6 +36,34 @@
 
 <div id="Messages">
     <h2>Messages - @Model.Topic?.Name</h2>
+    @if (Model.TotalPages > 1)
+    {
+        <nav aria-label="Page navigation top">
+            <ul class="pagination pagination-sm">
+                @if (Model.PageNumber > 1)
+                {
+                    <li class="page-item"><a class="page-link" asp-route-ConfName="@Model.ConfName" asp-route-TopicName="@Model.TopicName" asp-route-p="@(Model.PageNumber - 1)">Previous</a></li>
+                }
+                @for (int i = 1; i <= Model.TotalPages; i++)
+                {
+                    if (i == 1 || i == Model.TotalPages || (i >= Model.PageNumber - 2 && i <= Model.PageNumber + 2))
+                    {
+                        <li class="page-item @(i == Model.PageNumber ? "active" : "")">
+                            <a class="page-link" asp-route-ConfName="@Model.ConfName" asp-route-TopicName="@Model.TopicName" asp-route-p="@i">@i</a>
+                        </li>
+                    }
+                    else if (i == 2 || i == Model.TotalPages - 1)
+                    {
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    }
+                }
+                @if (Model.PageNumber < Model.TotalPages)
+                {
+                    <li class="page-item"><a class="page-link" asp-route-ConfName="@Model.ConfName" asp-route-TopicName="@Model.TopicName" asp-route-p="@(Model.PageNumber + 1)">Next</a></li>
+                }
+            </ul>
+        </nav>
+    }
     @if (Model.Messages != null)
     {
         @foreach (var msg in Model.Messages)
@@ -43,6 +85,34 @@
                 }
             </message>
         }
+    }
+    @if (Model.TotalPages > 1)
+    {
+        <nav aria-label="Page navigation bottom">
+            <ul class="pagination">
+                @if (Model.PageNumber > 1)
+                {
+                    <li class="page-item"><a class="page-link" asp-route-ConfName="@Model.ConfName" asp-route-TopicName="@Model.TopicName" asp-route-p="@(Model.PageNumber - 1)">Previous</a></li>
+                }
+                @for (int i = 1; i <= Model.TotalPages; i++)
+                {
+                    if (i == 1 || i == Model.TotalPages || (i >= Model.PageNumber - 2 && i <= Model.PageNumber + 2))
+                    {
+                        <li class="page-item @(i == Model.PageNumber ? "active" : "")">
+                            <a class="page-link" asp-route-ConfName="@Model.ConfName" asp-route-TopicName="@Model.TopicName" asp-route-p="@i">@i</a>
+                        </li>
+                    }
+                    else if (i == 2 || i == Model.TotalPages - 1)
+                    {
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    }
+                }
+                @if (Model.PageNumber < Model.TotalPages)
+                {
+                    <li class="page-item"><a class="page-link" asp-route-ConfName="@Model.ConfName" asp-route-TopicName="@Model.TopicName" asp-route-p="@(Model.PageNumber + 1)">Next</a></li>
+                }
+            </ul>
+        </nav>
     }
 </div>
 

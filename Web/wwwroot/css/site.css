@@ -251,6 +251,29 @@ h2 {
     margin: 2em 0 2em;
 }
 
+.pagination {
+    margin: 1.5rem 0;
+    flex-wrap: wrap;
+}
+
+.pagination-sm {
+    margin: 1rem 0;
+}
+
+.page-link {
+    border-radius: 0.5rem !important;
+    margin: 0 2px;
+    border: none;
+    background: #f8fafc;
+    color: #1b6ec2;
+    font-weight: 600;
+}
+
+.page-item.active .page-link {
+    background-color: #1b6ec2;
+    color: #fff;
+}
+
 #Messages header {
     width: 400px;
     border-bottom: 1px dashed darkorange;

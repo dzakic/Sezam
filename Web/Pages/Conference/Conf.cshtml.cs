@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -34,6 +34,13 @@ namespace Sezam.Web.Pages.Conference
         public IEnumerable<ConfTopic> ConfTopics { get { return Conference.ConfTopics.OrderBy(t => t.TopicNo); } }
         public List<ConfMessageView> Messages;
         public ConfTopic Topic;
+
+        [BindProperty(SupportsGet = true, Name = "p")]
+        public int PageNumber { get; set; } = 1;
+
+        public int PageSize = 100;
+        public int TotalMessages;
+        public int TotalPages;
 
         public record ConfMessageView(
             string MsgId,
@@ -80,10 +87,20 @@ namespace Sezam.Web.Pages.Conference
             // Topic Selection
             if (Topic != null)
             {
-                Messages = await _context.ConfMessages
-                    .Where(m => m.TopicId == Topic.Id && ((m.Status & ConfMessage.MessageStatus.Deleted) == 0))
+                var query = _context.ConfMessages
+                    .Where(m => m.TopicId == Topic.Id && ((m.Status & ConfMessage.MessageStatus.Deleted) == 0));
+
+                TotalMessages = await query.CountAsync();
+                TotalPages = (int)Math.Ceiling((double)TotalMessages / PageSize);
+
+                if (PageNumber < 1) PageNumber = 1;
+                if (PageNumber > TotalPages && TotalPages > 0) PageNumber = TotalPages;
+
+                Messages = await query
                     .OrderBy(m => m.TopicId)
                     .ThenBy(m => m.MsgNo)
+                    .Skip((PageNumber - 1) * PageSize)
+                    .Take(PageSize)
                     .Select(m => new ConfMessageView(
                         m.Topic.Name + "." + m.MsgNo,
                         m.MsgNo,
