@@ -25,7 +25,9 @@ namespace Sezam
             Id = Guid.NewGuid();
             commandSets = [];
             NodeNo = Environment.CurrentManagedThreadId;
-            Db = Store.GetNewContext();
+            lazyDb = new Lazy<SezamDbContext>(
+                () => Store.GetNewContext(),
+                LazyThreadSafetyMode.ExecutionAndPublication);
             lazyRootCommandSet = new Lazy<CommandSet>(
                 () => GetCommandProcessor(CommandSet.RootType()),
                 LazyThreadSafetyMode.ExecutionAndPublication);
@@ -268,7 +270,10 @@ namespace Sezam
             {
                 string username = await terminal.InputStr(Console.strings.Login_Username);
                 if (string.IsNullOrWhiteSpace(username))
+                {
+                    userTryCount++;
                     continue;
+                }
                 var user = await GetUser(username);
 
                 if (user != null)
@@ -368,6 +373,19 @@ namespace Sezam
                 currentCommandSet.GetType().Name,
                 cmd,
                 string.Join(" ", cmdLine.GetRemainingTokens()));
+
+            // If the command starts with "..", bypass the current command set and route directly to root
+            if (cmd.StartsWith(".."))
+            {
+                var root = lazyRootCommandSet.Value;
+                string strippedCmd = cmd.TrimStart('.');
+                if (!await root.ExecuteCommand(strippedCmd))
+                {
+                    logger.LogDebug("Unknown root command: {Command}", strippedCmd);
+                    await terminal.Line("Unknown command {0}", strippedCmd);
+                }
+                return;
+            }
 
             if (!(await currentCommandSet.ExecuteCommand(cmd)))
             {
@@ -522,7 +540,8 @@ namespace Sezam
 
         public ITerminal terminal;
 
-        public SezamDbContext Db { get; private set; }
+        private readonly Lazy<SezamDbContext> lazyDb;
+        public SezamDbContext Db => lazyDb.Value;
 
         public EventHandler OnFinish;
 

@@ -78,8 +78,7 @@ namespace Sezam.Commands
             if (string.IsNullOrEmpty(cmd)) return false;
             if (cmd[0] == '.') 
             { 
-                await base.ExecuteCommand(cmd);
-                return true;
+                return await base.ExecuteCommand(cmd);
             }
             Say(Room, session.cmdLine.Text);
             return true;

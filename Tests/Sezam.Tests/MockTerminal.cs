@@ -21,11 +21,11 @@ namespace Sezam.Tests
 
         public MockTerminal(string? input = null) => reader = new StringReader(input ?? "");
 
-        public async Task Line(string text = "") { }
+        public virtual async Task Line(string text = "") { }
 
-        public async Task Line(string text = "", params object[] args) { }
+        public virtual async Task Line(string text = "", params object[] args) { }
 
-        public async Task Text(string text) { }
+        public virtual async Task Text(string text) { }
 
         public Task<string> InputStr(string label = "", InputFlags flags = 0) => 
             Task.FromResult(reader?.ReadLine() ?? "");

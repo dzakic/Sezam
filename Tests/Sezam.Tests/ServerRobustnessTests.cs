@@ -134,9 +134,28 @@ namespace Sezam.Tests
                 }));
             }
 
+            // 10 writer threads
+            for (int i = 0; i < 10; i++)
+            {
+                threads.Add(new Thread(() =>
+                {
+                    try
+                    {
+                        var tempSession = new Session(new MockTerminal(), logger);
+                        Store.Sessions[tempSession.Id] = tempSession;
+                        Store.Sessions.TryRemove(tempSession.Id, out _);
+                        lock (syncLock) { writeCount++; }
+                    }
+                    catch (Exception)
+                    {
+                        lock (syncLock) { errorCount++; }
+                    }
+                }));
+            }
+
             // Start all threads
             threads.ForEach(t => t.Start());
-            threads.ForEach(t => t.Join(1000));
+            threads.ForEach(t => t.Join(2000));
 
             // Cleanup
             foreach (var sess in sessions)

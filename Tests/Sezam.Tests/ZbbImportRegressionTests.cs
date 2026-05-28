@@ -9,8 +9,6 @@ namespace Sezam.Tests
     [TestFixture]
     public class ZbbImportRegressionTests
     {
-        [Test]
-
         private static void WriteMessageHdr(BinaryWriter hdr, string author, byte topicNo, uint offset, ushort len, int dosTime)
         {
             WriteShortString(hdr, author, 15);
