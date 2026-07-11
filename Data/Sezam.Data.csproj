@@ -23,7 +23,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.9" />
     <PackageReference Include="MySql.EntityFrameworkCore" Version="10.0.7" />
-    <PackageReference Include="StackExchange.Redis" Version="3.0.11" />
+    <PackageReference Include="StackExchange.Redis" Version="3.0.17" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Migrations\" />

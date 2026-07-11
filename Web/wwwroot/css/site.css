@@ -233,9 +233,46 @@ h2 {
 }
 
 #Topics {
-    list-style: none;
     float: left;
     margin: 0 40px 0 0;
+}
+
+#Topics ol {
+    padding-left: 1.5rem;
+}
+
+#Topics li {
+    padding: 0;
+    margin-bottom: 4px;
+    border-radius: 4px;
+    border-left: 3px solid transparent;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+#Topics li a {
+    display: block;
+    padding: 4px 8px;
+    color: #1b6ec2;
+    text-decoration: none;
+}
+
+#Topics li:hover {
+    background-color: #f1f5f9;
+}
+
+#Topics li.active {
+    background-color: #eaf2fb;
+    border-left-color: #1b6ec2;
+}
+
+#Topics li.active a {
+    font-weight: 700;
+    color: #1861ac;
+}
+
+#Topics li .topic-sequence {
+    color: #718096;
+    font-weight: normal;
 }
 
 #Messages {
@@ -272,6 +309,38 @@ h2 {
 .page-item.active .page-link {
     background-color: #1b6ec2;
     color: #fff;
+}
+
+.messages-header {
+    margin-bottom: 1.5rem;
+}
+
+.messages-pagination {
+    display: inline-flex;
+    align-items: center;
+    user-select: none;
+}
+
+.messages-pagination .page-info {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #4a5568;
+}
+
+.messages-pagination .page-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100px;
+    height: 32px;
+    padding: 0;
+}
+
+.page-item.disabled .page-link {
+    pointer-events: none;
+    cursor: default;
+    background-color: #eef2f5;
+    color: #a0aec0;
 }
 
 #Messages header {
