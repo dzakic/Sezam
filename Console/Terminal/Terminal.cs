@@ -200,57 +200,59 @@ namespace Sezam
             // Display prompt and options
             if (!string.IsNullOrWhiteSpace(prompt))
                 Out.Write($"{prompt}? ");
-
             Out.Write($"[{string.Join('/', options)}] ");
             Out.Flush();
 
+            int choice = -1;
             while (true)
             {
-                try
+                char ch = await ReadCharWithPage();
+
+                // Skip ANSI escape sequences (e.g. arrow keys send ESC [ A/B/C/D)
+                // to prevent accidental option matching on sequence characters
+                if (ch == Esc)
                 {
-                    char ch = await ReadCharWithPage();
-
-                    // Skip ANSI escape sequences (e.g. arrow keys send ESC [ A/B/C/D)
-                    // to prevent accidental option matching on sequence characters
-                    if (ch == Esc)
+                    char next = await ReadCharWithPage();
+                    if (next == '[')
                     {
-                        char next = await ReadCharWithPage();
-                        if (next == '[')
-                        {
-                            // Consume the CSI sequence terminator (letter) and any
-                            // intermediate chars (digits, semicolons, tilde)
-                            char seq;
-                            do { seq = await ReadCharWithPage(); }
-                            while (seq is (>= '0' and <= '9') or ';');
-                        }
-                        continue;
+                        // Consume the CSI sequence terminator (letter) and any
+                        // intermediate chars (digits, semicolons, tilde)
+                        char seq;
+                        do { seq = await ReadCharWithPage(); }
+                        while (seq is (>= '0' and <= '9') or ';');
                     }
-
-                    // Skip non-printable characters (LF, NUL, etc.)
-                    if (ch < ' ' && ch != CR)
-                        continue;
-
-                    ch = char.ToLower(ch);
-
-                    if (ch == CR)
-                    {
-                        // Accept Default (first) option on Enter
-                        return 0;
-                    }
-
-                    // Match input character to first character of options (case-insensitive)
-                    for (int choice = 0; choice < options.Length; choice++)
-                    {
-                        if (options[choice].Length > 0 && ch == char.ToLower(options[choice][0]))
-                            return choice;
-                    }
+                    continue;
                 }
-                finally
+
+                // Skip non-printable characters (LF, NUL, etc.)
+                if (ch < ' ' && ch != CR)
+                    continue;
+
+                ch = char.ToLower(ch);
+
+                if (ch == CR)
                 {
-                    Out.Write(CR);
-                    ClearToEOL();
+                    // Accept Default (first) option on Enter
+                    choice = 0;
+                    break;
                 }
+
+                // Match input character to first character of options (case-insensitive)
+                choice = Array.FindIndex(options, o => o.Length > 0 && ch == char.ToLower(o[0]));
+                if (choice >= 0)
+                {
+                    break; // Valid selection made, exit loop
+                }
+
+                // Invalid selection: ignore it and keep waiting. The prompt stays on screen
+                // untouched, so nothing needs to be cleared or redrawn here.
             }
+            
+            // Clean up the prompt line after selection
+            Out.Write(CR);
+            ClearToEOL();
+
+            return choice; 
         }
 
         public async Task<string> PromptEdit(string prompt = "", InputFlags flags = 0)
