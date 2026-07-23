@@ -222,6 +222,21 @@ namespace Sezam
             return inputBytes.Span[inputPos];
         }
 
+        /// <summary>
+        /// Non-blocking peek: returns true and the next byte only if it is already
+        /// sitting in the local buffer, without touching the network stream.
+        /// </summary>
+        private bool TryPeekBufferedByte(out byte b)
+        {
+            if (inputPos < inputLen)
+            {
+                b = inputBytes.Span[inputPos];
+                return true;
+            }
+            b = 0;
+            return false;
+        }
+
         private async Task<byte> GetByteFromNetworkStream()
         {
             await FillInputBuffer();
@@ -353,44 +368,50 @@ namespace Sezam
 
             if (chr == Esc)
             {
+                // Only treat this as the start of an ANSI CSI sequence (arrow keys,
+                // Home/End, etc.) if the '[' byte is already sitting in the buffer -
+                // real terminals send it in the same packet as ESC. Otherwise this is
+                // a standalone Escape key press; report it without blocking on (and
+                // consuming) whatever byte happens to arrive next.
+                if (!TryPeekBufferedByte(out byte peeked) || peeked != (byte)'[')
+                    return new KeyInfo { Char = Esc, Key = ConsoleKey.Escape };
+
+                await GetByteFromNetworkStream(); // consume the already-buffered '['
                 chr = await ReadCharWithPage();
 
-
-                if (chr == '[')
+                // Handle standard arrow keys and Home/End
+                if (chr is >= 'A' and <= 'F')
                 {
-                    chr = await ReadCharWithPage();
+                    return chr switch
+                    {
+                        'A' => new KeyInfo { Key = ConsoleKey.UpArrow },
+                        'B' => new KeyInfo { Key = ConsoleKey.DownArrow },
+                        'C' => new KeyInfo { Key = ConsoleKey.RightArrow },
+                        'D' => new KeyInfo { Key = ConsoleKey.LeftArrow },
+                        'H' => new KeyInfo { Key = ConsoleKey.Home },
+                        'F' => new KeyInfo { Key = ConsoleKey.End },
+                        _ => new KeyInfo { }
+                    };
+                }
 
-                    // Handle standard arrow keys and Home/End
-                    if (chr is >= 'A' and <= 'F')
+                // Handle tilde sequences: ESC [ 1 ~ (Home), ESC [ 4 ~ (End), etc.
+                if (chr is >='1' and <= '4')
+                {                        
+                    if (await ReadCharWithPage() == '~')
                     {
                         return chr switch
                         {
-                            'A' => new KeyInfo { Key = ConsoleKey.UpArrow },
-                            'B' => new KeyInfo { Key = ConsoleKey.DownArrow },
-                            'C' => new KeyInfo { Key = ConsoleKey.RightArrow },
-                            'D' => new KeyInfo { Key = ConsoleKey.LeftArrow },
-                            'H' => new KeyInfo { Key = ConsoleKey.Home },
-                            'F' => new KeyInfo { Key = ConsoleKey.End },
+                            '1' => new KeyInfo { Key = ConsoleKey.Home },
+                            // '2' => new KeyInfo { Key = ConsoleKey.Insert },
+                            '3' => new KeyInfo { Key = ConsoleKey.Delete },
+                            '4' => new KeyInfo { Key = ConsoleKey.End },
                             _ => new KeyInfo { }
                         };
                     }
-
-                    // Handle tilde sequences: ESC [ 1 ~ (Home), ESC [ 4 ~ (End), etc.
-                    if (chr is >='1' and <= '4')
-                    {                        
-                        if (await ReadCharWithPage() == '~')
-                        {
-                            return chr switch
-                            {
-                                '1' => new KeyInfo { Key = ConsoleKey.Home },
-                                // '2' => new KeyInfo { Key = ConsoleKey.Insert },
-                                '3' => new KeyInfo { Key = ConsoleKey.Delete },
-                                '4' => new KeyInfo { Key = ConsoleKey.End },
-                                _ => new KeyInfo { }
-                            };
-                        }
-                    }
                 }
+
+                // Unrecognized CSI sequence; report the last character read as-is.
+                return new KeyInfo { Char = chr };
             }
 
             // Regular character            

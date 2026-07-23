@@ -34,7 +34,7 @@ namespace Sezam
         Task Line(string Message = "", params object[] args);
         Task Text(string Text);
         void Close();
-        Task<string> PromptEdit(string prompt = "", InputFlags flags = 0);
+        Task<string> PromptEdit(string prompt = "", InputFlags flags = 0, IHistoryProvider historyProvider = null);
         Task<string> InputStr(string label = "", InputFlags flags = 0);
         Task<int> PromptSelection(string promptAnswers);
         void PageMessage(string message);
@@ -255,7 +255,7 @@ namespace Sezam
             return choice; 
         }
 
-        public async Task<string> PromptEdit(string prompt = "", InputFlags flags = 0)
+        public async Task<string> PromptEdit(string prompt = "", InputFlags flags = 0, IHistoryProvider historyProvider = null)
         {
             ResetPageCount();
             if (!string.IsNullOrWhiteSpace(prompt))
@@ -267,14 +267,61 @@ namespace Sezam
             char c = ' ';
             bool isPassword = flags.HasFlag(InputFlags.Password);
 
+            // Tracks whether the previous key press was Escape, so two consecutive
+            // Escape presses can be detected and used to clear the current line.
+            bool escapePending = false;
+
+            void SetLine(string newLine)
+            {
+                if (cursorPos > 0)
+                    CursorLeft(cursorPos);
+                ClearToEOL();
+                Out.Write(isPassword ? new string('*', newLine.Length) : newLine);
+                line = newLine;
+                cursorPos = newLine.Length;
+            }
+
             while (c != '\r')
             {
                 checkPage();
                 var keyInfo = await ReadKeyInfoWithPage();
                 c = keyInfo.Char;
 
+                if (keyInfo.Key == ConsoleKey.Escape || c == Esc)
+                {
+                    if (escapePending)
+                    {
+                        // Double-Esc: clear the current line and reset history navigation.
+                        SetLine(string.Empty);
+                        historyProvider?.Reset();
+                        escapePending = false;
+                    }
+                    else
+                    {
+                        escapePending = true;
+                    }
+                }
+                else
+                {
+                    escapePending = false;
+                }
+
                 switch(keyInfo.Key)
                 {
+                    case ConsoleKey.UpArrow:
+                        {
+                            var recalled = historyProvider?.RecallPrevious(line);
+                            if (recalled != null)
+                                SetLine(recalled);
+                        }
+                        break;
+                    case ConsoleKey.DownArrow:
+                        {
+                            var recalled = historyProvider?.RecallNext();
+                            if (recalled != null)
+                                SetLine(recalled);
+                        }
+                        break;
                     case ConsoleKey.LeftArrow:
                         if (cursorPos > 0)
                         {

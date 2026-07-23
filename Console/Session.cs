@@ -310,6 +310,9 @@ namespace Sezam
 
         protected readonly object _cmdSetLock = new object();
 
+        // Recently entered commands, most recent last; used for Up/Down arrow recall in PromptEdit.
+        public IHistoryProvider History { get; } = new SimpleHistory(capacity: 100);
+
         protected async Task InputAndExecCmd()
         {
             // use lazy initializer for the root command set; thread-safe and only
@@ -328,7 +331,10 @@ namespace Sezam
             }
 
             var prompt = currentCommandSet?.GetPrompt() ?? string.Empty;
-            var cmd = await terminal.PromptEdit(prompt.Length == 0 ? string.Empty : prompt + "> ");
+            History.Reset();
+            var cmd = await terminal.PromptEdit(prompt.Length == 0 ? string.Empty : prompt + "> ", historyProvider: History);
+
+            History.Add(cmd);
 
             if (terminal.Connected)
                 await ExecCmd(cmd);

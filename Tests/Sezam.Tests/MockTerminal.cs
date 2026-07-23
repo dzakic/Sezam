@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,7 +31,7 @@ namespace Sezam.Tests
         public Task<string> InputStr(string label = "", InputFlags flags = 0) => 
             Task.FromResult(reader?.ReadLine() ?? "");
 
-        public virtual Task<string> PromptEdit(string prompt = "", InputFlags flags = 0) =>
+        public virtual Task<string> PromptEdit(string prompt = "", InputFlags flags = 0, IHistoryProvider? historyProvider = null) =>
             InputStr(prompt, flags);
 
         public Task<int> PromptSelection(string promptAnswers) =>
@@ -70,7 +71,7 @@ namespace Sezam.Tests
     /// </summary>
     public class HangingMockTerminal : MockTerminal
     {
-        public override Task<string> PromptEdit(string prompt = "", InputFlags flags = 0)
+        public override Task<string> PromptEdit(string prompt = "", InputFlags flags = 0, IHistoryProvider? historyProvider = null)
         {
             Thread.Sleep(Timeout.Infinite);
             return Task.FromResult("");
