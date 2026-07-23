@@ -38,7 +38,7 @@ namespace Sezam.Commands
                 return;
             }
             session.User.Password = newPass;
-            session.Db.SaveChanges();
+            await session.Db.SaveChangesAsync();
             await session.terminal.Line(strings.Set_Password_Changed);
         }
 
@@ -128,45 +128,25 @@ namespace Sezam.Commands
 
         [Command(Description = "Set your language preference")]
         [CommandParameter("language", "Language code: en (English) or sr (Serbian)")]
-        public void Language()
+        public async Task Language()
         {
             var langCode = session.cmdLine.GetToken();
             if (string.IsNullOrWhiteSpace(langCode))
             {
-                session.terminal.Line(L("Set_Lang_ShowCurrent"), session.SessionCulture.NativeName ?? "en");
+                await session.terminal.Line(L("Set_Lang_ShowCurrent"), session.SessionCulture.NativeName ?? "en");
                 return;
             }
 
             if (langCode != "en" && langCode != "sr")
                 throw new ArgumentException("Invalid language code. Use 'en' for English or 'sr' for Serbian.");
 
-            //session.User.Language = langCode;
-            //session.Db.SaveChanges();
-            
+            session.User.Language = langCode;
+            await session.Db.SaveChangesAsync();
+
             // Apply the culture immediately for this session
-            SetSessionCulture(langCode);
-            session.terminal.Line(L("Set_LangUpdated"), session.SessionCulture.NativeName, langCode);
+            session.SetSessionCulture(langCode);
+            await session.terminal.Line(L("Set_LangUpdated"), session.SessionCulture.NativeName, langCode);
         }
 
-        private void SetSessionCulture(string languageCode)
-        {
-            if (string.IsNullOrWhiteSpace(languageCode))
-                languageCode = "en";
-
-            try
-            {
-                var cultureInfo = new System.Globalization.CultureInfo(languageCode);
-                session.SessionCulture = cultureInfo;
-                Thread.CurrentThread.CurrentCulture = cultureInfo;
-                Thread.CurrentThread.CurrentUICulture = cultureInfo;
-            }
-            catch (System.Globalization.CultureNotFoundException)
-            {
-                var defaultCulture = new System.Globalization.CultureInfo("en");
-                session.SessionCulture = defaultCulture;
-                Thread.CurrentThread.CurrentCulture = defaultCulture;
-                Thread.CurrentThread.CurrentUICulture = defaultCulture;
-            }
-        }
     }
 }

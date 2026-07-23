@@ -157,8 +157,7 @@ namespace Sezam
                 User.LastCall = LoginTime;
 
                 // Set session culture based on user preference
-                // SetSessionCulture(User.Language);
-                SetSessionCulture("sr");
+                SetSessionCulture(User.Language);
 
                 // Publish session update (login) to other nodes
                 await PublishSessionUpdate();
@@ -219,27 +218,26 @@ namespace Sezam
         /// Sets the current thread's culture based on user language preference.
         /// This affects all resource lookups for this session only.
         /// </summary>
-        private void SetSessionCulture(string languageCode)
+        public void SetSessionCulture(string languageCode)
         {
             if (string.IsNullOrWhiteSpace(languageCode))
                 languageCode = "en";
 
-            try
+            // Validate culture code up front to avoid exception-driven control flow.
+            var cultureInfo = System.Globalization.CultureInfo
+                .GetCultures(System.Globalization.CultureTypes.AllCultures)
+                .FirstOrDefault(c => c.Name.Equals(languageCode, StringComparison.OrdinalIgnoreCase));
+
+            if (cultureInfo == null)
             {
-                var cultureInfo = new System.Globalization.CultureInfo(languageCode);
-                SessionCulture = cultureInfo;
-                Thread.CurrentThread.CurrentCulture = cultureInfo;
-                Thread.CurrentThread.CurrentUICulture = cultureInfo;
-                Debug.WriteLine($"Session culture set to: {languageCode}");
+                logger.LogWarning("Culture '{LanguageCode}' not found, falling back to 'en'", languageCode);
+                cultureInfo = System.Globalization.CultureInfo.GetCultureInfo("en");
             }
-            catch (System.Globalization.CultureNotFoundException)
-            {
-                Debug.WriteLine($"Culture '{languageCode}' not found, falling back to 'en'");
-                var defaultCulture = new System.Globalization.CultureInfo("en");
-                SessionCulture = defaultCulture;
-                Thread.CurrentThread.CurrentCulture = defaultCulture;
-                Thread.CurrentThread.CurrentUICulture = defaultCulture;
-            }
+
+            SessionCulture = cultureInfo;
+            Thread.CurrentThread.CurrentCulture = cultureInfo;
+            Thread.CurrentThread.CurrentUICulture = cultureInfo;
+            Debug.WriteLine($"Session culture set to: {cultureInfo.Name}");
         }
 
         protected void PrintBanner() =>
@@ -433,6 +431,36 @@ namespace Sezam
             currentCommandSet = null;
         }
 
+        /// <summary>
+        /// Sets the role(s) for a given user by username. Requires Superuser privileges or explicit authorization check.
+        /// </summary>
+        /// <param name="username">The target username.</param>
+        /// <param name="roles">The roles to assign (e.g., Role.ConfModerator | Role.User).</param>
+        /// <returns>True if the update was successful, false otherwise.</returns>
+        public async Task<bool> SetUserRole(string username, Role roles)
+        {
+            // Security Check: Only Superusers should be able to perform this action programmatically.
+            if (!User.HasRole(Role.Superuser))
+                throw new UnauthorizedAccessException("Insufficient privileges to manage user roles.");
+
+            var user = await GetUser(username);
+            if (user == null)
+                throw new ArgumentException($"Cannot find user '{username}' to set roles.");
+
+            // Update the roles property and save changes
+            try
+            {
+                user.Roles = roles;
+                await Db.SaveChangesAsync();
+                return true;
+            }
+            catch (DbUpdateException ex)
+            {
+                logger.LogError(ex, "Failed to update roles for user {Username}", username);
+                throw new InvalidOperationException("Database error when saving role changes.", ex);
+            }
+        }
+
         public void SysLog(string Message, params string[] args)
         {
             logger.LogInformation("{Message}", string.Format(Message, args));
@@ -551,4 +579,3 @@ namespace Sezam
 
 
 }
-

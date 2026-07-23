@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Sezam.Data;
 
@@ -10,13 +11,15 @@ using Sezam.Data;
 namespace Sezam.Data.Migrations
 {
     [DbContext(typeof(SezamDbContext))]
-    partial class SezamDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260718095921_UserRoles")]
+    partial class UserRoles
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.10")
+                .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Proxies:ChangeTracking", false)
                 .HasAnnotation("Proxies:CheckEquality", false)
                 .HasAnnotation("Proxies:LazyLoading", true)
@@ -172,10 +175,6 @@ namespace Sezam.Data.Migrations
                     b.Property<string>("FullName")
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)");
-
-                    b.Property<string>("Language")
-                        .HasMaxLength(5)
-                        .HasColumnType("varchar(5)");
 
                     b.Property<DateTime?>("LastCall")
                         .HasColumnType("datetime(6)");

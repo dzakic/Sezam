@@ -1,18 +1,27 @@
-﻿using System;
+using System;
+using Sezam.Data.EF;
 
 namespace Sezam.Commands
 {
 
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
-    public class  CommandSwitchAttribute : Attribute
+    public class CommandSwitchAttribute : Attribute
     {
         public char Switch { get; }
         public string Description { get; }
+        public Role? RequiredRole { get; set; }
 
         public CommandSwitchAttribute(char @switch, string description)
         {
             Switch = @switch;
             Description = description;
+        }
+
+        public CommandSwitchAttribute(char @switch, string description, Role requiredRole)
+        {
+            Switch = @switch;
+            Description = description;
+            RequiredRole = requiredRole;
         }
     }
 

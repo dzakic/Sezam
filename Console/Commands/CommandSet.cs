@@ -1,4 +1,4 @@
-﻿namespace Sezam.Commands
+namespace Sezam.Commands
 {
     using Sezam.Data;
     using Sezam.Data.EF;
@@ -11,10 +11,10 @@
     using System.Threading.Tasks;
 
     /// <summary>
-    /// CommandSet represents a context for executing commands. It can contain methods that are commands, 
-    /// as well as nested CommandSets for sub-contexts. CommandSets are responsible for parsing and executing 
-    /// commands within their context, and can delegate to nested CommandSets as needed. Each session has a 
-    /// current CommandSet which determines how input is interpreted and which commands are available. 
+    /// CommandSet represents a context for executing commands. It can contain methods that are commands,
+    /// as well as nested CommandSets for sub-contexts. CommandSets are responsible for parsing and executing
+    /// commands within their context, and can delegate to nested CommandSets as needed. Each session has a
+    /// current CommandSet which determines how input is interpreted and which commands are available.
     /// The Root CommandSet serves as the entry point for all command processing.
     /// </summary>
     public class CommandSet
@@ -63,6 +63,12 @@
             var cmdSet = GetCommandSet(cmd);
             if (cmdSet != null)
             {
+                if (!UserHasAccess(cmdSet.GetType()))
+                {
+                    await session.terminal.Line("Access denied");
+                    return true;
+                }
+
                 // get next command, to be executed
                 cmd = session.cmdLine.GetToken();
                 if (cmd.HasValue())
@@ -92,13 +98,19 @@
             if (command is null)
                 return false;
 
+            if (!UserHasAccess(command) || !UserHasAccessForSwitches(command))
+            {
+                await session.terminal.Line("Access denied");
+                return true;
+            }
+
             try
             {
                 var result = command.Invoke(this, null);
 
                 // Handle async methods that return Task
                 if (result is Task task)
-                { 
+                {
                     await task;
                 }
             }
@@ -108,6 +120,45 @@
                 ExceptionDispatchInfo.Capture(e.InnerException).Throw();
             }
             return true;
+        }
+
+        private bool UserHasAccess(MethodInfo method)
+        {
+            var classAttr = method.DeclaringType?.GetCustomAttribute<RequireRoleAttribute>();
+            if (classAttr != null && !session.User.HasRole(classAttr.RequiredRole))
+                return false;
+
+            var methodAttr = method.GetCustomAttribute<RequireRoleAttribute>();
+            if (methodAttr != null && !session.User.HasRole(methodAttr.RequiredRole))
+                return false;
+
+            return true;
+        }
+
+        private bool UserHasAccessForSwitches(MethodInfo method)
+        {
+            if (session?.cmdLine?.Switches is null || session.cmdLine.Switches.Count == 0)
+                return true;
+
+            var declaredSwitches = method.GetCustomAttributes<CommandSwitchAttribute>();
+            foreach (var activeSwitch in session.cmdLine.Switches)
+            {
+                var switchAttr = declaredSwitches.FirstOrDefault(s =>
+                    string.Equals(s.Switch.ToString(), activeSwitch, StringComparison.OrdinalIgnoreCase));
+
+                if (switchAttr?.RequiredRole != null && !session.User.HasRole(switchAttr.RequiredRole.Value))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private bool UserHasAccess(Type commandSetType)
+        {
+            var attr = commandSetType.GetCustomAttribute<RequireRoleAttribute>();
+            return attr == null || session.User.HasRole(attr.RequiredRole);
         }
 
         protected static string GetDisplayName(Type type) =>
@@ -137,6 +188,8 @@
 
             foreach (var cmdSet in GetCommandSets())
             {
+                if (!UserHasAccess(cmdSet.ReturnType))
+                    continue;
                 var desc = cmdSet.GetCustomAttribute<CommandAttribute>()?.Description
                     is { Length: > 0 } d ? $" - {d}" : "";
                 await session.terminal.Line("* {0,-20} {1}", cmdSet.Name.ToUpper(), desc);
@@ -144,6 +197,8 @@
 
             foreach (var method in GetMethods())
             {
+                if (!UserHasAccess(method))
+                    continue;
                 var aliases = method.GetAliases();
                 var line = aliases is { Length: > 0 }
                     ? $"{method.Name} ({string.Join(",", aliases)})"
@@ -163,12 +218,22 @@
             {
                 if (currentSet.GetCommandSet(currentTopic) is { } nextSet)
                 {
+                    if (!UserHasAccess(nextSet.GetType()))
+                    {
+                        await session.terminal.Line("Access denied");
+                        return;
+                    }
                     await nextSet.Help();
                     return;
                 }
 
                 if (currentSet.GetCommandMethod(currentTopic) is { } method)
                 {
+                    if (!UserHasAccess(method))
+                    {
+                        await session.terminal.Line("Access denied");
+                        return;
+                    }
                     await PrintHelp(method);
                     return;
                 }
@@ -182,7 +247,9 @@
         {
             var attr = method.GetCustomAttribute<CommandAttribute>();
             var parameters = method.GetCustomAttributes<CommandParameterAttribute>().ToArray();
-            var switches = method.GetCustomAttributes<CommandSwitchAttribute>().ToArray();
+            var switches = method.GetCustomAttributes<CommandSwitchAttribute>()
+                .Where(sw => sw.RequiredRole == null || session.User.HasRole(sw.RequiredRole.Value))
+                .ToArray();
             var aliases = method.GetAliases();
 
             var desc = attr?.Description ?? "No detailed description available.";
@@ -402,7 +469,6 @@
 
         #region Helper functions (protected)
 
-        // TODO: Move to session, this can be useful elsewhere
         /// <summary>
         /// Get user from command line
         /// </summary>
@@ -485,7 +551,7 @@
                     return $"SYSTEM: {L(message)}";
                 else
                     return Terminal.BEL + $"{from}: {message}";
-            return string.Empty; 
+            return string.Empty;
         }
 
     }

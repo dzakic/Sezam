@@ -34,10 +34,7 @@ namespace Sezam.Commands
             currentConference = null;
         }
 
-        public static ConfStat Status()
-        {
-            return null;
-        }
+        public ConfStat Status() => null;
 
         public Sezam.Data.EF.Conference CurrentConference
         { get { return currentConference; } }
@@ -55,10 +52,12 @@ namespace Sezam.Commands
                 session.Db.Conferences
                     .Include(c => c.UserConf)
                     .Where(c =>
-                        !c.UserConf.Status.HasFlag(UserConf.UserConfStat.Admin) ||
-                        (!c.Status.HasFlag(ConfStatus.Private) || c.UserConf.Status.HasFlag(UserConf.UserConfStat.Allowed)) &&
-                        !c.Status.HasFlag(ConfStatus.Closed) &&
-                        !c.UserConf.Status.HasFlag(UserConf.UserConfStat.Denied));
+                        c.UserConf.Status.HasFlag(UserConf.UserConfStat.Admin) ||
+                        (
+                            (!c.Status.HasFlag(ConfStatus.Private) || c.UserConf.Status.HasFlag(UserConf.UserConfStat.Allowed)) &&
+                            !c.Status.HasFlag(ConfStatus.Closed) &&
+                            !c.UserConf.Status.HasFlag(UserConf.UserConfStat.Denied)
+                        ));
 
             // Default: Restrict to non-resigned
             if (!IncludeResigned)
@@ -68,7 +67,7 @@ namespace Sezam.Commands
 
             return conferences
                 .Include(c => c.ConfTopics
-                 //.Where(t => 
+                 //.Where(t =>
                  // !string.IsNullOrEmpty(t.Name) &&
                  //    !t.Status.HasFlag(ConfTopic.TopicStatus.Deleted) &&
                  //   !t.Status.HasFlag(ConfTopic.TopicStatus.Private)
@@ -105,7 +104,7 @@ namespace Sezam.Commands
                 userConfData.Status &= ~UserConf.UserConfStat.Resigned;
                 // Show welcome?
                 await session.terminal.Line(L("Conf_Welcome"), currentConference.VolumeName);
-                session.Db.SaveChanges();
+                await session.Db.SaveChangesAsync();
                 Debug.WriteLine($"Joined conf {0}", currentConference.VolumeName);
             }
         }
@@ -341,7 +340,7 @@ namespace Sezam.Commands
                 .AsListDTO();
             await foreach (var confListItem in query)
                 await session.terminal.Line(ConfFormatter.FormatConfMsgList(confListItem, session.User.ToLocalTime));
-//            await ProcessMessages(query, async msg => 
+//            await ProcessMessages(query, async msg =>
                 //await session.terminal.Line(ConfFormatter.FormatConfMsgList(msg, session.User.ToLocalTime)));
         }
 
@@ -608,7 +607,7 @@ namespace Sezam.Commands
 
             if (!topicMsgRange.EndsWith("-") && result.msgHigh == 0)
                 result.msgHigh = result.msgLow;
-                
+
             return result;
         }
 

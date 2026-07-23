@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 
 namespace Sezam.Commands
 {
+    [RequireRole(Data.EF.Role.Superuser)]
     public class ConfStat : CommandSet
     {
 
@@ -45,15 +46,15 @@ namespace Sezam.Commands
         private async Task SetConfStatus(Data.EF.ConfStatus stat)
         {
             CurrentConference.Status |= stat;
+            await session.Db.SaveChangesAsync();
             await Show();
-            session.Db.SaveChanges();
         }
 
         private async Task ResetConfStatus(Data.EF.ConfStatus stat)
         {
             CurrentConference.Status &= ~stat;
+            await session.Db.SaveChangesAsync();
             await Show();
-            session.Db.SaveChanges();
         }
         #endregion
 
@@ -98,7 +99,7 @@ namespace Sezam.Commands
             else
                 mConfData.Status |= Data.EF.UserConf.UserConfStat.Admin; // On
 
-            session.Db.SaveChanges();
+            await session.Db.SaveChangesAsync();
         }
 
     }

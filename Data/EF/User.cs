@@ -65,6 +65,10 @@ namespace Sezam.Data.EF
 
         public string Password { get; set; }
 
+        public Role Roles { get; set; } = Role.User;
+
+        public bool HasRole(Role role) => Id == 0 || Roles.HasFlag(role);
+
         /// <summary>
         /// User's timezone ID (IANA format, e.g., "Europe/Belgrade", "America/New_York").
         /// Defaults to "Europe/Belgrade" for Serbian users.
@@ -100,9 +104,9 @@ namespace Sezam.Data.EF
             return TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utcTime, DateTimeKind.Utc), TimeZone);
         }
 
-        //[StringLength(5)]
-        //[DisplayName("Language")]
-        //public string Language { get; set; } = "en"; // "en" for English, "sr" for Serbian
+        [StringLength(5)]
+        [DisplayName("Language")]
+        public string Language { get; set; } = "en"; // "en" for English, "sr" for Serbian
 
         // Navigation
         public virtual ICollection<UserConf> UserConfs { get; set; }

@@ -80,11 +80,6 @@ namespace Sezam.Data
                 .OnDelete(DeleteBehavior.Restrict);
         }
 
-        public override int SaveChanges()
-        {
-            return base.SaveChanges();
-        }
-
         public DbSet<User> Users { get; set; }
         public DbSet<Conference> Conferences { get; set; }
         public DbSet<ConfTopic> ConfTopics { get; set; }
@@ -146,6 +141,7 @@ namespace Sezam.Data
             {
                 RedisConnectionString = ResolveConfigValue(configuration, "Redis");
             }
+
         }
 
         public static string ResolveConfigValue(IConfiguration configuration, params string[] names)
@@ -310,7 +306,7 @@ namespace Sezam.Data
 
         // Redis Configuration Properties
         public static string RedisConnectionString { get; private set; }
-        // Redis is enabled if connection string is not empty            
+        // Redis is enabled if connection string is not empty
         public static bool RedisEnabled => !RedisConnectionString.IsWhiteSpace();
 
         // Message Broadcaster Singleton
