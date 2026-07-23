@@ -275,7 +275,7 @@ Doc/
 ## 🎯 Next Steps
 
 ### Immediate
-1. Read [Doc/REDIS_QUICKSTART.md](Doc/REDIS_QUICKSTART.md)
+1. Read [Doc/REDIS_QUICKSTART.md](REDIS_QUICKSTART.md)
 2. Test locally with/without Redis
 3. Deploy to your environment
 
@@ -316,4 +316,5 @@ Your Sezam system now has distributed message broadcasting across nodes, with au
 
 **It's ready for production deployment!** 🎉
 
-See [Doc/REDIS_INDEX.md](Doc/REDIS_INDEX.md) for quick navigation.
+See [Doc/REDIS_INDEX.md](REDIS_INDEX.md) for quick navigation.
+

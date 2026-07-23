@@ -3,12 +3,23 @@
 ## Executive Summary
 The Sezam system uses a thread-per-session model with moderate thread safety practices. While basic locking is in place for shared state, several areas present risks for data corruption, resource leaks, connection loss, and session state inconsistencies.
 
+## Current Status Update (July 22, 2026)
+
+This document captures investigation findings from February 2026. Since then, several high-impact findings have been addressed in the current codebase:
+
+- `Session.Run()` now disposes DbContext in `finally`.
+- `TelnetTerminal.Close()` now disposes writer/client resources.
+- `CommandSet.Catalog` now uses thread-safe `TryGetValue` + lock double-check initialization.
+- Current automated suite passes (`dotnet test Sezam.sln`: 29/29).
+
+Treat unresolved-risk language below as historical analysis unless re-validated against HEAD.
+
 ---
 
 ## Critical Issues
 
 ### 1. **DbContext Resource Leak** ⚠️ HIGH
-**Location**: [Console/Session.cs](Console/Session.cs#L241)
+**Location**: [Console/Session.cs](../Console/Session.cs#L241)
 **Issue**: DbContext is created once per session but never disposed.
 ```csharp
 public SezamDbContext Db = Store.GetNewContext();
@@ -40,7 +51,7 @@ finally
 ---
 
 ### 2. **TcpClient/NetworkStream Not Disposed** ⚠️ HIGH
-**Location**: [Console/Terminal/TelnetTerminal.cs](Console/Terminal/TelnetTerminal.cs#L260-265)
+**Location**: [Console/Terminal/TelnetTerminal.cs](../Console/Terminal/TelnetTerminal.cs#L260-265)
 **Issue**: Close() only flushes, doesn't dispose TcpClient or NetworkStream
 ```csharp
 public void Close()
@@ -75,7 +86,7 @@ public void Close()
 ---
 
 ### 3. **Race Condition in CommandSet Catalog Lookup** ⚠️ MEDIUM
-**Location**: [Console/Commands/CommandSet.cs](Console/Commands/CommandSet.cs#L167-182)
+**Location**: [Console/Commands/CommandSet.cs](../Console/Commands/CommandSet.cs#L167-182)
 **Issue**: Lock is only held during first initialization, not during subsequent reads
 ```csharp
 public Dictionary<string, object> Catalog
@@ -131,7 +142,7 @@ public Dictionary<string, object> Catalog
 ---
 
 ### 4. **Store Static Fields Not Thread-Safe** ⚠️ MEDIUM
-**Location**: [Data/Store.cs](Data/Store.cs#L34-36)
+**Location**: [Data/Store.cs](../Data/Store.cs#L34-36)
 **Issue**: Static fields are mutable without synchronization
 ```csharp
 private static IList<ISession> sessions;
@@ -169,7 +180,7 @@ public static IList<ISession> Sessions
 ---
 
 ### 5. **CommandLine Token Mutation** ⚠️ MEDIUM
-**Location**: [Console/Commands/CommandLine.cs](Console/Commands/CommandLine.cs#L33-41)
+**Location**: [Console/Commands/CommandLine.cs](../Console/Commands/CommandLine.cs#L33-41)
 **Issue**: Tokens list is modified during iteration/access
 ```csharp
 public string GetToken(string requiredValue = null)
@@ -213,7 +224,7 @@ public class CommandLine
 ---
 
 ### 6. **Session Exception Handlers Could Break Cleanup** ⚠️ MEDIUM
-**Location**: [Console/Server.cs](Console/Server.cs#L146-158)
+**Location**: [Console/Server.cs](../Console/Server.cs#L146-158)
 **Issue**: OnSessionFinish event handler exception could prevent cleanup
 ```csharp
 private void OnSessionFinish(object sender, EventArgs e)
@@ -273,7 +284,7 @@ private void OnSessionFinish(object sender, EventArgs e)
 ---
 
 ### 7. **Session State Not Volatile** ⚠️ MEDIUM
-**Location**: [Console/Session.cs](Console/Session.cs#L233-241)
+**Location**: [Console/Session.cs](../Console/Session.cs#L233-241)
 **Issue**: Mutable public/private fields without synchronization
 ```csharp
 public CommandSet currentCommandSet;  // Directly modified without sync
@@ -303,7 +314,7 @@ if (rootCommandSet == null)
 ---
 
 ### 8. **TelnetTerminal Input Buffer Race Condition** ⚠️ MEDIUM
-**Location**: [Console/Terminal/TelnetTerminal.cs](Console/Terminal/TelnetTerminal.cs#L271-282)
+**Location**: [Console/Terminal/TelnetTerminal.cs](../Console/Terminal/TelnetTerminal.cs#L271-282)
 **Issue**: Manual input buffer with instance variables, no synchronization
 ```csharp
 private readonly byte[] inputBytes = new byte[256];
@@ -335,7 +346,7 @@ private readonly object _inputBufferLock = new object();
 ---
 
 ### 9. **No Graceful Shutdown on Exception** ⚠️ MEDIUM
-**Location**: [Console/Session.cs](Console/Session.cs#L68-77)
+**Location**: [Console/Session.cs](../Console/Session.cs#L68-77)
 **Issue**: Outer catch blocks email exception but don't signal disconnect
 ```csharp
 catch (Exception e)
@@ -374,7 +385,7 @@ catch (Exception e)
 ## Moderate Issues
 
 ### 10. **No SaveChanges Error Recovery** ⚠️ MEDIUM
-**Location**: [Console/Session.cs](Console/Session.cs#L111)
+**Location**: [Console/Session.cs](../Console/Session.cs#L111)
 ```csharp
 Db.SaveChangesAsync();  // No await, no error handling, returns Task
 ```
@@ -404,7 +415,7 @@ catch (Exception ex)
 ---
 
 ### 11. **Missing Null Checks in Session.Close()** ⚠️ MEDIUM
-**Location**: [Console/Session.cs](Console/Session.cs#L217-223)
+**Location**: [Console/Session.cs](../Console/Session.cs#L217-223)
 ```csharp
 public void Close()
 {
@@ -455,7 +466,7 @@ public void Close()
 ---
 
 ### 12. **GetUser Query Not Cached (N+1)** ⚠️ LOW-MEDIUM
-**Location**: [Console/Session.cs](Console/Session.cs#L130)
+**Location**: [Console/Session.cs](../Console/Session.cs#L130)
 ```csharp
 public User GetUser(string username)
 {
@@ -483,7 +494,7 @@ public User GetUser(string username)
 ---
 
 ### 13. **Server Stop Race Condition** ⚠️ LOW-MEDIUM
-**Location**: [Console/Server.cs](Console/Server.cs#L163-175)
+**Location**: [Console/Server.cs](../Console/Server.cs#L163-175)
 ```csharp
 public void Stop()
 {
@@ -692,3 +703,4 @@ public void SessionDisconnect_AllResourcesDisposed()
 - [DbContext Lifetime and Disposal](https://docs.microsoft.com/en-us/ef/core/dbcontext-configuration/)
 - [Async/Await Best Practices](https://docs.microsoft.com/en-us/archive/msdn-magazine/2013/march/async-await-best-practices-in-asynchronous-programming)
 - OWASP: [DoS via Resource Exhaustion](https://owasp.org/www-community/attacks/Denial_of_Service)
+

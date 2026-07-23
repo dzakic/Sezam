@@ -4,6 +4,10 @@
 
 This directory contains a comprehensive investigation into the Sezam BBS system's session management, multithreading, and resource cleanup mechanisms. The investigation identified **3 critical**, **7 high**, and **5 medium** priority issues.
 
+## Current Status Update (July 22, 2026)
+
+This robustness pack is primarily a historical investigation set. Core items originally flagged as critical (DbContext disposal, telnet resource disposal, and command catalog race) have been addressed in the current codebase. Use these docs as architectural context and regression guidance, then validate against current source and tests before planning new fixes.
+
 ## Documents in This Analysis
 
 ### 📋 [ROBUSTNESS_SUMMARY.md](ROBUSTNESS_SUMMARY.md) - START HERE
@@ -237,9 +241,9 @@ Month 2+: Scalability (Optional)
 ## File References in Code
 
 All documents link directly to problematic code using file paths and line numbers:
-- `[Console/Session.cs](Console/Session.cs#L241)` - DbContext declaration  
-- `[Server.cs](Console/Server.cs#L146)` - OnSessionFinish handler
-- `[CommandSet.cs](Console/Commands/CommandSet.cs#L167)` - Catalog property
+- `[Console/Session.cs](../Console/Session.cs#L241)` - DbContext declaration  
+- `[Server.cs](../Console/Server.cs#L146)` - OnSessionFinish handler
+- `[CommandSet.cs](../Console/Commands/CommandSet.cs#L167)` - Catalog property
 - etc.
 
 You can:
@@ -310,3 +314,4 @@ The Sezam system is **well-architected** but has **neglected resource cleanup an
 **Analysis Scope**: Session management, multithreading, resource cleanup  
 **Total Files Analyzed**: 12 core C# files  
 **Issues Identified**: 16 (3 critical, 7 high, 5 medium, 1 architectural)
+

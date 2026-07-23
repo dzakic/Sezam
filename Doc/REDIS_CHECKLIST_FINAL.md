@@ -392,4 +392,5 @@ Before Production Deployment:
 
 Implementation is complete, tested, documented, and ready for deployment.
 
-See [Doc/REDIS_INDEX.md](Doc/REDIS_INDEX.md) for documentation navigation.
+See [Doc/REDIS_INDEX.md](REDIS_INDEX.md) for documentation navigation.
+

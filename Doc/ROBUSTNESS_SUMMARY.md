@@ -4,6 +4,17 @@
 **Scope**: Session management, multithreading safety, resource cleanup  
 **Severity**: 3 Critical, 7 High, 5 Medium  
 
+## Current Status Update (July 22, 2026)
+
+This report is a historical snapshot from February 2026. Several previously critical findings are now resolved in code:
+
+- DbContext disposal is implemented in `Session.Run()` finally block.
+- Telnet resource disposal is implemented in `TelnetTerminal.Close()` (`Out.Dispose()` and `tcpClient.Dispose()`).
+- Command catalog initialization now uses `TryGetValue` + locked double-check pattern.
+- Automated tests currently pass: `dotnet test Sezam.sln` => 29/29 passing.
+
+The detailed issue descriptions below are preserved for historical traceability, not as the current unresolved state.
+
 ---
 
 ## Quick Overview
@@ -12,18 +23,20 @@ The Sezam BBS uses a **thread-per-session architecture** where each client conne
 
 | Category | Status | Impact |
 |----------|--------|--------|
-| **Resource Cleanup** | ⚠️ PROBLEMATIC | DbContext/TcpClient leaks on every session |
-| **Thread Safety** | ⚠️ INCOMPLETE | Race conditions in shared state access |
-| **Error Handling** | ⚠️ RISKY | Exception loops, broken cleanup chains |
+| **Resource Cleanup** | ✅ IMPROVED | Core DbContext/TcpClient leak items addressed |
+| **Thread Safety** | ⚠️ PARTIAL | Core catalog race addressed; continue stress validation |
+| **Error Handling** | ⚠️ PARTIAL | Improved, but still worth long-run soak testing |
 | **Scalability** | ⚠️ LIMITED | Thread-per-request not viable for 1000+ users |
-| **Testing** | ⚠️ MINIMAL | No stress/concurrency/leak tests identified |
+| **Testing** | ⚠️ PARTIAL | Robustness tests exist, but broader stress/leak coverage should continue expanding |
 
 ---
 
 ## Critical Issues Summary
 
+Note: The three items below were critical at investigation time; primary code paths are now mitigated as of July 2026.
+
 ### 🔴 Issue 1: DbContext Resource Leak (HIGH PRIORITY)
-**Files**: [Console/Session.cs](Console/Session.cs#L241)
+**Files**: [Console/Session.cs](../Console/Session.cs#L241)
 
 Every session creates a DbContext but **never disposes it**. After 1000 sessions:
 - Database connection pool exhausted
@@ -37,7 +50,7 @@ Every session creates a DbContext but **never disposes it**. After 1000 sessions
 ---
 
 ### 🔴 Issue 2: TcpClient/StreamWriter Not Disposed (HIGH PRIORITY)
-**Files**: [Console/Terminal/TelnetTerminal.cs](Console/Terminal/TelnetTerminal.cs#L260-265)
+**Files**: [Console/Terminal/TelnetTerminal.cs](../Console/Terminal/TelnetTerminal.cs#L260-265)
 
 Close() only calls `.Close()` on TcpClient, doesn't dispose underlying resources:
 - Socket handles leak (OS limit ~64K per process)
@@ -51,7 +64,7 @@ Close() only calls `.Close()` on TcpClient, doesn't dispose underlying resources
 ---
 
 ### 🔴 Issue 3: CommandSet Catalog Race Condition (HIGH PRIORITY)
-**Files**: [Console/Commands/CommandSet.cs](Console/Commands/CommandSet.cs#L167-182)
+**Files**: [Console/Commands/CommandSet.cs](../Console/Commands/CommandSet.cs#L167-182)
 
 Lock is acquired ONLY during initialization:
 ```csharp
@@ -410,3 +423,5 @@ finally
 ---
 
 **End of Report**
+
+

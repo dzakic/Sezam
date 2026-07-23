@@ -13,8 +13,8 @@
                             │   + env vars)    │
                             └────────┬─────────┘
                                      │
-                    ┌────────────────┴────────────────┐
-                    │                                 │
+                    ┌────────────────┴───────────────┐
+                    │                                │
               ┌─────▼──────────┐          ┌──────────▼──────┐
               │   Server.cs    │          │   Startup.cs    │
               │   (Telnet)     │          │   (Web)         │
@@ -24,9 +24,9 @@
                     │                              │
                     └──────────────┬───────────────┘
                                    │
-                    ┌──────────────▼────────────────┐
+                    ┌──────────────▼───────────────┐
                     │    DATA.STORE SINGLETON      │
-                    │   (Central Source of Truth)   │
+                    │   (Central Source of Truth)  │
                     ├──────────────────────────────┤
                     │                              │
                     │  DATABASE CONFIGURATION:     │
@@ -44,8 +44,8 @@
                     │                              │
                     └──────┬───────────────────────┘
                            │
-        ┌──────────────────┼──────────────────┐
-        │                  │                  │
+        ┌──────────────────┼─────────────────┐
+        │                  │                 │
    ┌────▼──────┐    ┌─────▼──────┐    ┌──────▼────┐
    │   MySQL   │    │   Redis    │    │ Sessions  │
    │ Database  │    │ Message    │    │ (Local)   │
@@ -57,29 +57,29 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                   ANY CLASS IN THE SYSTEM                        │
+│                   ANY CLASS IN THE SYSTEM                       │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
+│                                                                 │
 │  // Access Configuration                                        │
 │  var server = Data.Store.ServerName;                            │
 │  var redis = Data.Store.RedisConnectionString;                  │
-│                                                                  │
+│                                                                 │
 │  // Check Feature Availability                                  │
 │  if (Data.Store.RedisEnabled)                                   │
 │  {                                                              │
 │      // Multi-node features available                           │
 │  }                                                              │
-│                                                                  │
+│                                                                 │
 │  // Access Global Services                                      │
 │  if (Data.Store.MessageBroadcaster != null)                     │
 │  {                                                              │
 │      await Data.Store.MessageBroadcaster.BroadcastAsync(msg);   │
 │  }                                                              │
-│                                                                  │
+│                                                                 │
 │  // Manage Sessions                                             │
 │  var sessions = Data.Store.Sessions;                            │
 │  Data.Store.AddSession(session);                                │
-│                                                                  │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -87,19 +87,19 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  CONFIGURATION SOURCES                           │
+│                  CONFIGURATION SOURCES                          │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
+│                                                                 │
 │  Priority Order:                                                │
 │  1. Environment Variables (highest)                             │
-│     └─ DB_HOST, REDIS_HOST, Password                           │
-│                                                                  │
+│     └─ DB_HOST, REDIS_HOST, Password                            │
+│                                                                 │
 │  2. appsettings.json                                            │
-│     └─ ConnectionStrings section                               │
-│                                                                  │
+│     └─ ConnectionStrings section                                │
+│                                                                 │
 │  3. Defaults (lowest)                                           │
-│     └─ DbName: "sezam"                                         │
-│                                                                  │
+│     └─ DbName: "sezam"                                          │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
                            │
                            ▼
@@ -149,34 +149,34 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                    TELNET SERVER                                │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
+│                                                                 │
 │  TcpListener (port 2023)                                        │
-│         ↓                                                        │
-│  TelnetTerminal ← ITerminal interface                          │
-│         ↓                                                        │
-│  Session ← ISession interface                                  │
-│    ├─ User data                                                │
-│    ├─ Terminal reference                                       │
-│    └─ Broadcaster reference → Data.Store.MessageBroadcaster    │
-│         ↓                                                        │
-│  Data.Store.AddSession(session)                                │
-│         ↓                                                        │
-│  Data.Store.Sessions[id] ← Thread-safe dictionary             │
-│                                                                  │
-│  On disconnect:                                                │
-│    Broadcast session leave event to Redis                      │
-│    Data.Store.RemoveSession(session)                           │
-│                                                                  │
+│         ↓                                                       │
+│  TelnetTerminal ← ITerminal interface                           │
+│         ↓                                                       │
+│  Session ← ISession interface                                   │
+│    ├─ User data                                                 │
+│    ├─ Terminal reference                                        │
+│    └─ Broadcaster reference → Data.Store.MessageBroadcaster     │
+│         ↓                                                       │
+│  Data.Store.AddSession(session)                                 │
+│         ↓                                                       │
+│  Data.Store.Sessions[id] ← Thread-safe dictionary               │
+│                                                                 │
+│  On disconnect:                                                 │
+│    Broadcast session leave event to Redis                       │
+│    Data.Store.RemoveSession(session)                            │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Message Broadcasting Architecture
 
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│                      MESSAGE FLOW                                   │
-├────────────────────────────────────────────────────────────────────┤
-│                                                                    │
+┌──────────────────────────────────────────────────────────────────┐
+│                      MESSAGE FLOW                                │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
 │  LOCAL NODE (e.g., Telnet instance 1)                            │
 │  ┌──────────────────────────────────┐                            │
 │  │ Session A (User: Alice)          │                            │
@@ -191,8 +191,8 @@
 │  │ Channel: sezam:broadcast           │◄─────┘                   │
 │  │ Format: {NodeID}|{message}         │                          │
 │  └────────────────────────────────────┘                          │
-│         ↓                                                          │
-│  REMOTE NODES (e.g., Telnet instance 2)                         │
+│         ↓                                                        │
+│  REMOTE NODES (e.g., Telnet instance 2)                          │
 │  ┌──────────────────────────────────┐                            │
 │  │ Session B (User: Bob)            │                            │
 │  │  ├─ Terminal: TelnetTerminal     │                            │
@@ -200,7 +200,7 @@
 │  │       └─ OnMessageReceived()     │                            │
 │  │           └─ PageMessage()       │ (displays to Bob)          │
 │  └──────────────────────────────────┘                            │
-│                                                                    │
+│                                                                  │
 │  NO REDIS (local-only mode)                                      │
 │  ┌──────────────────────────────────┐                            │
 │  │ Session A (User: Alice)          │                            │
@@ -208,8 +208,8 @@
 │  │  └─ Broadcaster: null            │                            │
 │  │       └─ PageMessage()           │─────► (local queue only)   │
 │  └──────────────────────────────────┘                            │
-│                                                                    │
-└────────────────────────────────────────────────────────────────────┘
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ## Service Initialization Sequence

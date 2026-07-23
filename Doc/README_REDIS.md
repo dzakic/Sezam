@@ -141,13 +141,13 @@ telnet localhost 2023
 
 Read these in order:
 
-1. **[REDIS_INDEX.md](Doc/REDIS_INDEX.md)** - Navigation & overview
-2. **[REDIS_QUICKSTART.md](Doc/REDIS_QUICKSTART.md)** - 5-minute setup
-3. **[REDIS_BROADCASTING.md](Doc/REDIS_BROADCASTING.md)** - Full architecture
-4. **[REDIS_DEPLOYMENT_EXAMPLES.md](Doc/REDIS_DEPLOYMENT_EXAMPLES.md)** - Real deployments
-5. **[REDIS_CODE_STRUCTURE.md](Doc/REDIS_CODE_STRUCTURE.md)** - Class diagrams
-6. **[REDIS_VISUAL_SUMMARY.md](Doc/REDIS_VISUAL_SUMMARY.md)** - Diagrams
-7. **[REDIS_CHECKLIST_FINAL.md](Doc/REDIS_CHECKLIST_FINAL.md)** - Verification
+1. **[REDIS_INDEX.md](REDIS_INDEX.md)** - Navigation & overview
+2. **[REDIS_QUICKSTART.md](REDIS_QUICKSTART.md)** - 5-minute setup
+3. **[REDIS_BROADCASTING.md](REDIS_BROADCASTING.md)** - Full architecture
+4. **[REDIS_DEPLOYMENT_EXAMPLES.md](REDIS_DEPLOYMENT_EXAMPLES.md)** - Real deployments
+5. **[REDIS_CODE_STRUCTURE.md](REDIS_CODE_STRUCTURE.md)** - Class diagrams
+6. **[REDIS_VISUAL_SUMMARY.md](REDIS_VISUAL_SUMMARY.md)** - Diagrams
+7. **[REDIS_CHECKLIST_FINAL.md](REDIS_CHECKLIST_FINAL.md)** - Verification
 
 ## Key Features
 
@@ -176,7 +176,7 @@ Read these in order:
 | Slow messages | Network latency? | Use closer Redis server |
 | High memory | Many subscribers? | Check `redis-cli CLIENT LIST` |
 
-See [REDIS_DEPLOYMENT_EXAMPLES.md](Doc/REDIS_DEPLOYMENT_EXAMPLES.md#troubleshooting) for detailed troubleshooting.
+See [REDIS_DEPLOYMENT_EXAMPLES.md](REDIS_DEPLOYMENT_EXAMPLES.md#troubleshooting) for detailed troubleshooting.
 
 ## Architecture
 
@@ -249,9 +249,9 @@ Before going live:
 ## Support
 
 ### Questions?
-1. Check [REDIS_INDEX.md](Doc/REDIS_INDEX.md) for topic
+1. Check [REDIS_INDEX.md](REDIS_INDEX.md) for topic
 2. Search relevant documentation file
-3. See [REDIS_DEPLOYMENT_EXAMPLES.md](Doc/REDIS_DEPLOYMENT_EXAMPLES.md#troubleshooting)
+3. See [REDIS_DEPLOYMENT_EXAMPLES.md](REDIS_DEPLOYMENT_EXAMPLES.md#troubleshooting)
 
 ### Debug Commands
 ```bash
@@ -292,6 +292,7 @@ Find the right documentation      → REDIS_INDEX.md (THIS IS YOUR MAP)
 
 Your Sezam Redis broadcasting system is complete and ready to deploy.
 
-Start with [Doc/REDIS_QUICKSTART.md](Doc/REDIS_QUICKSTART.md) for a 5-minute setup.
+Start with [Doc/REDIS_QUICKSTART.md](REDIS_QUICKSTART.md) for a 5-minute setup.
 
 Good luck! 🎉
+
