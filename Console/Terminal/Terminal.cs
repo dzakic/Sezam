@@ -37,6 +37,7 @@ namespace Sezam
         Task<string> PromptEdit(string prompt = "", InputFlags flags = 0, IHistoryProvider historyProvider = null);
         Task<string> InputStr(string label = "", InputFlags flags = 0);
         Task<int> PromptSelection(string promptAnswers);
+        Task<string> PromptMultiLineEdit(string prompt = "");
         void PageMessage(string message);
         int PageSize { get; set; }
         int LineWidth { get; }
@@ -108,8 +109,11 @@ namespace Sezam
         /// </summary>
         public async Task Text(string Text)
         {
-            var lines = Text.Split(["\r\n"], StringSplitOptions.None);
-            foreach (var line in lines.Take(lines.Length - 1))
+            var lines = Text.Split(["\r\n", "\n"], StringSplitOptions.None);
+            int len = lines.Length;
+            while (len > 0 && string.IsNullOrEmpty(lines[len - 1]))
+                len--;
+            foreach (var line in lines.Take(len))
             {
                 Out.WriteLine(line);
                 await LineFinished();
@@ -129,9 +133,6 @@ namespace Sezam
         {
             messageQueue.Enqueue(message);
             paged.TrySetResult();
-
-            // Broadcast to other nodes if Redis is available
-            _ = Data.Store.MessageBroadcaster?.BroadcastAsync(message);
         }
 
         private void DisplayBroadcastMessage(string message)
@@ -435,6 +436,32 @@ namespace Sezam
 
         public Task<string> InputStr(string label = "", InputFlags flags = 0) =>
             PromptEdit($"{label}: ", flags);
+
+        /// <summary>
+        /// Multi-line text editor. Reads lines until a line containing only "." is entered.
+        /// </summary>
+        /// <param name="prompt">Optional prompt to display before editing begins</param>
+        /// <returns>Joined text with CRLF separators, excluding the terminating "." line</returns>
+        public async Task<string> PromptMultiLineEdit(string prompt = "")
+        {
+            if (!string.IsNullOrWhiteSpace(prompt))
+                await Line(prompt);
+
+            var lines = new System.Collections.Generic.List<string>();
+
+            while (true)
+            {
+                var line = await PromptEdit("");
+
+                // Check for terminator
+                if (line == ".")
+                    break;
+
+                lines.Add(line);
+            }
+
+            return string.Join(CRLF, lines);
+        }
 
         private int lineCount;
 

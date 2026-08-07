@@ -78,6 +78,27 @@ namespace Sezam.Data
                 .WithMany()
                 .HasForeignKey(m => m.ParentMessageId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure PrivateMessage
+            modelBuilder.Entity<PrivateMessage>()
+                .Property(e => e.Id)
+                .HasColumnType("binary(16)");
+
+            modelBuilder.Entity<PrivateMessage>()
+                .Property(e => e.MessageTextId)
+                .HasColumnType("binary(16)");
+
+            // Configure query filter: scope to current user (sender OR recipient)
+            modelBuilder.Entity<PrivateMessage>()
+                .HasQueryFilter(pm => pm.SenderId == UserId || pm.RecipientId == UserId);
+
+            // Configure one-to-one relationship: PrivateMessage.MessageTextId -> MessageText.Id
+            modelBuilder.Entity<PrivateMessage>()
+                .HasOne(pm => pm.MessageText)
+                .WithOne()
+                .HasForeignKey<PrivateMessage>(pm => pm.MessageTextId)
+                .HasPrincipalKey<MessageText>(mt => mt.Id)
+                .OnDelete(DeleteBehavior.Cascade);
         }
 
         public DbSet<User> Users { get; set; }
@@ -86,6 +107,7 @@ namespace Sezam.Data
         public DbSet<ConfMessage> ConfMessages { get; set; }
         public DbSet<MessageText> MessageTexts { get; set; }
         public DbSet<UserConf> UserConfs { get; set; }
+        public DbSet<PrivateMessage> PrivateMessages { get; set; }
     }
 
     /// <summary>

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Sezam.Data;
 
@@ -10,9 +11,11 @@ using Sezam.Data;
 namespace Sezam.Data.Migrations
 {
     [DbContext(typeof(SezamDbContext))]
-    partial class SezamDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260724132512_AddPrivateMessage")]
+    partial class AddPrivateMessage
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

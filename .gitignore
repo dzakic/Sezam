@@ -16,3 +16,4 @@ MySql.config
 *.7z
 appsettings-secrets.json
 /Legacy/Import/Properties/launchSettings.json
+.env

@@ -37,6 +37,9 @@ namespace Sezam.Tests
         public Task<int> PromptSelection(string promptAnswers) =>
             Task.FromResult(0);
 
+        public Task<string> PromptMultiLineEdit(string prompt = "") =>
+            Task.FromResult(reader?.ReadLine() ?? "");
+
         public void PageMessage(string message) { }
 
         public void Close()

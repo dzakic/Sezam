@@ -43,7 +43,7 @@ namespace Sezam.Commands
             var message = session.cmdLine.GetRemainingText();
             if (!message.IsWhiteSpace())
             {
-                Data.Store.SendToUser(targetSession.Username, session.User.Username, message);
+                Data.Store.SendToUser(session.User.Username, targetSession.Username, message);
             }
             else
             {
