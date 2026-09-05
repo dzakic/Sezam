@@ -546,11 +546,10 @@ namespace Sezam.Commands
         {
             // DM: fromUser -> toUser
             // SYS: * -> $
-            if (to == "$" || to == session.User.Username)
-                if (to == "$" && from == "*")
-                    return $"SYSTEM: {L(message)}";
-                else
-                    return Terminal.BEL + $"{from}: {message}";
+            if (to == "$" && from == "*")
+                return $"SYSTEM: {L(message)}";
+            else if (to == session.User.Username)
+                return Terminal.BEL + $"{from}: {message}";
             return string.Empty;
         }
 
