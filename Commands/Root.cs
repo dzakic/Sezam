@@ -57,19 +57,29 @@ namespace Sezam.Commands
             }
         }
 
-        [Command(Description = "Show a list of system users")]
+        [Command(Description = "Show a list of users active since your last login")]
         [CommandParameter("pattern", "Search pattern for username, city or full name")]
+        [CommandSwitch('a', "Show all users")]
         public async Task Users()
         {
             var pattern = session.cmdLine.GetToken();
-            if (pattern.Length < 2)
-                throw new ArgumentException("Morate navesti najmanje dva karaktera za pretragu.");
-            
-            var selection = session.Db.Users
-                .Where(u => u.LastCall != null &&
-                    (u.Username.Contains(pattern) || u.City.Contains(pattern) || u.FullName.Contains(pattern)))
-                .OrderByDescending(u => u.LastCall);
-            
+            var showAll = session.cmdLine.Switch("a");
+
+            var selection = session.Db.Users.Where(u => u.LastCall != null);
+
+            if (pattern.Length > 0)
+                selection = selection.Where(u =>
+                    (u.Username.Contains(pattern) || u.City.Contains(pattern) || u.FullName.Contains(pattern)));
+            else
+                if (!showAll)
+                    selection = selection.Where(u => u.LastCall >= session.User.LastCall);
+
+
+            if (showAll)
+                selection = selection.OrderByDescending(u => u.MemberSince);
+            else
+                selection = selection.OrderByDescending(u => u.LastCall);
+
             foreach (var user in selection)
                 await  session.terminal.Line($"{user.Username,-16} {user.FullName,-28} {user.City,-16} {user.LastCall:dd MMM yyyy HH:mm}");
         }
