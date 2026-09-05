@@ -73,7 +73,6 @@ namespace Sezam.Commands
         {
             // Select all messages (including already read)
             bool selectAll = session.cmdLine.Switch("a");
-            bool selectById = false;
 
             // Get next token - could be a #hex ID or a username
             string token = session.cmdLine.GetToken();

@@ -66,15 +66,14 @@ namespace Sezam
             if (server is null)
                 return;
 
-            var drainSeconds = 60;
-            var configuredDrainSeconds = configuration["DrainTimeoutSeconds"];
-            if (int.TryParse(configuredDrainSeconds, out var configuredSeconds) && configuredSeconds > 0)
-                drainSeconds = configuredSeconds;
+            var drainMinutes = 5;
+            if (int.TryParse(configuration["DrainTimeoutMinutes"], out var cfgDrainMinutes) && cfgDrainMinutes > 0)
+                drainMinutes = cfgDrainMinutes;
 
-            logger.LogInformation($"Node entering maintenance mode. Waiting {drainSeconds}s for users to disconnect...");
-            server.BeginDrain();
+            logger.LogInformation($"Node entering maintenance mode. Waiting {drainMinutes} minutes for users to disconnect...");
+            server.BeginDrain(drainMinutes);
 
-            var drained = server.WaitForDrain(TimeSpan.FromSeconds(drainSeconds));
+            var drained = server.WaitForDrain(TimeSpan.FromMinutes(drainMinutes));
             if (!drained)
             {
                 logger.LogWarning("Drain timeout reached. Continuing shutdown with active sessions: {0}", Data.Store.Sessions.Count);

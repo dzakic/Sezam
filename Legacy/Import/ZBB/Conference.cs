@@ -78,6 +78,20 @@ namespace ZBB
                 msg.Topic.Messages.Add(msg);
             }
 
+            foreach (var zbbConfMsg in zbbconf.Messages)
+            {
+                var efMsg = zbbConfMsg.EFConfMessage;
+                if (efMsg == null || zbbConfMsg.ParentMsg == null)
+                    continue;
+
+                var parentEfMessage = zbbConfMsg.ParentMsg.EFConfMessage;
+                if (parentEfMessage == null)
+                    continue;
+
+                efMsg.ParentMessage = parentEfMessage;
+                efMsg.ParentMessageId = parentEfMessage.Id;
+            }
+
             if (unknownTopic.Messages.Count > 0)
                 conf.ConfTopics.Add(unknownTopic);
 

@@ -12,13 +12,15 @@ namespace ZBB
             // Assign a new Message GUID unless already assigned during file attachment import
             var sharedId = (zbbConfMsg.MessageId == Guid.Empty) ? Guid.NewGuid() : zbbConfMsg.MessageId;
 
+            var parent = zbbConfMsg.ParentMsg?.EFConfMessage;
             var msg = new Sezam.Data.EF.ConfMessage
             {
                 Id = sharedId,
                 Topic = zbbConfMsg.Topic?.EFTopic,
                 MsgNo = zbbConfMsg.MsgNo,
                 Time = zbbConfMsg.Time,
-                ParentMessage = zbbConfMsg.ParentMsg?.EFConfMessage,
+                ParentMessage = parent,
+                ParentMessageId = parent?.Id,
                 Status = (Sezam.Data.EF.ConfMessage.MessageStatus)zbbConfMsg.status,
                 Filename = zbbConfMsg.Filename,
                 MessageText = new Sezam.Data.EF.MessageText

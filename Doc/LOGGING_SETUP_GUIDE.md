@@ -181,7 +181,7 @@ With the new logging setup, you'll see:
 
 ```
 info: Sezam.Console.Server[0]
-      Listener started on 0.0.0.0:2023
+      Telnet Server started on 0.0.0.0:2023
 dbug: Sezam.Console.Session[0]
       Session welcome on telnet://192.168.1.100:12345
 info: Sezam.Console.Session[0]

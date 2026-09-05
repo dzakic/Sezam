@@ -191,7 +191,17 @@ namespace Sezam.Commands
             // Select all messages (including already seen)
             bool selectAll = session.cmdLine.Switch("a");
 
-            // Filter TO (topic)
+            // Date range (optional). A bare token like 05012026 or a 'lo-high' range
+            // (e.g. 01012026-01032026, 01012026-, -01032026) where either bound may
+            // use a 2- or 4-digit year and may carry a trailing HHmm time. The date
+            // is scanned out of the queue first so that the remaining positional tokens
+            // are only topic/msg-range and "from" user, e.g.
+            //   're 01012026-01032026'         (all topics)
+            //   're borland 01012026-01032026' (topic + date)
+            var dateRange = session.cmdLine.TryScanForDateRange();
+
+            // The first positional token is always a topic / msg-range selector
+            // ('borland', '1', '1.2', '1.4-', '*', ...).
             string topicMsgs = session.cmdLine.GetToken();
             var topicMsgRange = currentConference.GetTopicMsgRange(topicMsgs, true);
 
@@ -222,17 +232,13 @@ namespace Sezam.Commands
                      );
             }
 
-            // Filter by SeenTime - only new messages (unless /a switch)
-            if (!selectAll)
-            {
-                messages = messages
-                    .Where(m => m.Topic.UserTopic == null || m.Time > m.Topic.UserTopic.SeenTime);
-            }
+            // Explicit selector (msg range / single msg / open-ended) OR an explicit
+            // date range bypasses the seen filter.
+            bool hasExplicitSelector = topicMsgRange?.HasMessageSelector == true || dateRange != null!;
 
-            // Message number range
-            if (topicMsgRange != null)
+            // Message number range (only when an explicit msg selector was given)
+            if (topicMsgRange?.HasMessageSelector == true)
             {
-                // Selection by MsgNo
                 if (topicMsgRange.msgLow > 0)
                     if (topicMsgRange.msgLow == topicMsgRange.msgHigh)
                     {
@@ -248,7 +254,24 @@ namespace Sezam.Commands
                 // Upper bound
                 if (topicMsgRange.msgHigh > 0 && topicMsgRange.msgLow != topicMsgRange.msgHigh)
                     messages = messages.Where(m => m.MsgNo <= topicMsgRange.msgHigh);
+            }
 
+            // Date-range filter (inclusive of both endpoints' full days). The upper
+            // bound is exclusive on the day after, so all messages on the end day are
+            // included regardless of their time-of-day.
+            if (dateRange != null!)
+            {
+                if (dateRange.Low.HasValue)
+                    messages = messages.Where(m => m.Time >= dateRange.Low.Value);
+                if (dateRange.High.HasValue)
+                    messages = messages.Where(m => m.Time < dateRange.High!.Value.AddDays(1));
+            }
+
+            // Filter by SeenTime - only new messages (unless /a switch or an explicit selector)
+            else if (!selectAll && !hasExplicitSelector)
+            {
+                messages = messages
+                    .Where(m => m.Topic.UserTopic == null || m.Time > m.Topic.UserTopic.SeenTime);
             }
 
             // Filter FROM (user)
@@ -282,14 +305,25 @@ namespace Sezam.Commands
 
         private async Task ConfDir(Data.EF.Conference conf)
         {
-            var selTopics = session.Db.ConfTopics
-                .Include(t => t.UserTopic)
-                .Where(t => t.ConferenceId == conf.Id)
-                .Where(t => t.UserTopic == null || !t.UserTopic.Status.HasFlag(UserTopic.UserTopicStat.Resigned))
-                .OrderBy(t => t.TopicNo);
+            var topicsWithCounts = await (from t in session.Db.ConfTopics
+                                          where t.ConferenceId == conf.Id
+                                          where t.UserTopic == null || !t.UserTopic.Status.HasFlag(UserTopic.UserTopicStat.Resigned)
+                                          select new
+                                          {
+                                              Topic = t,
+                                              TotalCount = (from m in session.Db.ConfMessages
+                                                            where m.TopicId == t.Id
+                                                            where !m.Status.HasFlag(ConfMessage.MessageStatus.Deleted)
+                                                            select m).Count(),
+                                              NewCount = (from m in session.Db.ConfMessages
+                                                          where m.TopicId == t.Id
+                                                          where !m.Status.HasFlag(ConfMessage.MessageStatus.Deleted)
+                                                          where m.Topic.UserTopic == null || m.Time > m.Topic.UserTopic.SeenTime
+                                                          select m).Count()
+                                          }).ToListAsync();
 
-            foreach (var topic in selTopics)
-                await session.terminal.Line(ConfFormatter.FormatTopic(topic));
+            foreach (var topicWithCount in topicsWithCounts.OrderBy(t => t.Topic.TopicNo))
+                await session.terminal.Line(ConfFormatter.FormatTopic(topicWithCount.Topic, topicWithCount.TotalCount, topicWithCount.NewCount));
         }
 
         [Command(Description = "Show a list of topics in the current conference, or all in all conferences if none open")]
@@ -359,6 +393,88 @@ namespace Sezam.Commands
                 await ConfFormatter.ConfMsgRead(session.terminal, msg, session.User.ToLocalTime);
         }
 
+        [Command(Description = "Reply to a conference message, or start a new message in a topic")]
+        [CommandParameter("topic[.msgno]", "Topic name (abbreviated) or number, optionally '.msgno' to reply to a specific message")]
+        public async Task REPly()
+        {
+            MustHaveConf();
+
+            string userInput = session.cmdLine.GetToken();
+            if (string.IsNullOrWhiteSpace(userInput))
+                throw new ArgumentException("Topic required");
+
+            string topicStr = userInput;
+            int? parentMsgNo = null;
+            int dotPos = userInput.IndexOf('.');
+            if (dotPos >= 0)
+            {
+                topicStr = userInput[..dotPos];
+                string msgNoStr = userInput[(dotPos + 1)..];
+                if (msgNoStr.Length > 0 && int.TryParse(msgNoStr, out int parentNo))
+                    parentMsgNo = parentNo;
+            }
+
+            ConfTopic topic = currentConference.GetTopicFromStr(topicStr, Required: true);
+            if (topic == null || topic.IsDeleted())
+                throw new ArgumentException(string.Format(strings.Conf_UnknownTopic, topicStr));
+
+            if (session.User.GetUserTopicfInfo(topic).Status.HasFlag(UserTopic.UserTopicStat.Denied))
+            {
+                await session.terminal.Line(L("Conf_ReplyDenied"), topic.Name);
+                return;
+            }
+
+            ConfMessage parentMessage = null;
+            if (parentMsgNo.HasValue)
+            {
+                parentMessage = await session.Db.ConfMessages
+                    .Include(m => m.Topic)
+                    .Include(m => m.ParentMessage)
+                    .Include(m => m.MessageText)
+                    .Where(m => m.TopicId == topic.Id && m.MsgNo == parentMsgNo.Value)
+                    .FirstOrDefaultAsync();
+                if (parentMessage == null)
+                    throw new ArgumentException(string.Format(strings.Conf_UnknownTopic, topicStr + "." + parentMsgNo.Value));
+            }
+
+            bool isReply = parentMessage != null;
+            string replyPrompt = isReply ? L("Conf_ReplyPrompt") : L("Conf_ReplyNewPrompt");
+            await session.terminal.Line(replyPrompt, topic.Name);
+
+            var messageText = await session.terminal.PromptMultiLineEdit();
+            if (string.IsNullOrWhiteSpace(messageText))
+            {
+                await session.terminal.Line("Message is empty. Not sent.");
+                return;
+            }
+
+            topic.NextSequence++;
+            int msgNo = topic.NextSequence;
+
+            Guid messageId = Guid.NewGuid();
+            var messageEntity = new MessageText { Id = messageId, Text = messageText };
+            var confMessage = new ConfMessage
+            {
+                Id = messageId,
+                AuthorId = session.User.Id,
+                Status = ConfMessage.MessageStatus.Notify,
+                TopicId = topic.Id,
+                MsgNo = msgNo,
+                ParentMessageId = parentMessage?.Id,
+                Time = DateTime.UtcNow,
+                MessageText = messageEntity
+            };
+            confMessage.Topic = topic;
+            confMessage.ParentMessage = parentMessage;
+
+            session.Db.MessageTexts.Add(messageEntity);
+            session.Db.ConfMessages.Add(confMessage);
+            await session.Db.SaveChangesAsync();
+
+            string replySent = isReply ? L("Conf_ReplySent") : L("Conf_ReplyNewMsg");
+            await session.terminal.Line(replySent, topic.Name, msgNo);
+        }
+
         [Command(Description = "Topic management. Not implemented.")]
         public void Topic()
         {
@@ -396,7 +512,7 @@ namespace Sezam.Commands
 
         [Command(Description = "Make all messages 'seen'")]
         [CommandSwitch('a', "All conferences, otherwise only the current one")]
-        [CommandParameter("datetime", "Optional datetime to set as seen time (UTC). Defaults to now. Format: yyyy-MM-dd or dd/MM/yyyy with optional HH:mm")]
+        [CommandParameter("datetime", "Optional datetime to set as seen time. Defaults to now. Format: ddMMyyyy[HHmm]")]
         public async Task SEEn()
         {
             bool allConferences = session.cmdLine.Switch("a");
@@ -404,8 +520,9 @@ namespace Sezam.Commands
             if (!allConferences)
                 MustHaveConf();
 
-            // Get datetime from command line, default to UTC now
-            var seenTime = session.cmdLine.GetDateTime() ?? DateTime.UtcNow;
+            // Get date range from command line
+            DateTime? seenDate = session.cmdLine.GetDateTime();
+            DateTime seenTime = seenDate.HasValue ? seenDate.Value.ToUniversalTime() : DateTime.UtcNow;
 
             // Get topics to update (excluding resigned topics)
             IEnumerable<ConfTopic> topics;
@@ -452,7 +569,7 @@ namespace Sezam.Commands
 
     public static class ConfFormatter
     {
-        public static string FormatTopic(ConfTopic topic)
+        public static string FormatTopic(ConfTopic topic, int totalCount, int newCount)
         {
             var sb = new StringBuilder();
             var typ = topic.Status.GetType();
@@ -463,8 +580,10 @@ namespace Sezam.Commands
             foreach (var value in values)
                 valStrs.Add(Enum.GetName(typ, value));
 
-            sb.AppendFormat("{0,2}. {1,-16} {2,5}",
-               topic.TopicNo, topic.Name, topic.NextSequence);
+            var newMsgStr = newCount > 0 ? $"{newCount} new" : "no new messages";
+
+            sb.AppendFormat("{0,2}. {1,-16} {2,5} total, {3}",
+               topic.TopicNo, topic.Name, topic.NextSequence, newMsgStr);
             if (topic.RedirectTo != null)
             {
                 sb.Append(string.Format(" -> {0}", topic.RedirectTo.Name));
@@ -587,6 +706,12 @@ namespace Sezam.Commands
             public ConfTopic topic;
             public int msgLow;
             public int msgHigh;
+
+            /// <summary>
+            /// True when a message number / range selector was given on the command line
+            /// ('1', '1.2', '1.4-', ...). An explicit selector bypasses the seen filter.
+            /// </summary>
+            public bool HasMessageSelector => msgLow != 0 || msgHigh != 0;
         }
 
         public static ConfTopicMsgRangeDTO GetTopicMsgRange(this Data.EF.Conference conf, string topicMsgRange, bool required = false)

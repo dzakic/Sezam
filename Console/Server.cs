@@ -20,10 +20,12 @@ namespace Sezam
 
     public class Server : IDisposable
     {
+        private readonly ILogger<Server> logger;
         private IConfigurationRoot configuration;
 
         public Server(IConfigurationRoot configuration, ILogger<Server> logger, ILoggerFactory loggerFactory)
         {
+            this.logger = logger;
             Data.Store.logger = logger;
             Data.Store.LoggerFactory = loggerFactory;
             Data.Store.ConfigureFrom(configuration);
@@ -39,14 +41,14 @@ namespace Sezam
             if (Data.Store.RedisEnabled)
             {
                 Data.Store.MessageBroadcaster = new MessageBroadcaster();
-                Data.Store.logger.LogInformation("Starting Redis message broadcaster initialization on {RedisConnectionString}", Data.Store.RedisConnectionString);
+                logger.LogInformation("Starting Redis message broadcaster initialization on {RedisConnectionString}", Data.Store.RedisConnectionString);
 
                 // Fire and forget: initialize Redis in background
                 _ = InitializeRedisInBackgroundAsync();
             }
             else
             {
-                Data.Store.logger.LogInformation("Redis not configured, running in local-only mode");
+                logger.LogInformation("Redis not configured, running in local-only mode");
             }
         }
 
@@ -57,16 +59,16 @@ namespace Sezam
                 await Data.Store.MessageBroadcaster.InitializeAsync(Data.Store.RedisConnectionString);
                 if (Data.Store.MessageBroadcaster.IsRedisConnected)
                 {
-                    Data.Store.logger.LogInformation("Redis message broadcaster connected successfully on {RedisConnectionString}", Data.Store.RedisConnectionString);
+                    logger.LogInformation("Redis message broadcaster connected successfully on {RedisConnectionString}", Data.Store.RedisConnectionString);
                 }
                 else
                 {
-                    Data.Store.logger.LogWarning("Failed to connect to Redis message broadcaster on {RedisConnectionString}", Data.Store.RedisConnectionString);
+                    logger.LogWarning("Failed to connect to Redis message broadcaster on {RedisConnectionString}", Data.Store.RedisConnectionString);
                 }                
             }
             catch (Exception ex)
             {
-                Data.Store.logger.LogError(ex, "Failed to initialize Redis message broadcaster on {RedisConnectionString}", Data.Store.RedisConnectionString);
+                logger.LogError(ex, "Failed to initialize Redis message broadcaster on {RedisConnectionString}", Data.Store.RedisConnectionString);
             }
         }
 
@@ -87,14 +89,12 @@ namespace Sezam
             mainThread.Start();
         }
 
-        public void BeginDrain()
+        public void BeginDrain(int drainMinutes)
         {
             if (isDraining)
                 return;
 
             isDraining = true;
-            Data.Store.logger.LogInformation("Server entering drain mode. No new sessions will be accepted.");
-            Data.Store.LocalBroadcast("*", "$", "Shutting down for maintenance in 30min.");
 
             try
             {
@@ -104,6 +104,14 @@ namespace Sezam
             {
                 ErrorHandling.Handle(ex);
             }
+
+            var sessionCount = Data.Store.Sessions.Count;
+            if (sessionCount == 0)
+                return;
+
+            logger.LogInformation("Server draining: {0} sessions remaining.", sessionCount);
+            Data.Store.LocalBroadcast("*", "$", string.Format("Shutting down for maintenance in {0}min.", drainMinutes));
+
         }
 
 
@@ -157,7 +165,7 @@ namespace Sezam
             var ipAddress = new IPAddress(0);
             listener = new TcpListener(ipAddress, 2023);
             listener.Start(8);
-            Debug.WriteLine(String.Format("Listener started on {0}", listener.LocalEndpoint));
+            logger.LogInformation("Telnet Server started on {0}", listener.LocalEndpoint);
             while (Thread.CurrentThread.IsAlive)
             {
                 TcpClient tcpClient = null;

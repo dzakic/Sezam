@@ -182,6 +182,21 @@
   <data name="Conf_SeenAll" xml:space="preserve">
     <value>Све поруке у свим конференцијама прочитане.</value>
   </data>
+  <data name="Conf_ReplySent" xml:space="preserve">
+    <value>Odgovor poslat u temu {0} kao {1}</value>
+  </data>
+  <data name="Conf_ReplyNewMsg" xml:space="preserve">
+    <value>Poruka poslata u temu {0} kao {1}</value>
+  </data>
+  <data name="Conf_ReplyPrompt" xml:space="preserve">
+    <value>Odgovor na temu {0}. Zatvori tackom u svojoj liniji.</value>
+  </data>
+  <data name="Conf_ReplyNewPrompt" xml:space="preserve">
+    <value>Nova poruka na temu {0}. Zatvori tackom u svojoj liniji.</value>
+  </data>
+  <data name="Conf_ReplyDenied" xml:space="preserve">
+    <value>Одбијено. Не можете писати у тему {0}</value>
+  </data>
   <data name="Chat_UserEntersRoom" xml:space="preserve">
     <value>{0} се укључује у разговор</value>
   </data>

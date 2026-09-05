@@ -1,14 +1,33 @@
 using NUnit.Framework;
 using System;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Text;
+using Microsoft.Extensions.Logging.Abstractions;
 using ZBB;
+using Sezam.Data;
 
 namespace Sezam.Tests
 {
     [TestFixture]
     public class ZbbImportRegressionTests
     {
+        [OneTimeSetUp]
+        public void OneTimeSetup()
+        {
+            // ZBB.Helpers has a static Encoding.GetEncoding(852) field that throws
+            // NotSupportedException unless an OEM code-page provider is registered.
+            // Register it here so this fixture is independent of test execution order
+            // (the other tests registered it inline in their bodies).
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
+            // ToEFConf reads Store.LoggerFactory; initialize it so this fixture
+            // is not order-dependent on other tests that set it via ConfigureFrom.
+            Store.LoggerFactory = NullLoggerFactory.Instance;
+            Store.logger = NullLogger.Instance;
+        }
+
         private static void WriteMessageHdr(BinaryWriter hdr, string author, byte topicNo, uint offset, ushort len, int dosTime)
         {
             WriteShortString(hdr, author, 15);
@@ -35,6 +54,55 @@ namespace Sezam.Tests
 
             for (int i = bytes.Length; i < maxLen; i++)
                 writer.Write((byte)0);
+        }
+
+        [Test]
+        public void ToEFConf_ResolvesReplyParentEvenWhenParentAppearsLaterInList()
+        {
+            var tempDir = Path.Combine(Path.GetTempPath(), "zbb-import-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            File.WriteAllText(Path.Combine(tempDir, "conf.txt"), "Parent reply");
+
+            var confVolume = new ConferenceVolume("CET");
+            SetPrivateField(confVolume, "confDir", tempDir);
+
+            var topic = new ConfTopic(confVolume, 1) { Name = "General" };
+            confVolume.Topics.Add(topic);
+
+            var parent = new ConfMessage(confVolume)
+            {
+                author = "alice",
+                Topic = topic,
+                MsgNo = 1,
+                Time = DateTime.UtcNow
+            };
+            SetPrivateField(parent, "offset", (uint)0);
+            SetPrivateField(parent, "len", (ushort)12);
+
+            var child = new ConfMessage(confVolume)
+            {
+                author = "bob",
+                Topic = topic,
+                MsgNo = 2,
+                Time = DateTime.UtcNow,
+                ParentMsg = parent
+            };
+            SetPrivateField(child, "offset", (uint)12);
+            SetPrivateField(child, "len", (ushort)8);
+
+            confVolume.Messages.Add(child);
+            confVolume.Messages.Add(parent);
+
+            var conf = confVolume.ToEFConf();
+            // Identify by reply relationship, not MsgNo: the importer
+            // re-sequenced MsgNo because the child (MsgNo=2) arrived before
+            // the parent (MsgNo=1). The child is the only message whose
+            // ParentMessage was resolved by the importer.
+            var childEf = conf.ConfTopics.Single().Messages.Single(m => m.ParentMessage != null);
+            var parentEf = childEf.ParentMessage!;
+
+            Assert.That(childEf.ParentMessage, Is.Not.Null, "Reply should resolve to its parent message");
+            Assert.That(childEf.ParentMessageId, Is.EqualTo(parentEf.Id), "ParentMessageId should match the parent GUID");
         }
 
         [Test]
@@ -85,6 +153,13 @@ namespace Sezam.Tests
             // Test with invalid DOS time values
             Assert.That(Helpers.DosTimeToDateTime(0), Is.Null);
             Assert.That(Helpers.DosTimeToDateTime(-1), Is.Null);
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            Assert.That(field, Is.Not.Null, $"Field '{fieldName}' was not found on {target.GetType().Name}");
+            field!.SetValue(target, value);
         }
 
         private static int EncodeDosTime(DateTime dt)

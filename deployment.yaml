@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # The Message Broker for your Chat logic
+  # Message Broker for Chat logic
   redis:
     image: redis:alpine
     networks:
@@ -10,7 +10,7 @@ services:
       restart_policy:
         condition: on-failure
 
-  # Your .NET Telnet Service
+  # Telnet Service
   tel:
     image: dev.zakic.net/sezam.net:latest
     entrypoint: /app/Sezam.Telnet
