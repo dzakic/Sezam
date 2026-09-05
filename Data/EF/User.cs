@@ -121,6 +121,17 @@ namespace Sezam.Data.EF
         {
             var ucData = UserConfs
                 .Where(uc => uc.ConferenceId == conf.Id).FirstOrDefault();
+            // If the conference was loaded with its UserConf navigation (e.g. via .Include),
+            // reuse that same instance instead of creating a new one — prevents EF from
+            // tracking two separate UserConf instances for the same conference and issuing
+            // duplicate INSERTs.
+            if (ucData == null && conf.UserConf != null)
+            {
+                ucData = conf.UserConf;
+                ucData.UserId = Id;
+                if (!UserConfs.Contains(ucData))
+                    UserConfs.Add(ucData);
+            }
             if (ucData == null)
             {
                 ucData = new UserConf();
@@ -137,6 +148,13 @@ namespace Sezam.Data.EF
         {
             var utData = UserTopics
                 .Where(ut => ut.TopicId == topic.Id).FirstOrDefault();
+            if (utData == null && topic.UserTopic != null)
+            {
+                utData = topic.UserTopic;
+                utData.UserId = Id;
+                if (!UserTopics.Contains(utData))
+                    UserTopics.Add(utData);
+            }
             if (utData == null)
             {
                 utData = new UserTopic();
