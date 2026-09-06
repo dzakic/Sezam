@@ -87,6 +87,7 @@ namespace Sezam.Tests
             session.Db.UserId = testUser!.Id;
         }
 
+
         private void StartSession()
         {
             terminal = new OutputCapturingTerminal();
@@ -174,6 +175,84 @@ namespace Sezam.Tests
             Assert.That(terminal!.OutputLines, Is.Not.Empty, "List output was: [" + string.Join(" || ", terminal.OutputLines) + "]");
             Assert.That(ContainsLine(terminal.OutputLines, "General.1"), Is.True);
             Assert.That(ContainsLine(terminal.OutputLines, "author"), Is.True);
+        }
+
+        [Test]
+        public async Task Read_Streams_Message_Content()
+        {
+            StartSession();
+            SeedConversation(session);
+            BindUserConf();
+            EnterConference();
+            BindConference();
+
+            await session!.ExecCmd("read");
+
+            Assert.That(terminal!.OutputLines, Is.Not.Empty, "Read output was: [" + string.Join(" || ", terminal.OutputLines) + "]");
+            Assert.That(ContainsLine(terminal.OutputLines, "Hello world"), Is.True);
+            Assert.That(ContainsLine(terminal.OutputLines, "author"), Is.True);
+        }
+
+        [Test]
+        public async Task ConfMsgRead_Localizes_Attachment_And_ReplyTo_English()
+        {
+            StartSession();
+            session!.SetSessionCulture("en");
+            var cmdSet = (Sezam.Commands.Conference)session.GetCommandProcessor(typeof(Sezam.Commands.Conference));
+
+            var dto = new ConfReadDTO
+            {
+                confName = "General",
+                confVolumeNo = 1,
+                topic = "General",
+                topicNo = 1,
+                msgNo = 2,
+                author = "author",
+                time = DateTime.UtcNow,
+                replyToTopicNo = 1,
+                replyToMsgNo = 1,
+                replyToAuthor = "author",
+                filename = "attachment.txt",
+                text = "Child reply body"
+            };
+
+            var lines = new List<string>();
+            await foreach (var line in ConfFormatter.ConfMsgRead(dto, session.User.ToLocalTime, cmdSet.L))
+                lines.Add(line);
+
+            Assert.That(ContainsLine(lines, "** File: attachment.txt"), Is.True, "Lines were: [" + string.Join(" || ", lines) + "]");
+            Assert.That(ContainsLine(lines, "Reply to:"), Is.True);
+        }
+
+        [Test]
+        public async Task ConfMsgRead_Localizes_Attachment_And_ReplyTo_Serbian()
+        {
+            StartSession();
+            session!.SetSessionCulture("sr");
+            var cmdSet = (Sezam.Commands.Conference)session.GetCommandProcessor(typeof(Sezam.Commands.Conference));
+
+            var dto = new ConfReadDTO
+            {
+                confName = "General",
+                confVolumeNo = 1,
+                topic = "General",
+                topicNo = 1,
+                msgNo = 2,
+                author = "author",
+                time = DateTime.UtcNow,
+                replyToTopicNo = 1,
+                replyToMsgNo = 1,
+                replyToAuthor = "author",
+                filename = "attachment.txt",
+                text = "Child reply body"
+            };
+
+            var lines = new List<string>();
+            await foreach (var line in ConfFormatter.ConfMsgRead(dto, session.User.ToLocalTime, cmdSet.L))
+                lines.Add(line);
+
+            Assert.That(ContainsLine(lines, "** Datoteka: attachment.txt"), Is.True, "Lines were: [" + string.Join(" || ", lines) + "]");
+            Assert.That(ContainsLine(lines, "Odgovor na:"), Is.True);
         }
 
         [Test]
