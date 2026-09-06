@@ -2,7 +2,6 @@ using NUnit.Framework;
 using System;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Sezam;
 using Sezam.Data;
@@ -15,19 +14,13 @@ namespace Sezam.Tests
     public class ConfDirSqlApproachTests
     {
         private SezamDbContext? ctx;
-
-        [OneTimeSetUp]
-        public void OneTimeSetup()
-        {
-            var config = new ConfigurationBuilder().AddEnvironmentVariables().Build();
-            Store.ConfigureFrom(config);
-        }
+        private InMemoryTestHost? host;
 
         [SetUp]
         public void Setup()
         {
-            InMemoryDb.Enable();
-            ctx = Store.GetNewContext();
+            host = new InMemoryTestHost();
+            ctx = host.CreateContext();
         }
 
         private void SeedData()
@@ -88,8 +81,8 @@ namespace Sezam.Tests
         [TearDown]
         public void Teardown()
         {
-            InMemoryDb.Disable();
             ctx?.Dispose();
+            host?.Dispose();
         }
 
         [Test]

@@ -184,21 +184,10 @@ namespace Sezam.Data
             return null;
         }
 
-        /// <summary>
-        /// Optional factory that overrides the DbContextOptions produced by
-        /// <see cref="GetOptionsBuilder"/>. Production code never sets this;
-        /// tests use it to substitute an in-memory provider without the
-        /// production assembly ever referencing test concerns.
-        /// </summary>
-        public static Func<DbContextOptionsBuilder, DbContextOptionsBuilder>? OptionsFactory { get; set; }
-
         public static DbContextOptionsBuilder GetOptionsBuilder(DbContextOptionsBuilder builder)
         {
             if (LoggerFactory != null)
                 builder.UseLoggerFactory(LoggerFactory);
-
-            if (OptionsFactory is not null)
-                return OptionsFactory(builder);
 
             return builder
                 .UseMySQL(DbConnectionString)

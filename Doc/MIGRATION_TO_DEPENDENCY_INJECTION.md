@@ -1,8 +1,11 @@
-# Migration to Dependency Injection (Planned)
+# Migration to Dependency Injection
 
-> Status: **Deferred.** This documents a future refactor. The current
-> implementation uses a static composition root (`Data/Store`). Do NOT begin
-> the DI migration until it is explicitly started. See "Why defer" below.
+> Status: **Partially done.** The test-concern migration (§6) has been
+> executed — tests now initialise an in-memory DB through a real DI container
+> (`Tests/Sezam.Tests/InMemoryTestHost.cs`) and the production
+> `Store.OptionsFactory` test hook is removed. The deeper production migration
+> (Web/Console/Legacy composition roots, §4–§5) is still pending and documented
+> below for a future effort.
 
 The purpose of this document is to capture the *current architecture*, the
 *interim test seam* that decouples tests from production, and a concrete plan
@@ -190,27 +193,38 @@ is what actually completes the migration.
 
 ---
 
-## 6. Test-concern migration (must happen)
+## 6. Test-concern migration — EXECUTED
 
-### 6.1 Move InMemory substitution fully into the test project
+Done as of 2026-09-06. Implementation lives in
+`Tests/Sezam.Tests/InMemoryTestHost.cs`.
 
-Currently the substitution lives behind `Store.OptionsFactory` (a static slot
-in the production assembly). Replace it with:
+### 6.1 Move InMemory substitution fully into the test project  ✅
 
-- A **scoped DbContext registration** in the test host wired to
-  `UseInMemoryDatabase(...)`, OR
-- A test-only factory that produces `SezamDbContext` instances bound to the
-  in-memory database, injected where `Session.Db` / `GetNewContext()` is used.
+`Store.OptionsFactory` is gone. `InMemoryTestHost` owns a real
+`ServiceProvider` with a scoped `AddDbContext<SezamDbContext>(...)` wired to
+`UseInMemoryDatabase(...)`. One scope lives for the host's lifetime; every
+context resolved from it (seeding, asserting, and the session under test) binds
+to the same in-memory DB.
 
-### 6.2 Eliminate the production test hook
+`Session` now takes an optional `Func<SezamDbContext>` factory in its
+constructor and falls back to `Store.GetNewContext()` when none is supplied, so
+production entry points are unchanged while tests inject the DI-backed factory
+via `host.CreateSession(...)`. Tests seed and assert through
+`host.CreateContext()`. The four DB-touching fixtures
+(`ConfReadDateRangeTests`, `ConfDirPerformanceTests`, `ConfDirSqlApproachTests`,
+`ReplyCommandTests`) were migrated to this host.
 
-Delete `Store.OptionsFactory`, `Store.GetOptionsBuilder()` (and its test
-branch), and `Tests/Sezam.Tests/InMemoryDb.cs` once tests use the test-scoped
-registration. The production assembly should never again reference the
-InMemory provider.
+### 6.2 Eliminate the production test hook  ✅
 
-### 6.3 Static test state caveat
+`Store.OptionsFactory`, its test branch in `GetOptionsBuilder()`, and
+`Tests/Sezam.Tests/InMemoryDb.cs` were removed. The production assembly no
+longer references the InMemory provider. `Store.GetOptionsBuilder()` /
+`GetNewContext()` remain as the production path (used by the Legacy import and
+`Store.ApplyMigrations()`).
 
-Because `OptionsFactory` is static, test fixtures must reset it between runs
-(both `InMemoryDb.Enable()` in `[SetUp]` and `Disable()` in `[TearDown]`).
-After DI, per-scope registration removes this shared-state fragility entirely
+### 6.3 Static test state caveat  ✅ resolved
+
+Because substitution was static, fixtures reset `OptionsFactory` in
+`[SetUp]`/`[TearDown]`. The per-host scope removes this shared-state fragility
+entirely — each test gets its own container and database, with no static slot
+between fixtures.

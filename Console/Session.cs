@@ -18,15 +18,16 @@ namespace Sezam
     {
         private readonly ILogger<Session> logger;
 
-        public Session(ITerminal terminal, ILogger<Session> logger)
+        public Session(ITerminal terminal, ILogger<Session> logger, Func<SezamDbContext> dbContextFactory = null)
         {
             this.terminal = terminal;
             this.logger = logger;
             Id = Guid.NewGuid();
             commandSets = [];
             NodeNo = Environment.CurrentManagedThreadId;
+            Func<SezamDbContext> contextFactory = dbContextFactory ?? (() => Store.GetNewContext());
             lazyDb = new Lazy<SezamDbContext>(
-                () => Store.GetNewContext(),
+                () => contextFactory(),
                 LazyThreadSafetyMode.ExecutionAndPublication);
             lazyRootCommandSet = new Lazy<CommandSet>(
                 () => GetCommandProcessor(CommandSet.RootType()),

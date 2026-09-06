@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Sezam;
 using Sezam.Commands;
@@ -19,26 +18,20 @@ namespace Sezam.Tests
     {
         private DateRangeTestTerminal? testTerminal;
         private Session? session;
+        private InMemoryTestHost? host;
         private int seedUserId;
         private int seedTopicId;
-
-        [OneTimeSetUp]
-        public void OneTimeSetup()
-        {
-            var config = new ConfigurationBuilder().AddEnvironmentVariables().Build();
-            Store.ConfigureFrom(config);
-        }
 
         [SetUp]
         public void Setup()
         {
-            InMemoryDb.Enable();
+            host = new InMemoryTestHost();
             SeedData();
         }
 
         private void SeedData()
         {
-            var ctx = Store.GetNewContext();
+            var ctx = host.CreateContext();
 
             var user = new User
             {
@@ -86,7 +79,7 @@ namespace Sezam.Tests
 
         private void MarkTopicSeen(DateTime seenTime)
         {
-            var ctx = Store.GetNewContext();
+            var ctx = host.CreateContext();
             var topic = ctx.ConfTopics.Find(seedTopicId)!;
             topic.UserTopic = new UserTopic
             {
@@ -111,7 +104,7 @@ namespace Sezam.Tests
         private Session StartSession()
         {
             testTerminal = new DateRangeTestTerminal("");
-            session = new Session(testTerminal, NullLogger<Session>.Instance);
+            session = host.CreateSession(testTerminal);
             session.User = new User
             {
                 Username = "dateuser",
@@ -126,7 +119,7 @@ namespace Sezam.Tests
         [TearDown]
         public void Teardown()
         {
-            InMemoryDb.Disable();
+            host?.Dispose();
             if (session != null)
             {
                 Store.Sessions.TryRemove(session.Id, out _);

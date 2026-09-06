@@ -4,8 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
 using Sezam;
 using Sezam.Commands;
 using Sezam.Data;
@@ -36,24 +34,18 @@ namespace Sezam.Tests
         private Session? session;
         private Sezam.Data.EF.User? testUser;
         private ConfMessage? parentMessage;
-
-        [OneTimeSetUp]
-        public void OneTimeSetup()
-        {
-            var config = new ConfigurationBuilder().AddEnvironmentVariables().Build();
-            Store.ConfigureFrom(config);
-        }
+        private InMemoryTestHost? host;
 
         [SetUp]
         public void Setup()
         {
-            InMemoryDb.Enable();
+            host = new InMemoryTestHost();
             SeedConversation();
         }
 
         private void SeedConversation()
         {
-            var ctx = Store.GetNewContext();
+            var ctx = host.CreateContext();
 
             var conference = new Sezam.Data.EF.Conference { Name = "General", VolumeNo = 1 };
             var topic = new ConfTopic { Name = "General", TopicNo = 1, NextSequence = 1 };
@@ -84,7 +76,7 @@ namespace Sezam.Tests
         private ReplyTestTerminal StartSession(string replyText)
         {
             var terminal = new ReplyTestTerminal(replyText);
-            session = new Session(terminal, NullLogger<Session>.Instance);
+            session = host.CreateSession(terminal);
 
             testUser = new Sezam.Data.EF.User
             {
@@ -112,7 +104,7 @@ namespace Sezam.Tests
         [TearDown]
         public void Teardown()
         {
-            InMemoryDb.Disable();
+            host?.Dispose();
             if (session != null)
             {
                 Store.Sessions.TryRemove(session.Id, out _);
@@ -128,7 +120,7 @@ namespace Sezam.Tests
 
             await session!.ExecCmd("reply Gen.1");
 
-            var assertCtx = Store.GetNewContext();
+            var assertCtx = host.CreateContext();
             var msg = await assertCtx.ConfMessages
                 .Include(m => m.ParentMessage)
                 .Include(m => m.MessageText)
@@ -150,7 +142,7 @@ namespace Sezam.Tests
 
             await session!.ExecCmd("reply General");
 
-            var assertCtx = Store.GetNewContext();
+            var assertCtx = host.CreateContext();
             var msg = await assertCtx.ConfMessages
                 .Include(m => m.ParentMessage)
                 .Include(m => m.MessageText)
