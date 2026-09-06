@@ -162,8 +162,9 @@ namespace Sezam
 
         private void ListenerThread()
         {
-            var ipAddress = new IPAddress(0);
+            var ipAddress = IPAddress.IPv6Any;
             listener = new TcpListener(ipAddress, 2023);
+            listener.Server.DualMode = true;
             listener.Start(8);
             logger.LogInformation("Telnet Server started on {0}", listener.LocalEndpoint);
             while (Thread.CurrentThread.IsAlive)
