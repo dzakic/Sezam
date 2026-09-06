@@ -390,7 +390,8 @@ namespace Sezam.Commands
             var query = (await GetConfMsgSelection())
                 .AsReadDTO();
             await foreach (var msg in query.WithCancellation(session.CancellationToken))
-                await foreach (var line in ConfFormatter.ConfMsgRead(msg, session.User.ToLocalTime).WithCancellation(session.CancellationToken))
+                await foreach (var line in ConfFormatter.ConfMsgRead(msg, session.User.ToLocalTime, L)
+                    .WithCancellation(session.CancellationToken))
                     yield return line;
         }
 
@@ -608,7 +609,8 @@ namespace Sezam.Commands
 
         #endregion MessageSample
 
-        public static async IAsyncEnumerable<string> ConfMsgRead(ConfReadDTO msg, Func<DateTime, DateTime> toLocalTime)
+        public static async IAsyncEnumerable<string> ConfMsgRead(
+            ConfReadDTO msg, Func<DateTime, DateTime> toLocalTime, Func<string, string> localize)
         {
             const string Header = "================================";
             const string Delimiter = "----------------------------------------------------------------";
@@ -622,7 +624,8 @@ namespace Sezam.Commands
             if (msg.HasParent())
             {
                 var localOrigTime = msg.origTime.HasValue ? toLocalTime(msg.origTime.Value) : (DateTime?)null;
-                yield return string.Format("Odgovor na {0}.{1}, {2}, {3:dd/MM/yyyy HH:mm}", msg.replyToTopicNo, msg.replyToMsgNo, msg.replyToAuthor, localOrigTime);
+                yield return string.Format("{0} {1}.{2}, {3}, {4:dd/MM/yyyy HH:mm}",
+                    localize("Conf_ReplyTo"), msg.replyToTopicNo, msg.replyToMsgNo, msg.replyToAuthor, localOrigTime);
             }
 
             yield return Delimiter;
@@ -637,7 +640,7 @@ namespace Sezam.Commands
             yield return string.Format(Footer, msgIdentifier);
 
             if (msg.HasFile())
-                yield return string.Format("** Datoteka {0}", msg.filename);
+                yield return string.Format(localize("Conf_File"), msg.filename);
 
             yield return "";
         }

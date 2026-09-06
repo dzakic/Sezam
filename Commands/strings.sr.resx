@@ -182,6 +182,14 @@
   <data name="Conf_SeenAll" xml:space="preserve">
     <value>Све поруке у свим конференцијама прочитане.</value>
   </data>
+  <data name="Conf_File" xml:space="preserve">
+    <value>** Datoteka: {0}</value>
+    <comment>** File: {0}</comment>
+  </data>
+  <data name="Conf_ReplyTo" xml:space="preserve">
+    <value>Odgovor na</value>
+    <comment>Reply to</comment>
+  </data>
   <data name="Conf_ReplySent" xml:space="preserve">
     <value>Odgovor poslat u temu {0} kao {1}</value>
   </data>

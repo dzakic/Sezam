@@ -122,7 +122,25 @@ namespace Sezam.Commands {
                 return ResourceManager.GetString("Conf_SeenAll", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to ** File.
+        /// </summary>
+        internal static string Conf_File {
+            get {
+                return ResourceManager.GetString("Conf_File", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Reply to:.
+        /// </summary>
+        internal static string Conf_ReplyTo {
+            get {
+                return ResourceManager.GetString("Conf_ReplyTo", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Resigned from conf {0}.
         /// </summary>

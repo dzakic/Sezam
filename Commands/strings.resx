@@ -182,6 +182,12 @@
   <data name="Conf_SeenAll" xml:space="preserve">
     <value>All messages in all conferences marked as seen.</value>
   </data>
+  <data name="Conf_File" xml:space="preserve">
+    <value>** File: {0}</value>
+  </data>
+  <data name="Conf_ReplyTo" xml:space="preserve">
+    <value>Reply to</value>
+  </data>
   <data name="Conf_ReplySent" xml:space="preserve">
     <value>Reply sent to topic {0} as message {1}</value>
   </data>
