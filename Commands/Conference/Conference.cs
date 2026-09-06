@@ -79,19 +79,17 @@ namespace Sezam.Commands
 
         [Command(Aliases = ["Show"], Description = "Show a list of all conferences")]
         [CommandSwitch('a', "Show all conferences, including resigned")]
-        public async Task View()
+        public async IAsyncEnumerable<string> View()
         {
             string confPattern = session.cmdLine.GetToken();
             bool showAll = session.cmdLine.Switch("a");
-            var conferences = GetConferences(showAll)
-                .Where(c => EF.Functions.Like(c.Name, confPattern + "%"));
-            foreach (var g in conferences.DisplayOrder())
-            {
-                await session.terminal.Line(
-                    string.Format(CultureInfo.InvariantCulture,
-                        "{0,-16} {1,5} {2:MMM yyyy} - {3:MMM yyyy}",
-                        g.VolumeName, g.ConfTopics.Sum(t => t.NextSequence), g.FromDate, g.ToDate));
-            }
+            var conferences = GetConferences(showAll);
+            if (!string.IsNullOrEmpty(confPattern))
+                conferences = conferences.Where(c => EF.Functions.Like(c.Name, confPattern + "%"));
+            await foreach (var g in conferences.DisplayOrder().AsAsyncEnumerable().WithCancellation(session.CancellationToken))
+                yield return string.Format(CultureInfo.InvariantCulture,
+                    "{0,-16} {1,5} {2:MMM yyyy} - {3:MMM yyyy}",
+                    g.VolumeName, g.ConfTopics.Sum(t => t.NextSequence), g.FromDate, g.ToDate);
         }
 
         [Command]
@@ -303,7 +301,7 @@ namespace Sezam.Commands
                 .ThenBy(m => m.MsgNo);
         }
 
-        private async Task ConfDir(Data.EF.Conference conf)
+        private async IAsyncEnumerable<string> ConfDir(Data.EF.Conference conf)
         {
             var topicsWithCounts = await (from t in session.Db.ConfTopics
                                           where t.ConferenceId == conf.Id
@@ -323,14 +321,17 @@ namespace Sezam.Commands
                                           }).ToListAsync();
 
             foreach (var topicWithCount in topicsWithCounts.OrderBy(t => t.Topic.TopicNo))
-                await session.terminal.Line(ConfFormatter.FormatTopic(topicWithCount.Topic, topicWithCount.TotalCount, topicWithCount.NewCount));
+                yield return ConfFormatter.FormatTopic(topicWithCount.Topic, topicWithCount.TotalCount, topicWithCount.NewCount);
         }
 
         [Command(Description = "Show a list of topics in the current conference, or all in all conferences if none open")]
-        public async Task Directory()
+        public async IAsyncEnumerable<string> Directory()
         {
             if (currentConference != null)
-                await ConfDir(currentConference);
+            {
+                await foreach (var line in ConfDir(currentConference))
+                    yield return line;
+            }
             else
             {
                 var activeConferences = GetConferences()
@@ -338,9 +339,10 @@ namespace Sezam.Commands
                     .ToList();  // Materialize to avoid open DataReader conflict with ConfDir()
                 foreach (var conf in activeConferences)
                 {
-                    await session.terminal.Line("Conference {0}", conf.VolumeName);
-                    await ConfDir(conf);
-                    await session.terminal.Line();
+                    yield return string.Format("Conference {0}", conf.VolumeName);
+                    await foreach (var line in ConfDir(conf))
+                        yield return line;
+                    yield return "";
                 }
             }
         }
@@ -368,14 +370,12 @@ namespace Sezam.Commands
         [CommandParameter("from", "Only select messages from this author, specify the username.")]
         [CommandSwitch('f', "Select only messages with files")]
         [CommandSwitch('a', "Select all messages, including already seen")]
-        public async Task List()
+        public async IAsyncEnumerable<string> List()
         {
             var query = (await GetConfMsgSelection())
                 .AsListDTO();
-            await foreach (var confListItem in query)
-                await session.terminal.Line(ConfFormatter.FormatConfMsgList(confListItem, session.User.ToLocalTime));
-//            await ProcessMessages(query, async msg =>
-                //await session.terminal.Line(ConfFormatter.FormatConfMsgList(msg, session.User.ToLocalTime)));
+            await foreach (var confListItem in query.WithCancellation(session.CancellationToken))
+                yield return ConfFormatter.FormatConfMsgList(confListItem, session.User.ToLocalTime);
         }
 
         [Command(Description = "Read new messages in the conference or a topic")]
@@ -383,14 +383,15 @@ namespace Sezam.Commands
         [CommandParameter("from", "Only select messages from this author, specify the username.")]
         [CommandSwitch('f', "Select only messages with files")]
         [CommandSwitch('a', "Select all messages, including old")]
-        public async Task Read()
+        public async IAsyncEnumerable<string> Read()
         {
             // No need to .Include(m => m.MessageText)
             // AsReadTDO projection will pull the text and EF Core will generate the necessary JOIN
             var query = (await GetConfMsgSelection())
                 .AsReadDTO();
-            await foreach (var msg in query)
-                await ConfFormatter.ConfMsgRead(session.terminal, msg, session.User.ToLocalTime);
+            await foreach (var msg in query.WithCancellation(session.CancellationToken))
+                await foreach (var line in ConfFormatter.ConfMsgRead(msg, session.User.ToLocalTime).WithCancellation(session.CancellationToken))
+                    yield return line;
         }
 
         [Command(Description = "Reply to a conference message, or start a new message in a topic")]
@@ -513,7 +514,7 @@ namespace Sezam.Commands
         [Command(Description = "Make all messages 'seen'")]
         [CommandSwitch('a', "All conferences, otherwise only the current one")]
         [CommandParameter("datetime", "Optional datetime to set as seen time. Defaults to now. Format: ddMMyyyy[HHmm]")]
-        public async Task SEEn()
+        public async IAsyncEnumerable<string> SEEn()
         {
             bool allConferences = session.cmdLine.Switch("a");
 
@@ -559,9 +560,9 @@ namespace Sezam.Commands
             await session.Db.SaveChangesAsync();
 
             if (allConferences)
-                await session.terminal.Line(L("Conf_SeenAll"));
+                yield return L("Conf_SeenAll");
             else
-                await session.terminal.Line(L("Conf_Seen"), currentConference.VolumeName);
+                yield return string.Format(L("Conf_Seen"), currentConference.VolumeName);
         }
 
         public Sezam.Data.EF.Conference currentConference;
@@ -607,31 +608,38 @@ namespace Sezam.Commands
 
         #endregion MessageSample
 
-        public static async Task ConfMsgRead(ITerminal terminal, ConfReadDTO msg, Func<DateTime, DateTime> toLocalTime)
+        public static async IAsyncEnumerable<string> ConfMsgRead(ConfReadDTO msg, Func<DateTime, DateTime> toLocalTime)
         {
             const string Header = "================================";
             const string Delimiter = "----------------------------------------------------------------";
             const string Footer = "---------------------------------------------------- {0,-7} ---";
 
-            await terminal.Line(Header);
+            yield return Header;
             var msgIdentifier = string.Format("{0}.{1}", msg.topicNo, msg.msgNo);
             var localTime = toLocalTime(msg.time);
-            await terminal.Line(string.Format("{0}.{1}, {2}.{3}, {4}", msg.confName, msg.confVolumeNo, msg.topic, msg.msgNo, msg.author));
-            await terminal.Line(string.Format("({0}) {1:dd/MM/yyyy HH:mm}, {2} chr", msgIdentifier, localTime, msg.text.Length));
+            yield return string.Format("{0}.{1}, {2}.{3}, {4}", msg.confName, msg.confVolumeNo, msg.topic, msg.msgNo, msg.author);
+            yield return string.Format("({0}) {1:dd/MM/yyyy HH:mm}, {2} chr", msgIdentifier, localTime, msg.text.Length);
             if (msg.HasParent())
             {
                 var localOrigTime = msg.origTime.HasValue ? toLocalTime(msg.origTime.Value) : (DateTime?)null;
-                await terminal.Line(string.Format("Odgovor na {0}.{1}, {2}, {3:dd/MM/yyyy HH:mm}", msg.replyToTopicNo, msg.replyToMsgNo, msg.replyToAuthor, localOrigTime));
+                yield return string.Format("Odgovor na {0}.{1}, {2}, {3:dd/MM/yyyy HH:mm}", msg.replyToTopicNo, msg.replyToMsgNo, msg.replyToAuthor, localOrigTime);
             }
 
-            await terminal.Line(Delimiter);
-            await terminal.Text(msg.text);
-            await terminal.Line(string.Format(Footer, msgIdentifier));
+            yield return Delimiter;
+
+            var textLines = msg.text.Split(["\r\n", "\n"], StringSplitOptions.None);
+            int end = textLines.Length;
+            while (end > 0 && string.IsNullOrEmpty(textLines[end - 1]))
+                end--;
+            for (int i = 0; i < end; i++)
+                yield return textLines[i];
+
+            yield return string.Format(Footer, msgIdentifier);
 
             if (msg.HasFile())
-                await terminal.Line(string.Format("** Datoteka {0}", msg.filename));
+                yield return string.Format("** Datoteka {0}", msg.filename);
 
-            await terminal.Line();
+            yield return "";
         }
 
         public static IAsyncEnumerable<ConfListDTO> AsListDTO(this IQueryable<ConfMessage> msgs)

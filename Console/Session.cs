@@ -582,6 +582,12 @@ namespace Sezam
 
         protected Task runTask;
         protected CancellationTokenSource cts;
+
+        /// <summary>
+        /// Token cancelled when the session is closed, propagated to streaming
+        /// command output so a long-running command can be abandoned mid-stream.
+        /// </summary>
+        public CancellationToken CancellationToken => cts.Token;
     }
 
 

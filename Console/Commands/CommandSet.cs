@@ -106,12 +106,19 @@ namespace Sezam.Commands
 
             try
             {
-                var result = command.Invoke(this, null);
-
-                // Handle async methods that return Task
-                if (result is Task task)
+                if (command.ReturnType.IsAssignableTo(typeof(IAsyncEnumerable<string>)))
                 {
-                    await task;
+                    await AsyncEnumerableHelper.ExecuteStreamingAsync(this, cmd, session.CancellationToken);
+                }
+                else
+                {
+                    var result = command.Invoke(this, null);
+
+                    // Handle async methods that return Task
+                    if (result is Task task)
+                    {
+                        await task;
+                    }
                 }
             }
             catch (TargetInvocationException e) when (e.InnerException is not null)
@@ -452,7 +459,9 @@ namespace Sezam.Commands
         private IEnumerable<MethodInfo> GetMethods() =>
             GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance)
                 .Where(m => (m.IsPublic || m.IsDefined(typeof(CommandAttribute)))
-                    && (m.ReturnType == typeof(void) || m.ReturnType == typeof(Task))
+                    && (m.ReturnType == typeof(void)
+                        || m.ReturnType == typeof(Task)
+                        || m.ReturnType.IsAssignableTo(typeof(IAsyncEnumerable<string>)))
                     && m.GetParameters().Length == 0);
 
         private IEnumerable<MethodInfo> GetCommandSets() =>
