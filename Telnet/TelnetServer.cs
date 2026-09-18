@@ -15,6 +15,7 @@ namespace Sezam
 
             builder.Configuration                
                 .AddJsonFile("appsettings.json", optional: true)
+                .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true)
                 .AddJsonFile("appsettings-secrets.json", optional: true)
                 .AddKeyPerFile(directoryPath: "/run/secrets", optional: true)
                 .AddEnvironmentVariables();
@@ -28,8 +29,7 @@ namespace Sezam
                     options.IncludeScopes = true;
                     options.TimestampFormat = "HH:mm:ss ";
                     options.SingleLine = true;
-                })
-                .SetMinimumLevel(LogLevel.Debug);  // Capture Debug and above; set to Information for production
+                });
 
             builder.Services.AddHostedService<TelnetHostedService>();
 

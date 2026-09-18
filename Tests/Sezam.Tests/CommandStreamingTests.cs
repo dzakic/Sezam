@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -173,7 +174,7 @@ namespace Sezam.Tests
             await session!.ExecCmd("list");
 
             Assert.That(terminal!.OutputLines, Is.Not.Empty, "List output was: [" + string.Join(" || ", terminal.OutputLines) + "]");
-            Assert.That(ContainsLine(terminal.OutputLines, "General.1"), Is.True);
+            Assert.That(terminal.OutputLines.Any(l => Regex.IsMatch(l, @"General\.[0-9a-fA-F]{4}")), Is.True, "List output was: [" + string.Join(" || ", terminal.OutputLines) + "]");
             Assert.That(ContainsLine(terminal.OutputLines, "author"), Is.True);
         }
 

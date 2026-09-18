@@ -59,6 +59,13 @@ namespace Sezam.Data
                 .Property(e => e.ParentMessageId)
                 .HasColumnType("binary(16)");
 
+            // MySQL-generated VIRTUAL column: last 2 bytes of Id -> 4 hex moniker.
+            // Indexed for server-side #hex id lookups (mirrors PrivateMessage.GuidTail).
+            modelBuilder.Entity<ConfMessage>()
+                .Property(e => e.GuidTail)
+                .HasColumnType("binary(2)")
+                .HasComputedColumnSql("SUBSTRING(Id, 15) VIRTUAL");
+
             modelBuilder.Entity<MessageText>()
                 .Property(e => e.Id)
                 .HasColumnType("binary(16)");
@@ -87,6 +94,13 @@ namespace Sezam.Data
             modelBuilder.Entity<PrivateMessage>()
                 .Property(e => e.MessageTextId)
                 .HasColumnType("binary(16)");
+
+            // MySQL-generated STORED column: last 2 bytes of Id -> 4 hex chars.
+            // Indexed for fast id lookups; value is computed by the database.
+            modelBuilder.Entity<PrivateMessage>()
+                .Property(e => e.GuidTail)
+                .HasColumnType("binary(2)")
+                .HasComputedColumnSql("SUBSTRING(Id, 15) VIRTUAL");
 
             // Configure query filter: scope to current user (sender OR recipient)
             modelBuilder.Entity<PrivateMessage>()

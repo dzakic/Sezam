@@ -2,16 +2,19 @@
 using System.Linq;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
-using System.Linq.Expressions;
+using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
+using Sezam.Commands;
+using Sezam.Data;
 using Sezam.Data.EF;
+using static Sezam.Commands.MailDTOExtensions;
 
 namespace Sezam.Commands
 {
     [Command]
     public class Mail : CommandSet
     {
-        public Mail(Session session): base(session) { }
+        public Mail(Session session) : base(session) { }
 
         [Command(Description = "Write and send mail to a user")]
         public async Task Write()
@@ -65,14 +68,18 @@ namespace Sezam.Commands
 
         /// <summary>
         /// Builds the message selection query based on command line parameters.
-        /// Reads switches /a from command line.
-        /// Returns IQueryable for streaming - caller should add .Include() as needed.
+        /// All filtering (id, sender, date, read status) is applied server-side so the query
+        /// stays lazily evaluated and streamable; nothing is materialized before filtering.
+        /// The current-user scope is provided by the PrivateMessage global query filter, so
+        /// id/sender lookups never surface other users' mail.
         /// </summary>
-        /// <returns>IQueryable for deferred execution</returns>
         private async Task<IQueryable<PrivateMessage>> GetMailMsgSelection()
         {
             // Select all messages (including already read)
             bool selectAll = session.cmdLine.Switch("a");
+
+            // Date range filtering
+            var dateRange = session.cmdLine.TryScanForDateRange();
 
             // Get next token - could be a #hex ID or a username
             string token = session.cmdLine.GetToken();
@@ -80,21 +87,22 @@ namespace Sezam.Commands
             string cleanToken = rawToken;
 
             IQueryable<PrivateMessage> messages = session.Db.PrivateMessages
-                .Where(pm => !pm.IsDeleted); 
-            
+                .Where(pm => !pm.IsDeleted);
+
             if (!string.IsNullOrEmpty(rawToken) && rawToken[0] == '#')
             {
                 cleanToken = rawToken[1..]; // Strip the leading '#'
             }
 
-            // 1. Message ID lookup by suffix match (#hex)
-            // Check if the remaining token is exactly 4 chars AND all are valid hex digits using Regex
+            // Message id lookup: exactly 4 hex chars map to the 2-byte stored GuidTail, so
+            // this becomes an indexed equality predicate (no in-memory filter, no string scan).
+            byte[] idKey = Array.Empty<byte>();
             if (!string.IsNullOrWhiteSpace(cleanToken) && cleanToken.Length == 4 && Regex.IsMatch(cleanToken, "^[0-9a-fA-F]{4}$"))
             {
-                // Single message selection by GUID suffix
-                messages = messages.Where(pm => pm.Id.ToString().EndsWith(cleanToken, StringComparison.OrdinalIgnoreCase));
+                idKey = Convert.FromHexString(cleanToken);
+                messages = messages.Where(pm => pm.GuidTail == idKey);
             }
-            // 2. Username filter (if no # prefix was present)
+            // Username filter (if no # prefix was present)
             else if (!string.IsNullOrWhiteSpace(rawToken) && rawToken[0] != '#')
             {
                 var fromUser = await session.GetUser(rawToken);
@@ -103,112 +111,277 @@ namespace Sezam.Commands
 
                 // Filter by sender
                 messages = messages.Where(pm => pm.SenderId == fromUser.Id);
-            } 
+            }
             // 3. Handle invalid/unmatched arguments
             else if (!string.IsNullOrWhiteSpace(rawToken))
             {
-                 throw new ArgumentException("Invalid argument provided", rawToken);
+                throw new ArgumentException("Invalid argument provided", rawToken);
             }
 
-            // Filter by read status - only unread messages (unless /a switch)
+            // Date range filter (inclusive)
+            if (dateRange != null!)
+            {
+                if (dateRange.Low.HasValue)
+                    messages = messages.Where(pm => pm.SentTime >= dateRange.Low.Value);
+                if (dateRange.High.HasValue)
+                    messages = messages.Where(pm => pm.SentTime < dateRange.High!.Value.AddDays(1));
+            }
+
+            // Read status (only when /a switch not given)
             if (!selectAll)
             {
-                messages = messages.Where(pm => pm.RecipientId == session.User.Id && pm.ReadTime == null);
+                if (idKey.Length > 0)
+                {
+                    // Explicit message ID: read regardless of read status. The global
+                    // query filter already scopes to the current user; the id predicate
+                    // below narrows to the exact message.
+                }
+                else
+                {
+                    // Default inbox: only unread messages addressed to the current user
+                    messages = messages.Where(pm => pm.RecipientId == session.User.Id && pm.ReadTime == null);
+                }
             }
 
             return messages.OrderBy(pm => pm.SentTime);
         }
 
         [Command(Description = "Show a list of mail messages")]
-        [CommandParameter("id|username", "Message ID to show or username to filter by sender")]
+        [CommandParameter("id", "Message ID to display")]
+        [CommandParameter("username", "Username to filter by sender")]
         [CommandSwitch('a', "Select all messages, including already read")]
-        public async Task List()
+        public async IAsyncEnumerable<string> List()
         {
-            var query = (await GetMailMsgSelection())
-                .Include(pm => pm.Sender)
-                .Include(pm => pm.Recipient);
-
+            var selection = await GetMailMsgSelection();
             bool selectAll = session.cmdLine.Switch("a");
-            bool hasMessages = false;
+            int currentUserId = session.User.Id;
+            int count = 0;
 
-            foreach (var msg in query)
+            // Stream server-side filtered rows; format each entity client-side. No full
+            // list is materialized into memory before display.
+            await foreach (var pm in selection
+                .Include(pm => pm.Sender)
+                .Include(pm => pm.Recipient)
+                .AsNoTracking()
+                .AsAsyncEnumerable()
+                .WithCancellation(session.CancellationToken))
             {
-                hasMessages = true;
-                var localTime = session.User.ToLocalTime(msg.SentTime);
-                // Start with ID suffix prepended by '#'
-                string displayId = $"#{GetGuidSuffix(msg.Id)}";
-
-                // Determine the party name and whether to show a 'From:' prefix is needed for clarity.
-                string headerPrefix = "";
-                if (msg.SenderId == session.User.Id) // Message SENT by current user
+                count++;
+                var dto = new MailListDTO
                 {
-                    headerPrefix = $"To: {msg.Recipient.Username}";
-                } 
-                else if (msg.RecipientId == session.User.Id) // Message RECEIVED by current user
-                {
-                    // No explicit prefix needed for the recipient, just show From:
-                    headerPrefix = $"From: {msg.Sender.Username}";
-                } else {
-                    headerPrefix = $"Unknown Party";
-                }
-
-                await session.terminal.Line($"{displayId} {headerPrefix}, {localTime:dd/MM/yyyy HH:mm}");
+                    displayId = "#" + GetGuidSuffix(pm.Id),
+                    headerPrefix = GetHeaderPrefix(pm.SenderId, pm.RecipientId, GetUsernameSafe(pm.Sender), GetUsernameSafe(pm.Recipient), currentUserId),
+                    sentTime = session.User.ToLocalTime(pm.SentTime),
+                    time = pm.SentTime
+                };
+                yield return $"{dto.displayId} {dto.headerPrefix}, {dto.sentTime:dd/MM/yyyy HH:mm}";
             }
 
-            if (!hasMessages)
-                await session.terminal.Line(selectAll ? "You have no mail." : "You have no unread mail.");
+            if (count == 0)
+                yield return selectAll ? L("Mail_NoMessages") : L("Mail_NoNewMessages");
         }
 
         [Command(Description = "Read mail messages")]
-        [CommandParameter("id|username", "Message ID to display or username to filter by sender")]
+        [CommandParameter("id", "Message ID to display")]
+        [CommandParameter("username", "Username to filter by sender")]
         [CommandSwitch('a', "Select all messages, including already read")]
-        public async Task Read()
+        public async IAsyncEnumerable<string> Read()
         {
-            var query = (await GetMailMsgSelection())
+            var selection = await GetMailMsgSelection();
+            bool selectAll = session.cmdLine.Switch("a");
+            int currentUserId = session.User.Id;
+            int count = 0;
+
+            // Stream server-side filtered rows (JOIN pulls the body via MessageText);
+            // format each entity client-side. No full message set is materialized.
+            await foreach (var pm in selection
                 .Include(pm => pm.Sender)
                 .Include(pm => pm.Recipient)
-                .Include(pm => pm.MessageText);
-
-            bool selectAll = session.cmdLine.Switch("a");
-            bool hasMessages = false;
-
-            await foreach (var message in query.AsAsyncEnumerable())
+                .Include(pm => pm.MessageText)
+                .AsNoTracking()
+                .AsAsyncEnumerable()
+                .WithCancellation(session.CancellationToken))
             {
-                hasMessages = true;
-
-                // Display message
-                var localTime = session.User.ToLocalTime(message.SentTime);
-                await session.terminal.Line();
-                await session.terminal.Line($"Message ID: {message.Id:N}");
-                await session.terminal.Line($"From: {message.Sender.Username}");
-                await session.terminal.Line($"To: {message.Recipient.Username}");
-                await session.terminal.Line($"Date: {localTime:dd/MM/yyyy HH:mm}");
-
-                if (message.ReadTime.HasValue && message.RecipientId == session.User.Id)
+                count++;
+                var dto = new MailReadDTO
                 {
-                    var readLocalTime = session.User.ToLocalTime(message.ReadTime.Value);
-                    await session.terminal.Line($"Read: {readLocalTime:dd/MM/yyyy HH:mm}");
+                    id = pm.Id,
+                    senderUsername = GetUsernameSafe(pm.Sender),
+                    recipientUsername = GetUsernameSafe(pm.Recipient),
+                    sentTime = session.User.ToLocalTime(pm.SentTime),
+                    time = pm.SentTime,
+                    origTime = pm.SentTime,
+                    readTime = pm.ReadTime.HasValue ? session.User.ToLocalTime(pm.ReadTime.Value) : null,
+                    text = pm.MessageText?.Text ?? ""
+                };
+                await foreach (var line in FormatMailRead(dto)
+                    .WithCancellation(session.CancellationToken))
+                {
+                    yield return line;
                 }
-
-                await session.terminal.Line();
-                await session.terminal.Text(message.MessageText.Text);
-                await session.terminal.Line();
-
             }
 
-            if (!hasMessages)
-                await session.terminal.Line(selectAll ? "You have no mail." : "You have no unread mail.");
+            if (count == 0)
+                yield return selectAll ? L("Mail_NoMessages") : L("Mail_NoNewMessages");
         }
 
-        /// <summary>
-        /// Helper to get the last 4 hexadecimal characters of a GUID for simplified display.
-        /// </summary>
-        private string GetGuidSuffix(Guid id)
+        public static IAsyncEnumerable<string> FormatMailRead(MailReadDTO message)
         {
-            var guidString = id.ToString("N"); // N format removes hyphens
-            return guidString.Length >= 4 ? guidString[^4..] : guidString;
+            var lines = new List<string>();
+
+            lines.Add("");
+            lines.Add($"Message ID: {message.id:N}");
+            lines.Add($"From: {message.senderUsername}");
+            lines.Add($"To: {message.recipientUsername}");
+            lines.Add($"Sent: {message.sentTime:dd/MM/yyyy HH:mm}");
+
+            if (message.readTime.HasValue)
+            {
+                lines.Add($"Read: {message.readTime.Value:dd/MM/yyyy HH:mm}");
+            }
+
+            lines.Add("");
+
+            foreach (var line in message.text.Split(["\r\n", "\n"], StringSplitOptions.None))
+            {
+                lines.Add(line);
+            }
+
+            lines.Add("");
+
+            return lines.AsAsyncEnumerable();
         }
 
+        [Command(Description = "Mark messages as read (seen)")]
+        [CommandParameter("date", "Optional date to mark as seen (format: ddMMyy[yy] or ddMMyy[yy]-ddMm[yy] for date range)")]
+        [CommandSwitch('a', "Mark all messages as seen")]
+        public async Task Seen()
+        {
+            bool selectAll = session.cmdLine.Switch("a");
 
+            string token = session.cmdLine.GetToken();
+
+            // Get date range
+            var dateRange = session.cmdLine.TryScanForDateRange();
+
+            IQueryable<PrivateMessage> messages = session.Db.PrivateMessages
+                .Where(pm => !pm.IsDeleted && pm.RecipientId == session.User.Id);
+
+            if (!selectAll)
+            {
+                // Date range filter (inclusive)
+                if (dateRange != null!)
+                {
+                    if (dateRange.Low.HasValue)
+                        messages = messages.Where(pm => pm.SentTime >= dateRange.Low.Value);
+                    if (dateRange.High.HasValue)
+                        messages = messages.Where(pm => pm.SentTime < dateRange.High!.Value.AddDays(1));
+                }
+            }
+
+            var messagesToMark = await messages.ToListAsync();
+
+            if (messagesToMark.Count == 0)
+            {
+                await session.terminal.Line(selectAll ? L("Mail_NoMessages") : L("Mail_NoNewMessages"));
+                return;
+            }
+
+            foreach (var message in messagesToMark)
+            {
+                if (!selectAll)
+                {
+                    // Check if message falls within date range
+                    if (dateRange != null!)
+                    {
+                        if (dateRange.Low.HasValue && message.SentTime < dateRange.Low.Value)
+                            continue;
+                        if (dateRange.High.HasValue && message.SentTime >= dateRange.High!.Value.AddDays(1))
+                            continue;
+                    }
+                }
+
+                message.ReadTime = DateTime.UtcNow;
+            }
+
+            await session.Db.SaveChangesAsync();
+
+            var count = messagesToMark.Count;
+            await session.terminal.Line($"Marked {count} message(s) as read");
+        }
+
+        [Command(Description = "Delete a mail message")]
+        public async Task Delete()
+        {
+            bool selectAll = session.cmdLine.Switch("a");
+
+            string token = session.cmdLine.GetToken();
+            string rawToken = token;
+            string cleanToken = rawToken;
+
+            IQueryable<PrivateMessage> messages = session.Db.PrivateMessages
+                .Where(pm => !pm.IsDeleted);
+
+            if (!string.IsNullOrEmpty(rawToken) && rawToken[0] == '#')
+            {
+                cleanToken = rawToken[1..]; // Strip the leading '#'
+            }
+
+            // Message id lookup: 4 hex -> 2-byte stored GuidTail (indexed predicate, no in-memory scan).
+            if (!string.IsNullOrWhiteSpace(cleanToken) && cleanToken.Length == 4 && Regex.IsMatch(cleanToken, "^[0-9a-fA-F]{4}$"))
+            {
+                byte[] key = Convert.FromHexString(cleanToken);
+                messages = messages.Where(pm => pm.GuidTail == key);
+            }
+            else if (!string.IsNullOrWhiteSpace(rawToken) && rawToken[0] != '#')
+            {
+                var fromUser = await session.GetUser(rawToken);
+                if (fromUser == null)
+                    throw new ArgumentException("Unknown User", rawToken);
+
+                messages = messages.Where(pm => pm.SenderId == fromUser.Id);
+            }
+            else if (!string.IsNullOrWhiteSpace(rawToken))
+            {
+                throw new ArgumentException("Invalid argument provided", rawToken);
+            }
+
+            if (!selectAll)
+            {
+                messages = messages.Where(pm => pm.RecipientId == session.User.Id);
+            }
+
+            var messagesToDelete = await messages.ToListAsync();
+
+            if (messagesToDelete.Count == 0)
+            {
+                await session.terminal.Line(L("Mail_NoMessages"));
+                return;
+            }
+
+            foreach (var message in messagesToDelete)
+            {
+                message.IsDeleted = true;
+                if (!selectAll && message.RecipientId == session.User.Id)
+                {
+                    message.ReadTime = DateTime.UtcNow;
+                }
+            }
+
+            await session.Db.SaveChangesAsync();
+
+            await session.terminal.Line($"Deleted {messagesToDelete.Count} message(s)");
+        }
+
+        new private async Task<User> GetRequiredUser()
+        {
+            var username = session.cmdLine.GetToken();
+            if (!username.HasValue())
+                throw new ArgumentException("Username required");
+
+            var user = await session.GetUser(username)
+                ?? throw new ArgumentException($"Unknown user: {username}");
+            return user;
+        }
     }
 }

@@ -88,12 +88,19 @@ namespace Sezam.Commands
     public static class AsyncEnumerableExtensions
     {
         /// <summary>
-        /// Wraps <paramref name="source"/> so it stops when <paramref name="cancellationToken"/>
-        /// is cancelled. If the caller also supplies a cancelable token to the enumerator it takes
-        /// precedence; otherwise the token bound here drives cancellation.
+        /// Adapts any <see cref="IAsyncEnumerable{T}"/> so its consumption honours a cancellation
+        /// token. The underlying stream is asked to stop between items; the consumer simply sees
+        /// the enumeration end rather than receiving a throw.
         /// </summary>
         public static IAsyncEnumerable<T> WithCancellation<T>(this IAsyncEnumerable<T> source, CancellationToken cancellationToken) =>
             new CancellableEnumerable<T>(source, cancellationToken);
+
+        /// <summary>
+        /// Wraps an in-memory <see cref="IEnumerable{T}"/> as an <see cref="IAsyncEnumerable{T}"/>
+        /// so callers can consume simple synchronous sequences with <c>await foreach</c>.
+        /// </summary>
+        public static IAsyncEnumerable<T> AsAsyncEnumerable<T>(this IEnumerable<T> source) =>
+            new SyncEnumerable<T>(source);
 
         private sealed class CancellableEnumerable<T> : IAsyncEnumerable<T>
         {
@@ -134,6 +141,40 @@ namespace Sezam.Commands
             }
 
             public ValueTask DisposeAsync() => _source.DisposeAsync();
+        }
+
+        private sealed class SyncEnumerable<T> : IAsyncEnumerable<T>
+        {
+            private readonly IEnumerable<T> _source;
+
+            public SyncEnumerable(IEnumerable<T> source)
+            {
+                _source = source;
+            }
+
+            public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
+                new SyncEnumerator<T>(_source.GetEnumerator());
+        }
+
+        private sealed class SyncEnumerator<T> : IAsyncEnumerator<T>
+        {
+            private readonly IEnumerator<T> _source;
+
+            public SyncEnumerator(IEnumerator<T> source)
+            {
+                _source = source;
+            }
+
+            public T Current => _source.Current;
+
+            public ValueTask<bool> MoveNextAsync() =>
+                new ValueTask<bool>(_source.MoveNext());
+
+            public ValueTask DisposeAsync()
+            {
+                _source.Dispose();
+                return ValueTask.CompletedTask;
+            }
         }
     }
 }

@@ -11,10 +11,12 @@ namespace Sezam.Commands
         public string topic;
         public int topicNo;
         public int msgNo;
+        public string moniker;
         public string author;
         public DateTime time;
         public int? replyToTopicNo;
         public int? replyToMsgNo;
+        public string replyToMoniker;
         public string filename;
 
         public bool HasParent()

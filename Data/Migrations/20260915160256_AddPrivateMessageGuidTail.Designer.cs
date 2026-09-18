@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Sezam.Data;
 
@@ -10,9 +11,11 @@ using Sezam.Data;
 namespace Sezam.Data.Migrations
 {
     [DbContext(typeof(SezamDbContext))]
-    partial class SezamDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260915160256_AddPrivateMessageGuidTail")]
+    partial class AddPrivateMessageGuidTail
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -33,11 +36,6 @@ namespace Sezam.Data.Migrations
                     b.Property<string>("Filename")
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)");
-
-                    b.Property<byte[]>("GuidTail")
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("binary(2)")
-                        .HasComputedColumnSql("SUBSTRING(Id, 15) VIRTUAL");
 
                     b.Property<int>("MsgNo")
                         .HasColumnType("int");
@@ -61,10 +59,6 @@ namespace Sezam.Data.Migrations
                     b.HasIndex("ParentMessageId");
 
                     b.HasIndex("Time");
-
-                    b.HasIndex("TopicId", "GuidTail");
-
-                    b.HasIndex("TopicId", "Time");
 
                     b.HasIndex("TopicId", "MsgNo");
 
@@ -165,7 +159,7 @@ namespace Sezam.Data.Migrations
                     b.Property<byte[]>("GuidTail")
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("binary(2)")
-                        .HasComputedColumnSql("SUBSTRING(Id, 15) VIRTUAL");
+                        .HasComputedColumnSql("SUBSTRING(Id, 15) STORED");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");

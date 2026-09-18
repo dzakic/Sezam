@@ -8,6 +8,8 @@ namespace Sezam.Data.EF
     [Index("AuthorId", "TopicId", "MsgNo", IsUnique = false)]
     [Index("TopicId", "AuthorId", "MsgNo", IsUnique = false)]
     [Index("TopicId", "MsgNo", IsUnique = false)]
+    [Index("TopicId", "GuidTail", IsUnique = false)]
+    [Index("TopicId", "Time", IsUnique = false)]
     [Index("Time")]
     [Index("Filename")]
     public class ConfMessage
@@ -44,6 +46,10 @@ namespace Sezam.Data.EF
         public int TopicId { get; set; }
 
         public int MsgNo { get; set; }
+
+        // MySQL-generated (VIRTUAL): last 2 bytes of Id -> 4 hex chars, used as a
+        // short CLI moniker (e.g. "General.#abcd"). Indexed for server-side id lookups.
+        public byte[] GuidTail { get; set; }
 
         public Guid? ParentMessageId { get; set; }
 
