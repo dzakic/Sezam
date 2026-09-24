@@ -1,11 +1,14 @@
-﻿using System;
+#nullable enable
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace Sezam
 {
@@ -120,9 +123,12 @@ namespace Sezam
             new TelnetOption(Option.TerminalSpeed, false),
         };
 
-        public TelnetTerminal(TcpClient tcpClient)
+        public TelnetTerminal(TcpClient tcpClient, ProxyProtocolMode proxyMode, ILogger? logger = null)
         {
             this.tcpClient = tcpClient;
+            this.proxyMode = proxyMode;
+            this.logger = logger;
+            remoteEndPoint = tcpClient.Client.RemoteEndPoint;
             netStream = tcpClient.GetStream();
             Out = new StreamWriter(netStream, Encoding.UTF8) { AutoFlush = false };
             PageSize = 32;
@@ -134,6 +140,40 @@ namespace Sezam
 
         public async Task InitializeAsync()
         {
+            if (proxyMode != ProxyProtocolMode.Disabled)
+            {
+                try
+                {
+                    var proxyResult = await ProxyProtocolParser.DetectAndParseAsync(netStream, proxyMode, logger).ConfigureAwait(false);
+                    if (proxyResult != null && proxyResult.IsProxied)
+                    {
+                        isProxied = true;
+                        proxyEndPoint = tcpClient.Client.RemoteEndPoint;
+                        if (proxyResult.RemoteEndPoint != null)
+                        {
+                            remoteEndPoint = proxyResult.RemoteEndPoint;
+                            remoteIPAddress = proxyResult.RemoteIPAddress;
+                            remotePort = proxyResult.RemotePort;
+                        }
+
+                        logger?.LogInformation("PROXY protocol: client {RemoteEndPoint} forwarded by proxy {ProxyEndPoint} (v{Version})",
+                            RemoteEndPoint, ProxyEndPoint, proxyResult.Version);
+                    }
+
+                    if (proxyResult?.LeftoverBytes != null && proxyResult.LeftoverBytes.Length > 0)
+                    {
+                        proxyResult.LeftoverBytes.AsSpan().CopyTo(inputBytes.Span);
+                        inputLen = proxyResult.LeftoverBytes.Length;
+                        inputPos = 0;
+                    }
+                }
+                catch (ProxyProtocolException ex)
+                {
+                    logger?.LogWarning("PROXY protocol error from {RemoteEndPoint}: {Message}", tcpClient.Client.RemoteEndPoint, ex.Message);
+                    throw new TerminalException(TerminalException.CodeType.ClientDisconnected);
+                }
+            }
+
             foreach (var telOpt in telnetOptions)
             {
                 await SendCode(telOpt.MyDesiredCommand, telOpt.opt); // I Will-Wont
@@ -166,7 +206,12 @@ namespace Sezam
             Debug.Write($"[SERVER: {code} {feature}] ");
         }
 
-        public string Id => Connected ? tcpClient.Client.RemoteEndPoint?.ToString() ?? "Disconnected" : "Disconnected";
+        public override EndPoint? RemoteEndPoint => remoteEndPoint ?? (Connected ? tcpClient.Client.RemoteEndPoint : null);
+        public override IPAddress? RemoteIPAddress => remoteIPAddress ?? (RemoteEndPoint as IPEndPoint)?.Address;
+        public override bool IsProxied => isProxied;
+        public override EndPoint? ProxyEndPoint => proxyEndPoint;
+
+        public string Id => Connected ? (RemoteEndPoint?.ToString() ?? "Disconnected") : "Disconnected";
 
         public bool Connected => tcpClient.Connected;
 
@@ -418,12 +463,18 @@ namespace Sezam
             return new KeyInfo { Char = chr };
         }
 
-        // private readonly byte[] inputBytes = new byte[256];
-        private readonly Memory<byte> inputBytes = new byte[256];
+        private readonly Memory<byte> inputBytes = new byte[1024];
         private int inputLen;
         private int inputPos;
         private readonly TcpClient tcpClient;
         private readonly NetworkStream netStream;
         private int lineWidth;
+        private readonly ProxyProtocolMode proxyMode;
+        private readonly ILogger? logger;
+        private EndPoint? remoteEndPoint;
+        private IPAddress? remoteIPAddress;
+        private int remotePort;
+        private EndPoint? proxyEndPoint;
+        private bool isProxied;
     }
 }

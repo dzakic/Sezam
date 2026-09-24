@@ -31,6 +31,9 @@ namespace Sezam
             Data.Store.ConfigureFrom(configuration);
             sessionFinished = new AutoResetEvent(false);
             this.configuration = configuration;
+
+            var proxyProtocolCfg = configuration["Telnet:ProxyProtocol"];
+            proxyProtocolMode = ProxyProtocolParser.ParseMode(proxyProtocolCfg);
         }
 
         public async Task InitializeAsync()
@@ -166,7 +169,7 @@ namespace Sezam
             listener = new TcpListener(ipAddress, 2023);
             listener.Server.DualMode = true;
             listener.Start(8);
-            logger.LogInformation("Telnet Server started on {0}", listener.LocalEndpoint);
+            logger.LogInformation("Telnet Server started on {0}, ProxyProtocol: {1}", listener.LocalEndpoint, proxyProtocolMode);
             while (Thread.CurrentThread.IsAlive)
             {
                 TcpClient tcpClient = null;
@@ -183,8 +186,8 @@ namespace Sezam
 
                     tcpClient.LingerState = new LingerOption(true, 2);
 
-                    var terminal = new TelnetTerminal(tcpClient);
-                    // Initialize telnet options asynchronously
+                    var terminal = new TelnetTerminal(tcpClient, proxyProtocolMode, logger);
+                    // Initialize telnet options and proxy protocol asynchronously
                     terminal.InitializeAsync().GetAwaiter().GetResult();
 
                     var sessionLogger = Data.Store.LoggerFactory.CreateLogger<Session>();
@@ -294,6 +297,7 @@ namespace Sezam
         private Thread mainThread;
         private readonly AutoResetEvent sessionFinished;
         private volatile bool isDraining;
+        private ProxyProtocolMode proxyProtocolMode = ProxyProtocolMode.Auto;
 
     }
 }
