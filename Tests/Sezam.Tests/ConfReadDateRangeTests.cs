@@ -18,14 +18,13 @@ namespace Sezam.Tests
     {
         private DateRangeTestTerminal? testTerminal;
         private Session? session;
-        private InMemoryTestHost? host;
+        private readonly InMemoryTestHost host = new InMemoryTestHost();
         private int seedUserId;
         private int seedTopicId;
 
         [SetUp]
         public void Setup()
         {
-            host = new InMemoryTestHost();
             SeedData();
         }
 
@@ -41,16 +40,16 @@ namespace Sezam.Tests
                 UserConfs = new List<UserConf>(),
                 UserTopics = new List<UserTopic>()
             };
-            ctx.Users.Add(user);
-            ctx.SaveChangesAsync().Wait();
+            ctx?.Users.Add(user);
+            ctx?.SaveChangesAsync().Wait();
             seedUserId = user.Id;
 
             var conf = new EFConference { Name = "BORLAND", VolumeNo = 1 };
             var topic = new ConfTopic { Name = "borland", TopicNo = 1, NextSequence = 5 };
             conf.ConfTopics.Add(topic);
-            ctx.Conferences.Add(conf);
-            ctx.ConfTopics.Add(topic);
-            ctx.SaveChangesAsync().Wait();
+            ctx?.Conferences.Add(conf);
+            ctx?.ConfTopics.Add(topic);
+            ctx?.SaveChangesAsync().Wait();
             seedTopicId = topic.Id;
 
             Message(ctx, topic.Id, seedUserId, "jan-05", 1, new DateTime(2026, 1, 5, 10, 0, 0, DateTimeKind.Utc));
@@ -58,14 +57,14 @@ namespace Sezam.Tests
             Message(ctx, topic.Id, seedUserId, "mar-01", 3, new DateTime(2026, 3, 1, 23, 0, 0, DateTimeKind.Utc));
             Message(ctx, topic.Id, seedUserId, "mar-20", 4, new DateTime(2026, 3, 20, 10, 0, 0, DateTimeKind.Utc));
             Message(ctx, topic.Id, seedUserId, "apr-01", 5, new DateTime(2026, 4, 1, 10, 0, 0, DateTimeKind.Utc));
-            ctx.SaveChangesAsync().Wait();
+            ctx?.SaveChangesAsync().Wait();
         }
 
         private static void Message(SezamDbContext ctx, int topicId, int authorId, string text, int msgNo, DateTime time)
         {
             var t = new MessageText { Id = Guid.NewGuid(), Text = text };
-            ctx.MessageTexts.Add(t);
-            ctx.ConfMessages.Add(new ConfMessage
+            ctx?.MessageTexts.Add(t);
+            ctx?.ConfMessages.Add(new ConfMessage
             {
                 Id = t.Id,
                 AuthorId = authorId,
@@ -104,16 +103,16 @@ namespace Sezam.Tests
         private Session StartSession()
         {
             testTerminal = new DateRangeTestTerminal("");
-            session = host.CreateSession(testTerminal);
-            session.User = new User
+            session = host?.CreateSession(testTerminal);
+            session!.User = new User
             {
                 Username = "dateuser",
                 UserConfs = new List<UserConf>(),
                 UserTopics = new List<UserTopic>()
             };
-            session.Db.UserId = seedUserId;
-            Store.Sessions[session.Id] = session;
-            return session;
+            session!.Db.UserId = seedUserId;
+            Store.Sessions[session!.Id] = session;
+            return session!;
         }
 
         [TearDown]

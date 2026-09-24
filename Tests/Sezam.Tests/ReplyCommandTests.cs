@@ -34,12 +34,11 @@ namespace Sezam.Tests
         private Session? session;
         private Sezam.Data.EF.User? testUser;
         private ConfMessage? parentMessage;
-        private InMemoryTestHost? host;
+        private readonly InMemoryTestHost host = new();
 
         [SetUp]
         public void Setup()
         {
-            host = new InMemoryTestHost();
             SeedConversation();
         }
 

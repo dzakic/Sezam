@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 
 namespace Sezam.Tests
@@ -21,6 +22,10 @@ namespace Sezam.Tests
         public string Id { get; } = Guid.NewGuid().ToString();
         public int PageSize { get; set; } = 24;
         public int LineWidth { get; } = 80;
+        public EndPoint? RemoteEndPoint { get; set; }
+        public IPAddress? RemoteIPAddress => (RemoteEndPoint as IPEndPoint)?.Address;
+        public bool IsProxied { get; set; }
+        public EndPoint? ProxyEndPoint { get; set; }
 
         public virtual async Task Line(string Message)
         {
@@ -42,7 +47,7 @@ namespace Sezam.Tests
             Connected = false;
         }
 
-        public virtual async Task<string> PromptEdit(string prompt = "", InputFlags flags = 0, IHistoryProvider historyProvider = null)
+        public virtual async Task<string> PromptEdit(string prompt = "", InputFlags flags = 0, IHistoryProvider? historyProvider = null)
         {
             throw new NotImplementedException();
         }
@@ -79,7 +84,7 @@ namespace Sezam.Tests
     /// </summary>
     public class HangingMockTerminal : MockTerminal
     {
-        public override Task<string> PromptEdit(string prompt = "", InputFlags flags = 0, IHistoryProvider historyProvider = null) =>
+        public override Task<string> PromptEdit(string prompt = "", InputFlags flags = 0, IHistoryProvider? historyProvider = null) =>
             Task.Delay(Timeout.Infinite).ContinueWith(_ => "");
     }
 

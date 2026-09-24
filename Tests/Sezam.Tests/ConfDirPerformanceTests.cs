@@ -16,14 +16,13 @@ namespace Sezam.Tests
     {
         private DateRangeTestTerminal? testTerminal;
         private Session? session;
-        private InMemoryTestHost? host;
+        private readonly InMemoryTestHost host = new InMemoryTestHost();
         private int seedUserId;
         private int seedTopicId;
 
         [SetUp]
         public void Setup()
         {
-            host = new InMemoryTestHost();
             SeedData();
         }
 
@@ -118,7 +117,7 @@ namespace Sezam.Tests
             BindConference();
 
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-            await session.ExecCmd("dir");
+            await session!.ExecCmd("dir");
             stopwatch.Stop();
 
             Assert.That(testTerminal!.OutputText.Count, Is.GreaterThan(0), "Should output something");
@@ -136,7 +135,7 @@ namespace Sezam.Tests
             BindConference();
 
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-            await session.ExecCmd("dir");
+            await session!.ExecCmd("dir");
             stopwatch.Stop();
 
             Assert.Less(stopwatch.ElapsedMilliseconds, 100, "Should complete in <100ms for small conference");

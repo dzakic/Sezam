@@ -43,7 +43,7 @@ namespace Sezam.Tests
             }
         }
 
-        private InMemoryTestHost? host;
+        private InMemoryTestHost host = new InMemoryTestHost();
         private Session? session;
         private OutputCapturingTerminal? terminal;
         private User? testUser;
@@ -51,7 +51,6 @@ namespace Sezam.Tests
         [SetUp]
         public void Setup()
         {
-            host = new InMemoryTestHost();
         }
 
         private void SeedConversation(Session session)
@@ -107,7 +106,7 @@ namespace Sezam.Tests
 
         private void BindUserConf()
         {
-            var conf = session.Db.Conferences.FirstOrDefault();
+            var conf = session!.Db.Conferences.FirstOrDefault();
             session.Db.UserConfs.Add(new UserConf
             {
                 UserId = testUser!.Id,
@@ -119,13 +118,13 @@ namespace Sezam.Tests
 
         private void EnterConference()
         {
-            session.currentCommandSet = session.GetCommandProcessor(typeof(Sezam.Commands.Conference));
+            session!.currentCommandSet = session.GetCommandProcessor(typeof(Sezam.Commands.Conference));
         }
 
         private void BindConference()
         {
-            var cmdSet = (Sezam.Commands.Conference)session.currentCommandSet;
-            cmdSet.currentConference = session.Db.Conferences
+            var cmdSet = (Sezam.Commands.Conference)session!.currentCommandSet;
+            cmdSet.currentConference = session!.Db.Conferences
                 .Include(c => c.ConfTopics)
                 .FirstOrDefault();
         }
@@ -137,7 +136,7 @@ namespace Sezam.Tests
         public async Task View_Streams_ConferenceLines()
         {
             StartSession();
-            SeedConversation(session);
+            SeedConversation(session!);
             BindUserConf();
             EnterConference();
 
@@ -151,7 +150,7 @@ namespace Sezam.Tests
         public async Task Directory_Streams_Topics_ForCurrentConference()
         {
             StartSession();
-            SeedConversation(session);
+            SeedConversation(session!);
             BindUserConf();
             EnterConference();
             BindConference();
@@ -166,7 +165,7 @@ namespace Sezam.Tests
         public async Task List_Streams_Messages()
         {
             StartSession();
-            SeedConversation(session);
+            SeedConversation(session!);
             BindUserConf();
             EnterConference();
             BindConference();
@@ -182,7 +181,7 @@ namespace Sezam.Tests
         public async Task Read_Streams_Message_Content()
         {
             StartSession();
-            SeedConversation(session);
+            SeedConversation(session!);
             BindUserConf();
             EnterConference();
             BindConference();
@@ -260,7 +259,7 @@ namespace Sezam.Tests
         public async Task SEEn_Updates_SeenTime_And_Outputs()
         {
             StartSession();
-            SeedConversation(session);
+            SeedConversation(session!);
             BindUserConf();
             EnterConference();
             BindConference();

@@ -13,14 +13,20 @@ namespace Sezam.Tests
     [TestFixture]
     public class ConfDirSqlApproachTests
     {
-        private SezamDbContext? ctx;
-        private InMemoryTestHost? host;
+        private SezamDbContext ctx;
+        private readonly InMemoryTestHost host;
+
+
+        public ConfDirSqlApproachTests()
+        {
+            host = new InMemoryTestHost();
+            ctx = host.CreateContext();
+        }
+            
 
         [SetUp]
         public void Setup()
         {
-            host = new InMemoryTestHost();
-            ctx = host.CreateContext();
         }
 
         private void SeedData()

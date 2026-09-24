@@ -153,7 +153,7 @@
     <value>Довиђења сад.</value>
   </data>
   <data name="Root_WelcomeUser" xml:space="preserve">
-    <value>Добродошли {0}, ваш последњи позив је био {1:d}</value>
+    <value>Добродошли {0}, ваш последњи позив је био {1:dd MMM yyyy HH:mm}</value>
   </data>
   <data name="Conf_Welcome" xml:space="preserve">
     <value>Добродошли у конференцију {0}</value>

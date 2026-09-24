@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.IO;
@@ -5,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Net;
 
 namespace Sezam
 {
@@ -34,7 +36,7 @@ namespace Sezam
         Task Line(string Message = "", params object[] args);
         Task Text(string Text);
         void Close();
-        Task<string> PromptEdit(string prompt = "", InputFlags flags = 0, IHistoryProvider historyProvider = null);
+        Task<string> PromptEdit(string prompt = "", InputFlags flags = 0, IHistoryProvider? historyProvider = null);
         Task<string> InputStr(string label = "", InputFlags flags = 0);
         Task<int> PromptSelection(string promptAnswers);
         Task<string> PromptMultiLineEdit(string prompt = "");
@@ -45,6 +47,10 @@ namespace Sezam
         bool Connected { get; }
         void ClearScreen();
         void ClearToEOL();
+        EndPoint? RemoteEndPoint { get; }
+        IPAddress? RemoteIPAddress { get; }
+        bool IsProxied { get; }
+        EndPoint? ProxyEndPoint { get; }
     }
 
     /// <summary>
@@ -69,6 +75,10 @@ namespace Sezam
         public const string CRLF = "\r\n";
 
         public virtual int LineWidth => DefaultLineWidth;
+        public virtual EndPoint? RemoteEndPoint => null;
+        public virtual IPAddress? RemoteIPAddress => null;
+        public virtual bool IsProxied => false;
+        public virtual EndPoint? ProxyEndPoint => null;
 
         public async Task Line(string Message = "")
         {
@@ -256,7 +266,7 @@ namespace Sezam
             return choice; 
         }
 
-        public async Task<string> PromptEdit(string prompt = "", InputFlags flags = 0, IHistoryProvider historyProvider = null)
+        public async Task<string> PromptEdit(string prompt = "", InputFlags flags = 0, IHistoryProvider? historyProvider = null)
         {
             ResetPageCount();
             if (!string.IsNullOrWhiteSpace(prompt))
@@ -510,7 +520,7 @@ namespace Sezam
 
         public virtual void ClearToEOL() => SendANSI('K');
 
-        protected TextWriter Out;
+        protected TextWriter Out = TextWriter.Null;
         private ConcurrentQueue<string> messageQueue = new();
 
     }
