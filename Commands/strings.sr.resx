@@ -173,6 +173,36 @@
   <data name="Conf_NoNewMessages" xml:space="preserve">
     <value>Нема нових порука</value>
   </data>
+  <data name="Mail_Delete" xml:space="preserve">
+    <value>Избриши поруку поште</value>
+    <comment>Delete mail message</comment>
+  </data>
+  <data name="Mail_DeleteAll" xml:space="preserve">
+    <value>Избриши све поруке</value>
+    <comment>Delete all messages</comment>
+  </data>
+  <data name="Mail_DeleteAllSwitch" xml:space="preserve">
+    <value>Избриши све поруке, укључујући и прочитане</value>
+    <comment>Delete all messages, including already read</comment>
+  </data>
+  <data name="Mail_Seen" xml:space="preserve">
+    <value>Означи поруке као прочитане</value>
+    <comment>Mark messages as read</comment>
+  </data>
+  <data name="Mail_SeenSwitch" xml:space="preserve">
+    <value>Означи све поруке као виђене</value>
+    <comment>Mark all messages as seen</comment>
+  </data>
+  <data name="Mail_SeenDate" xml:space="preserve">
+    <value>Означи поруке прочитане за датум</value>
+    <comment>Mark messages seen for date</comment>
+  </data>
+  <data name="Mail_Marked" xml:space="preserve">
+    <value>Означено {0} порука(а) као прочитано</value>
+  </data>
+  <data name="Mail_NoMessages" xml:space="preserve">
+    <value>Нема порука</value>
+  </data>
   <data name="Conf_NoMessages" xml:space="preserve">
     <value>Нема порука</value>
   </data>
@@ -187,20 +217,20 @@
     <comment>** File: {0}</comment>
   </data>
   <data name="Conf_ReplyTo" xml:space="preserve">
-    <value>Odgovor na</value>
+    <value>Odgovor на</value>
     <comment>Reply to</comment>
   </data>
   <data name="Conf_ReplySent" xml:space="preserve">
-    <value>Odgovor poslat u temu {0} kao {1}</value>
+    <value>Odgovor poslat у тему {0} као {1}</value>
   </data>
   <data name="Conf_ReplyNewMsg" xml:space="preserve">
-    <value>Poruka poslata u temu {0} kao {1}</value>
+    <value>Порука послата у тему {0} као {1}</value>
   </data>
   <data name="Conf_ReplyPrompt" xml:space="preserve">
-    <value>Odgovor na temu {0}. Zatvori tackom u svojoj liniji.</value>
+    <value>Odgovор на тему {0}. Zatvori tackom у својој линији.</value>
   </data>
   <data name="Conf_ReplyNewPrompt" xml:space="preserve">
-    <value>Nova poruka na temu {0}. Zatvori tackom u svojoj liniji.</value>
+    <value>Нова порука на тему {0}. Zatvori tackom у својој линији.</value>
   </data>
   <data name="Conf_ReplyDenied" xml:space="preserve">
     <value>Одбијено. Не можете писати у тему {0}</value>

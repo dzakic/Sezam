@@ -5,10 +5,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Sezam.Data.EF
 {
-    [Index(nameof(RecipientId), nameof(ReadTime))]
-    [Index(nameof(SenderId), nameof(SentTime))]
-    [Index(nameof(SentTime))]
-    public class PrivateMessage
+        [Index(nameof(RecipientId), nameof(ReadTime))]
+        [Index(nameof(SenderId), nameof(SentTime))]
+        [Index(nameof(SentTime))]
+        [Index(nameof(GuidTail))]
+        public class PrivateMessage
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.None)]
@@ -40,6 +41,10 @@ namespace Sezam.Data.EF
 
         [ForeignKey(nameof(MessageTextId))]
         public virtual MessageText MessageText { get; set; }
+
+        // MySQL-generated (VIRTUAL): last 2 bytes of Id (4 hex chars, 65536 values).
+        // Indexed for fast id lookups. Read-only (computed by DB).
+        public byte[] GuidTail { get; set; }
 
         public bool IsRead => ReadTime.HasValue;
 

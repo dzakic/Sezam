@@ -9,6 +9,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using static System.Collections.Specialized.BitVector32;
+using static Sezam.Commands.MailDTOExtensions;
 
 namespace Sezam.Commands
 {
@@ -234,10 +235,34 @@ namespace Sezam.Commands
             // date range bypasses the seen filter.
             bool hasExplicitSelector = topicMsgRange?.HasMessageSelector == true || dateRange != null!;
 
-            // Message number range (only when an explicit msg selector was given)
+            // Message selector (only when an explicit selector was given): either a #hex
+            // moniker -> indexed GuidTail equality, or a decimal MsgNo / range.
             if (topicMsgRange?.HasMessageSelector == true)
             {
-                if (topicMsgRange.msgLow > 0)
+                if (topicMsgRange.moniker != null)
+                {
+                    byte[] idKey = Convert.FromHexString(topicMsgRange.moniker.Substring(1));
+                    messages = messages.Where(m => m.GuidTail == idKey);
+                }
+                else if (topicMsgRange.monikerHint != null)
+                {
+                    // Dropped '#' candidate: the 4-hex moniker is tried first (it is the
+                    // intended reference for non-numeric tokens), and a purely numeric token
+                    // falls back to its MsgNo when no message carries that moniker.
+                    byte[] idKey = Convert.FromHexString(topicMsgRange.monikerHint);
+                    bool monikerExists = await session.Db.ConfMessages
+                        .AnyAsync(m => m.TopicId == topicMsgRange.topic.Id && m.GuidTail == idKey);
+                    if (monikerExists)
+                    {
+                        messages = messages.Where(m => m.GuidTail == idKey);
+                    }
+                    else if (topicMsgRange.msgLow > 0)
+                    {
+                        messages = messages.Where(m => m.MsgNo == topicMsgRange.msgLow);
+                    }
+                }
+                else if (topicMsgRange.msgLow > 0)
+                {
                     if (topicMsgRange.msgLow == topicMsgRange.msgHigh)
                     {
                         // Single msg
@@ -249,9 +274,10 @@ namespace Sezam.Commands
                         messages = messages.Where(m => m.MsgNo >= topicMsgRange.msgLow);
                     }
 
-                // Upper bound
-                if (topicMsgRange.msgHigh > 0 && topicMsgRange.msgLow != topicMsgRange.msgHigh)
-                    messages = messages.Where(m => m.MsgNo <= topicMsgRange.msgHigh);
+                    // Upper bound
+                    if (topicMsgRange.msgHigh > 0 && topicMsgRange.msgLow != topicMsgRange.msgHigh)
+                        messages = messages.Where(m => m.MsgNo <= topicMsgRange.msgHigh);
+                }
             }
 
             // Date-range filter (inclusive of both endpoints' full days). The upper
@@ -298,7 +324,7 @@ namespace Sezam.Commands
             return messages
                 .Where(m => !m.Status.HasFlag(ConfMessage.MessageStatus.Deleted))
                 .OrderBy(m => m.Topic.TopicNo)
-                .ThenBy(m => m.MsgNo);
+                .ThenBy(m => m.Time);
         }
 
         private async IAsyncEnumerable<string> ConfDir(Data.EF.Conference conf)
@@ -366,7 +392,7 @@ namespace Sezam.Commands
         }
 
         [Command(Description = "Show a list of new messages in the conference or a topic")]
-        [CommandParameter("topic[.msgLow[-msgHigh]]", "Topic and optional message number or range to list, e.g. 'General', 'General.5' or 'General.5-10'. Use '*' for all topics, e.g. '*.5' or '*.5-10'.")]
+        [CommandParameter("topic[.selector]", "Topic and optional selector: message number/range ('General.5', 'General.5-10') or a 4-hex moniker ('General.#abcd' or 'Generalabcd'). Use '*' for all topics, e.g. '*.5' or '*.5-10'.")]
         [CommandParameter("from", "Only select messages from this author, specify the username.")]
         [CommandSwitch('f', "Select only messages with files")]
         [CommandSwitch('a', "Select all messages, including already seen")]
@@ -379,7 +405,7 @@ namespace Sezam.Commands
         }
 
         [Command(Description = "Read new messages in the conference or a topic")]
-        [CommandParameter("topic[.msgLow[-msgHigh]]", "Topic and optional message number or range to list, e.g. 'General', 'General.5' or 'General.5-10'. Use '*' for all topics, e.g. '*.5' or '*.5-10'.")]
+        [CommandParameter("topic[.selector]", "Topic and optional selector: message number/range ('General.5', 'General.5-10') or a 4-hex moniker ('General.#abcd' or 'Generalabcd'). Use '*' for all topics, e.g. '*.5' or '*.5-10'.")]
         [CommandParameter("from", "Only select messages from this author, specify the username.")]
         [CommandSwitch('f', "Select only messages with files")]
         [CommandSwitch('a', "Select all messages, including old")]
@@ -407,13 +433,22 @@ namespace Sezam.Commands
 
             string topicStr = userInput;
             int? parentMsgNo = null;
+            string parentMoniker = null;
+            string parentMonikerHint = null;
             int dotPos = userInput.IndexOf('.');
             if (dotPos >= 0)
             {
                 topicStr = userInput[..dotPos];
-                string msgNoStr = userInput[(dotPos + 1)..];
-                if (msgNoStr.Length > 0 && int.TryParse(msgNoStr, out int parentNo))
-                    parentMsgNo = parentNo;
+                string msgPart = userInput[(dotPos + 1)..];
+                if (msgPart.Length > 0)
+                {
+                    if (msgPart[0] == '#' && Regex.IsMatch(msgPart.Substring(1), "^[0-9a-fA-F]{4}$"))
+                        parentMoniker = msgPart;
+                    else if (Regex.IsMatch(msgPart, "^[0-9a-fA-F]{4}$"))
+                        parentMonikerHint = msgPart;
+                    else if (int.TryParse(msgPart, out int parentNo))
+                        parentMsgNo = parentNo;
+                }
             }
 
             ConfTopic topic = currentConference.GetTopicFromStr(topicStr, Required: true);
@@ -437,6 +472,45 @@ namespace Sezam.Commands
                     .FirstOrDefaultAsync();
                 if (parentMessage == null)
                     throw new ArgumentException(string.Format(strings.Conf_UnknownTopic, topicStr + "." + parentMsgNo.Value));
+            }
+            else if (parentMoniker != null)
+            {
+                byte[] key = Convert.FromHexString(parentMoniker.Substring(1));
+                // Use latest on collision: pick the newest message carrying this moniker.
+                parentMessage = await session.Db.ConfMessages
+                    .Include(m => m.Topic)
+                    .Include(m => m.ParentMessage)
+                    .Include(m => m.MessageText)
+                    .Where(m => m.TopicId == topic.Id && m.GuidTail == key)
+                    .OrderByDescending(m => m.Time)
+                    .FirstOrDefaultAsync();
+                if (parentMessage == null)
+                    throw new ArgumentException(string.Format(strings.Conf_UnknownTopic, topicStr + " " + parentMoniker));
+            }
+            else if (parentMonikerHint != null)
+            {
+                byte[] key = Convert.FromHexString(parentMonikerHint);
+                // Moniker is the intended reference: pick the newest message carrying it
+                // (latest on collision). Fall back to MsgNo only when the token is purely
+                // numeric and no message carries that moniker.
+                parentMessage = await session.Db.ConfMessages
+                    .Include(m => m.Topic)
+                    .Include(m => m.ParentMessage)
+                    .Include(m => m.MessageText)
+                    .Where(m => m.TopicId == topic.Id && m.GuidTail == key)
+                    .OrderByDescending(m => m.Time)
+                    .FirstOrDefaultAsync();
+                if (parentMessage == null && int.TryParse(parentMonikerHint, out int fallbackNo))
+                {
+                    parentMessage = await session.Db.ConfMessages
+                        .Include(m => m.Topic)
+                        .Include(m => m.ParentMessage)
+                        .Include(m => m.MessageText)
+                        .Where(m => m.TopicId == topic.Id && m.MsgNo == fallbackNo)
+                        .FirstOrDefaultAsync();
+                }
+                if (parentMessage == null)
+                    throw new ArgumentException(string.Format(strings.Conf_UnknownTopic, topicStr + " " + parentMonikerHint));
             }
 
             bool isReply = parentMessage != null;
@@ -617,15 +691,19 @@ namespace Sezam.Commands
             const string Footer = "---------------------------------------------------- {0,-7} ---";
 
             yield return Header;
-            var msgIdentifier = string.Format("{0}.{1}", msg.topicNo, msg.msgNo);
+            var displayId = string.IsNullOrEmpty(msg.moniker) ? msg.msgNo.ToString(CultureInfo.InvariantCulture) : msg.moniker;
+            var msgIdentifier = $"{msg.topicNo}.{msg.msgNo}";
             var localTime = toLocalTime(msg.time);
-            yield return string.Format("{0}.{1}, {2}.{3}, {4}", msg.confName, msg.confVolumeNo, msg.topic, msg.msgNo, msg.author);
+            yield return string.Format("{0}.{1}, {2}.{3}, {4}", msg.confName, msg.confVolumeNo, msg.topic, displayId, msg.author);
             yield return string.Format("({0}) {1:dd/MM/yyyy HH:mm}, {2} chr", msgIdentifier, localTime, msg.text.Length);
             if (msg.HasParent())
             {
                 var localOrigTime = msg.origTime.HasValue ? toLocalTime(msg.origTime.Value) : (DateTime?)null;
+                var replyIdPart = string.IsNullOrEmpty(msg.replyToMoniker)
+                    ? msg.replyToMsgNo?.ToString(CultureInfo.InvariantCulture)
+                    : msg.replyToMoniker;
                 yield return string.Format("{0} {1}.{2}, {3}, {4:dd/MM/yyyy HH:mm}",
-                    localize("Conf_ReplyTo"), msg.replyToTopicNo, msg.replyToMsgNo, msg.replyToAuthor, localOrigTime);
+                    localize("Conf_ReplyTo"), msg.replyToTopicNo, replyIdPart, msg.replyToAuthor, localOrigTime);
             }
 
             yield return Delimiter;
@@ -655,10 +733,12 @@ namespace Sezam.Commands
                     topic = m.Topic.Name,
                     topicNo = m.Topic.TopicNo,
                     msgNo = m.MsgNo,
+                    moniker = GetGuidSuffix(m.Id),
                     author = m.Author.Username,
                     time = m.Time,
                     replyToTopicNo = m.ParentMessage != null ? m.ParentMessage.Topic.TopicNo : (int?)null,
                     replyToMsgNo = m.ParentMessage != null ? m.ParentMessage.MsgNo : (int?)null,
+                    replyToMoniker = m.ParentMessage != null ? GetGuidSuffix(m.ParentMessage.Id) : null,
                     filename = m.Filename
                 })
                 .AsAsyncEnumerable();
@@ -674,11 +754,13 @@ namespace Sezam.Commands
                     topic = m.Topic.Name,
                     topicNo = m.Topic.TopicNo,
                     msgNo = m.MsgNo,
+                    moniker = GetGuidSuffix(m.Id),
                     author = m.Author.Username,
                     time = m.Time,
                     origTime = m.ParentMessage.Time,
                     replyToTopicNo = m.ParentMessage != null ? m.ParentMessage.Topic.TopicNo : (int?)null,
                     replyToMsgNo = m.ParentMessage != null ? m.ParentMessage.MsgNo : (int?)null,
+                    replyToMoniker = m.ParentMessage != null ? GetGuidSuffix(m.ParentMessage.Id) : null,
                     replyToAuthor = m.ParentMessage != null ? m.ParentMessage.Author.Username : "",
                     filename = m.Filename,
                     text = m.MessageText.Text
@@ -691,12 +773,14 @@ namespace Sezam.Commands
             var sb = new StringBuilder();
             var localTime = toLocalTime(msg.time);
 
-            string msgId = msg.topic + "." + msg.msgNo;
+            var displayId = string.IsNullOrEmpty(msg.moniker) ? msg.msgNo.ToString(CultureInfo.InvariantCulture) : msg.moniker;
+            string msgId = msg.topic + "." + displayId;
             sb.Append(string.Format("{0,-20} {1,-16} {2:dd/MM/yyyy HH:mm}",
                 msgId, msg.author, localTime));
 
             if (msg.replyToTopicNo != null)
-                sb.Append(string.Format(" -> {0}.{1}", msg.replyToTopicNo, msg.replyToMsgNo));
+                sb.Append(string.Format(" -> {0}.{1}", msg.replyToTopicNo,
+                    string.IsNullOrEmpty(msg.replyToMoniker) ? (msg.replyToMsgNo?.ToString(CultureInfo.InvariantCulture) ?? "") : msg.replyToMoniker));
 
             return sb.ToString();
         }
@@ -714,19 +798,51 @@ namespace Sezam.Commands
 
         public class ConfTopicMsgRangeDTO
         {
-            public ConfTopic topic;
-            public int msgLow;
-            public int msgHigh;
+        public ConfTopic topic;
+        public int msgLow;
+        public int msgHigh;
+        public string moniker;       // resolved '#xxxx' (given with the # prefix)
+        public string monikerHint;   // 'xxxx' candidate (no #) — try as moniker, fall back to MsgNo
 
-            /// <summary>
-            /// True when a message number / range selector was given on the command line
-            /// ('1', '1.2', '1.4-', ...). An explicit selector bypasses the seen filter.
-            /// </summary>
-            public bool HasMessageSelector => msgLow != 0 || msgHigh != 0;
+        /// <summary>
+        /// True when a message selector was given on the command line: a number / range
+        /// ('1', '1.2', '1.4-', ...) or a 4-hex moniker ('General.#abcd' or 'Generalabcd').
+        /// An explicit selector bypasses the seen filter.
+        /// </summary>
+        public bool HasMessageSelector => msgLow != 0 || msgHigh != 0 || moniker != null || monikerHint != null;
         }
 
         public static ConfTopicMsgRangeDTO GetTopicMsgRange(this Data.EF.Conference conf, string topicMsgRange, bool required = false)
         {
+            // Moniker selector: topic.#hex — single message identified by the last 4 hex
+            // of its Guid. Mirrors the mail "#xxxx" convention. Checked before the decimal
+            // MsgNo range so '#abcd' is never mistaken for a message number.
+            var monikerMatch = Regex.Match(topicMsgRange ?? "", @"^(?<topic>.+?)\.(?<moniker>#[0-9a-fA-F]{4})$");
+            if (monikerMatch.Success)
+            {
+                var monikerResult = new ConfTopicMsgRangeDTO();
+                monikerResult.topic = conf.GetTopicFromStr(monikerMatch.Groups["topic"].Value, required);
+                monikerResult.moniker = monikerMatch.Groups["moniker"].Value;
+                return monikerResult;
+            }
+
+            // topic.<4hex> without the '#' — a moniker candidate. Hex is tried first;
+            // if nothing carries it and the token is purely numeric, fall back to MsgNo.
+            var hexMatch = Regex.Match(topicMsgRange ?? "", @"^(?<topic>.+?)\.(?<hex>[0-9a-fA-F]{4})$");
+            if (hexMatch.Success)
+            {
+                var hexToken = hexMatch.Groups["hex"].Value;
+                var hintResult = new ConfTopicMsgRangeDTO();
+                hintResult.topic = conf.GetTopicFromStr(hexMatch.Groups["topic"].Value, required);
+                hintResult.monikerHint = hexToken;
+                if (hexToken.All(char.IsDigit) && int.TryParse(hexToken, out int fallbackNo))
+                {
+                    hintResult.msgLow = fallbackNo;
+                    hintResult.msgHigh = fallbackNo;
+                }
+                return hintResult;
+            }
+
             // Regex: ^(.+?)(\.(\d+)(\-(\d+))?)?$
             // Groups: 1 (topic), 3 (lo), 5 (hi)
             var regex = new Regex(@"^(.+?)(\.(\d+)\-?(\-(\d+))?)?$");

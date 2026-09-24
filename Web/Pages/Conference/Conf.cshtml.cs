@@ -98,7 +98,7 @@ namespace Sezam.Web.Pages.Conference
 
                 Messages = await query
                     .OrderBy(m => m.TopicId)
-                    .ThenBy(m => m.MsgNo)
+                    .ThenBy(m => m.Time)
                     .Skip((PageNumber - 1) * PageSize)
                     .Take(PageSize)
                     .Select(m => new ConfMessageView(

@@ -95,7 +95,7 @@ namespace Sezam.Commands {
                 return ResourceManager.GetString("Conf_NoNewMessages", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Resigned from topic {0}.
         /// </summary>
@@ -273,6 +273,96 @@ namespace Sezam.Commands {
         internal static string Set_Prompt_VerifyPassword {
             get {
                 return ResourceManager.GetString("Set_Prompt_VerifyPassword", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Delete mail message..
+        /// </summary>
+        internal static string Mail_Delete {
+            get {
+                return ResourceManager.GetString("Mail_Delete", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Delete all messages..
+        /// </summary>
+        internal static string Mail_DeleteAll {
+            get {
+                return ResourceManager.GetString("Mail_DeleteAll", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Delete all messages, including already read..
+        /// </summary>
+        internal static string Mail_DeleteAllSwitch {
+            get {
+                return ResourceManager.GetString("Mail_DeleteAllSwitch", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Mark messages as read..
+        /// </summary>
+        internal static string Mail_Seen {
+            get {
+                return ResourceManager.GetString("Mail_Seen", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Mark all messages as seen..
+        /// </summary>
+        internal static string Mail_SeenSwitch {
+            get {
+                return ResourceManager.GetString("Mail_SeenSwitch", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Mark messages seen for date..
+        /// </summary>
+        internal static string Mail_SeenDate {
+            get {
+                return ResourceManager.GetString("Mail_SeenDate", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Marked {0} message(s) as read..
+        /// </summary>
+        internal static string Mail_Marked {
+            get {
+                return ResourceManager.GetString("Mail_Marked", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to You have no unread mail..
+        /// </summary>
+        internal static string Mail_NoNewMessagesl {
+            get {
+                return ResourceManager.GetString("Mail_NoNewMessages", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to No messages found..
+        /// </summary>
+        internal static string Mail_NoMessages {
+            get {
+                return ResourceManager.GetString("Mail_NoMessages", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to No new messages..
+        /// </summary>
+        internal static string Mail_NoNewMessages {
+            get {
+                return ResourceManager.GetString("Mail_NoNewMessages", resourceCulture);
             }
         }
     }
