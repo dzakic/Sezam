@@ -205,7 +205,6 @@ namespace Sezam.Data
 
             return builder
                 .UseMySQL(DbConnectionString)
-                .EnableSensitiveDataLogging()
                 .UseLazyLoadingProxies();
         }
 
