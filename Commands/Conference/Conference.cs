@@ -1,4 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using Sezam.Data.EF;
 using System;
 using System.Collections.Generic;
@@ -600,44 +602,110 @@ namespace Sezam.Commands
             DateTime? seenDate = session.cmdLine.GetDateTime();
             DateTime seenTime = seenDate.HasValue ? seenDate.Value.ToUniversalTime() : DateTime.UtcNow;
 
-            // Get topics to update (excluding resigned topics)
-            IEnumerable<ConfTopic> topics;
-            if (allConferences)
-            {
-                // All topics from all conferences the user has access to
-                var conferenceIds = GetConferences()
-                    .Select(c => c.Id)
-                    .ToList();
-
-                topics = session.Db.ConfTopics
-                    .Include(t => t.UserTopic)
-                    .Where(t => conferenceIds.Contains(t.ConferenceId))
-                    .Where(t => t.UserTopic == null || !t.UserTopic.Status.HasFlag(UserTopic.UserTopicStat.Resigned))
-                    .ToList();
-            }
-            else
-            {
-                // Only topics from the current conference
-                topics = session.Db.ConfTopics
-                    .Include(t => t.UserTopic)
-                    .Where(t => t.ConferenceId == currentConference.Id)
-                    .Where(t => t.UserTopic == null || !t.UserTopic.Status.HasFlag(UserTopic.UserTopicStat.Resigned))
-                    .ToList();
-            }
-
-            // Update SeenTime for each topic via the User's UserTopic collection
-            foreach (var topic in topics)
-            {
-                var utData = session.User.GetUserTopicfInfo(topic);
-                utData.SeenTime = seenTime;
-            }
-
-            await session.Db.SaveChangesAsync();
+            await MarkTopicsSeenAsync(seenTime, allConferences);
 
             if (allConferences)
                 yield return L("Conf_SeenAll");
             else
                 yield return string.Format(L("Conf_Seen"), currentConference.VolumeName);
+        }
+
+        private async Task MarkTopicsSeenAsync(DateTime seenTime, bool allConferences)
+        {
+            var userId = session.User.Id;
+
+            List<int> conferenceIds = null;
+            IQueryable<ConfTopic> scope;
+            if (allConferences)
+            {
+                conferenceIds = GetConferences()
+                    .Select(c => c.Id)
+                    .ToList();
+
+                scope = session.Db.ConfTopics
+                    .Where(t => conferenceIds.Contains(t.ConferenceId));
+            }
+            else
+            {
+                scope = session.Db.ConfTopics
+                    .Where(t => t.ConferenceId == currentConference.Id);
+            }
+
+            scope = scope
+                .Where(t => t.UserTopic == null || !t.UserTopic.Status.HasFlag(UserTopic.UserTopicStat.Resigned));
+
+            if (SupportsBulkOperations())
+            {
+                // 1) Update SeenTime on the UserTopics that already exist (single UPDATE, no materialization)
+                await session.Db.Set<UserTopic>()
+                    .Where(ut => scope.Select(t => t.Id).Contains(ut.TopicId)
+                                 && !ut.Status.HasFlag(UserTopic.UserTopicStat.Resigned))
+                    .ExecuteUpdateAsync(u => u.SetProperty(x => x.SeenTime, seenTime));
+
+                // 2) Create the UserTopics that don't exist yet in one INSERT ... SELECT.
+                //    Plain values are bound positionally to @p0..@pN (EF Core idiom for the
+                //    string + params object[] overload), so no provider-specific parameter
+                //    type is required.
+                if (!(allConferences && conferenceIds.Count == 0))
+                {
+                    var args = new List<object> { userId, seenTime };
+                    string confFilter;
+                    if (allConferences)
+                    {
+                        var parts = new List<string>();
+                        int i = 2;
+                        foreach (var id in conferenceIds)
+                        {
+                            parts.Add("@p" + i++);
+                            args.Add(id);
+                        }
+                        confFilter = "t.ConferenceId IN (" + string.Join(", ", parts) + ")";
+                    }
+                    else
+                    {
+                        args.Add(currentConference.Id);
+                        confFilter = "t.ConferenceId = @p2";
+                    }
+
+                    var sql =
+                        "INSERT INTO UserTopic (UserId, TopicId, SeenTime, Status) " +
+                        "SELECT @p0, t.Id, @p1, CASE WHEN t.Status & 4 THEN 1 ELSE 0 END " +
+                        "FROM ConfTopics t WHERE " + confFilter +
+                        " AND NOT EXISTS (SELECT 1 FROM UserTopic u WHERE u.TopicId = t.Id)";
+
+                    await session.Db.Database.ExecuteSqlRawAsync(sql, args.ToArray());
+                }
+            }
+            else
+            {
+                // Fallback for providers without bulk updates (e.g. the InMemory test host):
+                // project only lightweight ids (no UserTopic graph), then upsert tracked entities in one SaveChanges.
+                var ids = scope
+                    .Select(t => new { t.Id, Ro = t.Status.HasFlag(ConfTopic.TopicStatus.ReadOnly) })
+                    .ToList();
+
+                foreach (var t in ids)
+                {
+                    var utData = session.User.GetUserTopicfInfo(new ConfTopic
+                    {
+                        Id = t.Id,
+                        Status = t.Ro ? ConfTopic.TopicStatus.ReadOnly : 0
+                    });
+                    utData.SeenTime = seenTime;
+                }
+
+                await session.Db.SaveChangesAsync();
+            }
+        }
+
+        private bool SupportsBulkOperations()
+        {
+            // Bulk operations (ExecuteUpdate / raw INSERT) are only supported by relational
+            // providers (MySQL in production). The InMemory test host registers no relational
+            // connection, so it falls through to the tracked path.
+            var services = ((IInfrastructure<IServiceProvider>)session.Db).Instance;
+            var connection = (IRelationalConnection)services.GetService(typeof(IRelationalConnection));
+            return !string.IsNullOrEmpty(connection?.ConnectionString);
         }
 
         public Sezam.Data.EF.Conference currentConference;
