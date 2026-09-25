@@ -1,7 +1,11 @@
-using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Sezam.Data;
 
 namespace Sezam.Web
 {
@@ -9,26 +13,63 @@ namespace Sezam.Web
     {
         public static void Main(string[] args)
         {
-            CreateHostBuilder(args).Build().Run();
-        }
+            var builder = WebApplication.CreateBuilder(args);
 
-        public static IHostBuilder CreateHostBuilder(string[] args) =>
-            Host.CreateDefaultBuilder(args)
-                .ConfigureAppConfiguration((context, config) =>
+            builder.Configuration.AddKeyPerFile(directoryPath: "/run/secrets", optional: true);
+
+            builder.Logging.AddSimpleConsole(options =>
+            {
+                options.SingleLine = true;
+                options.TimestampFormat = "HH:mm:ss ";
+            });
+
+            Data.Store.ConfigureFrom(builder.Configuration);
+
+            builder.Services
+                .AddDbContext<SezamDbContext>(options => Data.Store.GetOptionsBuilder(options))
+                .AddRazorPages();
+
+            if (Data.Store.RedisEnabled)
+            {
+                builder.Services.AddSingleton<MessageBroadcaster>(sp =>
                 {
-                    config.AddKeyPerFile(directoryPath: "/run/secrets", optional: true);
-                })
-                .ConfigureLogging(logging =>
-                {
-                    logging.AddSimpleConsole(options =>
-                    {
-                        options.SingleLine = true;
-                        options.TimestampFormat = "HH:mm:ss ";
-                    });
-                })
-                .ConfigureWebHostDefaults(webBuilder =>
-                {
-                    webBuilder.UseStartup<Startup>();
+                    Data.Store.MessageBroadcaster = new MessageBroadcaster();
+                    Data.Store.MessageBroadcaster.InitializeAsync(Data.Store.RedisConnectionString).GetAwaiter().GetResult();
+                    return Data.Store.MessageBroadcaster;
                 });
+            }
+
+            var app = builder.Build();
+
+            if (app.Environment.IsDevelopment())
+            {
+                app.UseDeveloperExceptionPage();
+            }
+            else
+            {
+                app.UseExceptionHandler("/Error");
+                // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+                app.UseHsts();
+            }
+
+            // app.UseHttpsRedirection();
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                OnPrepareResponse = ctx =>
+                {
+                    ctx.Context.Response.Headers.Append(
+                         "Cache-Control", $"public, max-age=3600, stale-while-revalidate=86400");
+                }
+            });
+
+            app.UseRouting();
+
+            app.UseAuthorization();
+
+            app.MapRazorPages();
+            app.MapControllers();
+
+            app.Run();
+        }
     }
 }
