@@ -1,3 +1,4 @@
+@{ var region = Environment.GetEnvironmentVariable("REGION"); }
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -43,8 +44,12 @@
 
     <footer class="border-top footer text-muted">
         <div class="container">
-            &copy; 2020 - Old<strong>Sezam.Net</strong> - <a asp-area="" asp-page="/Privacy">Privacy</a> 
+            &copy; 2020 - Old<strong>Sezam.Net</strong> - <a asp-area="" asp-page="/Privacy">Privacy</a>
             <small>@typeof(Sezam.Web.Program).Assembly.GetName().Version</small>
+            @if (!string.IsNullOrEmpty(region))
+            {
+                <small>@region</small>
+            }
         </div>
     </footer>
 
