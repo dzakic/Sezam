@@ -39,6 +39,7 @@ RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
 RUN mv bin/net10.0/linux-x64/publish /app/publish && \
     mkdir /app/sez && \
     mv /app/publish/Sezam* /app/sez && \
+    mv /app/publish/appsettings* /app/sez && \
     mv /app/publish/*.dll /app/dep
 
 # 4. Final stage: runtime image(s) for each COPY
