@@ -219,6 +219,7 @@ h2 {
     font-size: 10px;
     text-transform: uppercase;
     text-align: center;
+    text-decoration: none;
     display: block;
     box-sizing: border-box;
     padding: 2px 4px;
