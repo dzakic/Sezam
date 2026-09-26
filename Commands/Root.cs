@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 
 namespace Sezam.Commands
 {
@@ -74,14 +75,17 @@ namespace Sezam.Commands
                 if (!showAll)
                     selection = selection.Where(u => u.LastCall >= session.User.LastCall);
 
+            selection = selection.OrderByDescending(u => showAll ? u.MemberSince : u.LastCall);
 
-            if (showAll)
-                selection = selection.OrderByDescending(u => u.MemberSince);
-            else
-                selection = selection.OrderByDescending(u => u.LastCall);
-
-            foreach (var user in selection)
-                await  session.terminal.Line($"{user.Username,-16} {user.FullName,-28} {user.City,-16} {user.LastCall:dd MMM yyyy HH:mm}");
+            // Stream server-side filtered rows; format each entity client-side.
+            // No full list is materialized into memory before display.
+            await foreach (var user in selection
+                .AsNoTracking()
+                .AsAsyncEnumerable()
+                .WithCancellation(session.CancellationToken))
+            {
+                await session.terminal.Line($"{user.Username,-16} {user.FullName,-28} {user.City,-16} {user.LastCall:dd MMM yyyy HH:mm}");
+            }
         }
 
         [Command(Description = "Show a list of current sessions")]
