@@ -131,9 +131,12 @@ namespace Sezam.Data
     {
         public SezamDbContext CreateDbContext(string[] args)
         {
-            // Read configuration from environment or use defaults
+            var environmentName =
+                Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
+
             var configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json", optional: true)
+                .AddJsonFile($"appsettings.{environmentName}.json", optional: true)
                 .AddEnvironmentVariables()
                 .Build();
 
@@ -153,6 +156,9 @@ namespace Sezam.Data
         public static void ConfigureFrom(IConfiguration configuration)
         {
             logger = LoggerFactory?.CreateLogger("Store") ?? NullLogger.Instance;
+            // TEMP DEBUG: dump all config keys
+            foreach (var kv in configuration.AsEnumerable(false))
+                logger?.LogInformation("CONFIG [{Key}] = {Value}", kv.Key, kv.Value ?? "");
             // Database Configuration
             string DbHost = ResolveConfigValue(configuration, "DB_HOST", "DbHost");
             string DbName = ResolveConfigValue(configuration, "DB_NAME", "DbName") ?? "sezam";
@@ -212,6 +218,49 @@ namespace Sezam.Data
         {
             var optionsBuilder = GetOptionsBuilder(new DbContextOptionsBuilder());
             return new SezamDbContext(optionsBuilder.Options);
+        }
+
+        /// <summary>
+        /// Warms up EF Core and the MySQL connection pool so the first telnet
+        /// user's login query doesn't pay the one-time cost of model/query
+        /// compilation, JIT of the EF + ADO provider code paths, or opening the
+        /// first DB connection. Call this once at startup.
+        ///
+        /// Runs on a background task (fire-and-forget) so startup doesn't block
+        /// on the database; the count is logged once the warm-up finishes.
+        /// </summary>
+        public static void Prewarm()
+        {
+            _ = Task.Run(WarmAsync);
+        }
+
+        private static async Task WarmAsync()
+        {
+            if (string.IsNullOrEmpty(DbConnectionString))
+            {
+                logger.LogWarning("EF Core prewarm aborted: no DB connection string configured; first login may be slow.");
+                return;
+            }
+
+            try
+            {
+                using var context = GetNewContext();
+
+                // Force EF Core to compile the model and the query pipeline for a
+                // real query, and JIT the reader/translation code paths.
+                int userCount = context.Users.AsNoTracking().Count();
+
+                // Pre-open and close a connection so the pool already has a warm
+                // entry and the first login doesn't pay the connect handshake.
+                context.Database.OpenConnection();
+                context.Database.CloseConnection();
+
+                logger.LogInformation("EF Core warmed: {Count} user(s) in DB; first login will be fast.", userCount);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "EF Core prewarm failed; first login may be slow.");
+            }
         }
 
         /// <summary>

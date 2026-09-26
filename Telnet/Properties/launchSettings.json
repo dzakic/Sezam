@@ -3,7 +3,8 @@
     "Sezam.Telnet": {
       "commandName": "Project",
       "environmentVariables": {
-        "SITE": "Ryde"
+        "SITE": "Ryde",
+        "ASPNETCORE_ENVIRONMENT": "Development"
       }
     },
     "WSL": {

@@ -41,6 +41,11 @@ namespace Sezam
             // Fire and forget: apply migrations in background
             _ = Data.Store.ApplyMigrations();
 
+            // Pre-warm EF Core / MySQL before accepting telnet clients so the
+            // first user's login doesn't pay model compilation, JIT, or the
+            // first DB connection handshake.
+            Data.Store.Prewarm();
+
             if (Data.Store.RedisEnabled)
             {
                 Data.Store.MessageBroadcaster = new MessageBroadcaster();
