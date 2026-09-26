@@ -158,7 +158,7 @@ namespace Sezam.Data
             logger = LoggerFactory?.CreateLogger("Store") ?? NullLogger.Instance;
             // TEMP DEBUG: dump all config keys
             foreach (var kv in configuration.AsEnumerable(false))
-                logger?.LogInformation("CONFIG [{Key}] = {Value}", kv.Key, kv.Value ?? "");
+                logger?.LogDebug("CONFIG [{Key}] = {Value}", kv.Key, kv.Value ?? "");
             // Database Configuration
             string DbHost = ResolveConfigValue(configuration, "DB_HOST", "DbHost");
             string DbName = ResolveConfigValue(configuration, "DB_NAME", "DbName") ?? "sezam";
