@@ -2,25 +2,119 @@
 @model ErrorModel
 @{
     ViewData["Title"] = "Error";
+    Layout = null;
 }
 
-<h1 class="text-danger">Error.</h1>
-<h2 class="text-danger">An error occurred while processing your request.</h2>
-
-@if (Model.ShowRequestId)
-{
-    <p>
-        <strong>Request ID:</strong> <code>@Model.RequestId</code>
-    </p>
-}
-
-<h3>Development Mode</h3>
-<p>
-    Swapping to the <strong>Development</strong> environment displays detailed information about the error that occurred.
-</p>
-<p>
-    <strong>The Development environment shouldn't be enabled for deployed applications.</strong>
-    It can result in displaying sensitive information from exceptions to end users.
-    For local debugging, enable the <strong>Development</strong> environment by setting the <strong>ASPNETCORE_ENVIRONMENT</strong> environment variable to <strong>Development</strong>
-    and restarting the app.
-</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TemporaryLY Unavailable - Sezam.Net Archive</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <style>
+        :root { color-scheme: light dark; }
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: #f5f5f5;
+            color: #222;
+        }
+        @@media (prefers-color-scheme: dark) {
+            body { background: #1a1a1a; color: #e9e9e9; }
+        }
+        .card {
+            max-width: 560px;
+            width: 100%;
+            margin: 24px;
+            padding: 48px 40px;
+            text-align: center;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+        @@media (prefers-color-scheme: dark) {
+            .card { background: #242424; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+        }
+        .code {
+            font-size: 64px;
+            font-weight: 700;
+            line-height: 1;
+            margin: 0 0 8px;
+            color: #d63939;
+        }
+        @@media (prefers-color-scheme: dark) {
+            .code { color: #ff6b6b; }
+        }
+        h1 {
+            font-size: 24px;
+            margin: 0 0 12px;
+        }
+        p {
+            font-size: 16px;
+            line-height: 1.6;
+            margin: 0 0 16px;
+            color: #555;
+        }
+        @@media (prefers-color-scheme: dark) {
+            p { color: #b0b0b0; }
+        }
+        a.btn {
+            display: inline-block;
+            padding: 10px 22px;
+            font-size: 15px;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 8px;
+            background: #0d6efd;
+            color: #fff;
+        }
+        a.btn:hover { background: #0b5cd6; }
+        .footer {
+            margin-top: 28px;
+            font-size: 13px;
+            color: #999;
+        }
+        .footer a { color: #999; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="code">503</div>
+        <h1>Sezam.Net is temporarily unavailable</h1>
+        <p>
+            Our servers are down for a brief moment. This is usually a short-lived
+            maintenance or database issue that our team is already working on.
+        </p>
+        <p>
+            Please wait a moment and try again.
+        </p>
+        <p>
+            @if (!string.IsNullOrEmpty(Model.OriginalPath))
+            {
+                <a class="btn" href="@Model.OriginalPath">Retry this page</a>
+            }
+            else
+            {
+                <a class="btn" href="/">Go to homepage</a>
+            }
+        </p>
+        <div class="footer">
+            &copy; @DateTime.Now.Year Sezam.Net Archive
+            @if (Model.ShowRequestId)
+            {
+                <span> &middot; Request ID: <code>@Model.RequestId</code></span>
+            }
+        </div>
+    </div>
+</body>
+</html>
