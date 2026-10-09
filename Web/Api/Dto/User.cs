@@ -11,7 +11,8 @@ namespace Sezam.Web.Api.DTO
         public string Username { get; set; }
         public string FullName { get; set; }
         public string City { get; set; }
-
+        public string Company { get; set; }
+        public DateTime? MemberSince { get; set; }
         public DateTime? LastCall { get; set; }
 
 

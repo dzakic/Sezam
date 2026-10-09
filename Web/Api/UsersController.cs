@@ -31,13 +31,21 @@ namespace Sezam.Web.Api
               Username = user.Username,
               FullName = user.FullName,
               City = user.City,
+              Company = user.Company,
+              MemberSince = user.MemberSince,
               LastCall = user.LastCall
           };
 
         // GET: api/users
         [HttpGet]
-        public IEnumerable<DTO.User> Search(string filter = "")
+        public async Task<ActionResult<IEnumerable<DTO.User>>> Search(
+            string filter = "",
+            int page = 1,
+            int pageSize = 100)
         {
+            page = Math.Max(page, 1);
+            pageSize = Math.Clamp(pageSize, 1, 500);
+
             IQueryable<Data.EF.User> users = _context.Users;
             if (!string.IsNullOrEmpty(filter))
                 users = users.Where(u => 
@@ -45,10 +53,16 @@ namespace Sezam.Web.Api
                     u.FullName.Contains(filter) ||
                     u.City.Contains(filter)
                 );
-            return users
+
+            var result = await users
                 .OrderByDescending(u => u.LastCall)
-                .Take(100)
-                .Select(AsUserDto); ;
+                .ThenBy(u => u.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(AsUserDto)
+                .ToListAsync();
+
+            return Ok(result);
         }
 
         // GET api/users/5
@@ -93,4 +107,3 @@ namespace Sezam.Web.Api
         }
     }
 }
-
